@@ -226,7 +226,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function PostComposer({ circles = [], onPostCreated }) {
-  const { user, token, serverUrl } = useSelector((state) => state.auth)
+  const { user } = useSelector((state) => state.auth)
   const client = useClient()
   const { t } = useTranslation()
 
@@ -366,16 +366,12 @@ export default function PostComposer({ circles = [], onPostCreated }) {
 
   // Auto-fetch link metadata on href blur
   const handleHrefBlur = async () => {
-    if (!href || !serverUrl || !token) return
+    if (!href || !client) return
     setFetchingMeta(true)
     try {
-      const res = await fetch(
-        `${serverUrl}/preview?url=${encodeURIComponent(href)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      const meta = await res.json()
-      if (meta.title && !title) setTitle(meta.title)
-      if (meta.summary && !content) setContent(meta.summary)
+      const meta = await client.http.get('/preview', { params: { url: href } })
+      if (meta?.title && !title) setTitle(meta.title)
+      if (meta?.summary && !content) setContent(meta.summary)
     } catch {}
     finally { setFetchingMeta(false) }
   }
@@ -432,13 +428,12 @@ export default function PostComposer({ circles = [], onPostCreated }) {
     try {
       await client.activities.createPost({
         type: postType,
-        name: title || undefined,
-        source: content || undefined,
-        mediaType: 'text/markdown',
+        title: title || undefined,
+        content: content || undefined,
         href: href || undefined,
         startTime: startDate || undefined,
         endTime: endDate || undefined,
-        tag: tags.length ? tags.map((t) => ({ type: 'Hashtag', name: `#${t}` })) : undefined,
+        tags: tags.length ? tags : undefined,
         location: location
           ? { type: 'Place', name: location, ...(geo ?? {}) }
           : undefined,
@@ -453,9 +448,8 @@ export default function PostComposer({ circles = [], onPostCreated }) {
     }
   }
 
-  // TODO: restore auth gate when login is wired up
-  // if (!user) return null
-  const mockUser = user ?? { username: 'you', displayName: 'You' }
+  if (!user) return null
+  const mockUser = user
 
   // ── Collapsed ─────────────────────────────────────────────────────────────
   if (!expanded) {
