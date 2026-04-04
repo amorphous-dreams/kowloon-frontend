@@ -96,7 +96,7 @@ export default function CirclePage() {
             <h1 className="font-display text-4xl leading-none tracking-wide">{circle.name}</h1>
             <div className="flex items-center gap-2 font-ui text-sm uppercase tracking-widest text-base-content/70">
               <Link to={`/users/${encodeURIComponent(circle.attributedTo.id)}`} className="font-bold hover:text-primary transition-colors">
-                {circle.attributedTo.displayName}
+                {circle.attributedTo.name ?? circle.attributedTo.displayName}
               </Link>
               <span>·</span>
               <span>{circle.memberCount} {t('circle.members', { defaultValue: 'members' })}</span>

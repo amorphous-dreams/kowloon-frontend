@@ -68,7 +68,7 @@ function MediaThumb({ post }) {
         )}
         {post.attributedTo && (
           <p className="font-ui text-xs uppercase tracking-widest text-white/70 mt-0.5 truncate">
-            {post.attributedTo.displayName ?? post.attributedTo.username}
+            {post.attributedTo.name ?? post.attributedTo.displayName ?? post.attributedTo.username}
           </p>
         )}
       </div>

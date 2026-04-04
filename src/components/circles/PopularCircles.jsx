@@ -102,7 +102,7 @@ export default function PopularCircles({ circles = MOCK_CIRCLES }) {
                 {circle.attributedTo && (
                   <div className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-base-content/75">
                     <span className="font-bold">
-                      {circle.attributedTo.displayName ?? circle.attributedTo.username}
+                      {circle.attributedTo.name ?? circle.attributedTo.displayName ?? circle.attributedTo.username}
                     </span>
                     {circle.memberCount > 0 && (
                       <>

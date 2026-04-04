@@ -17,7 +17,7 @@ export default function CircleMemberList({ members = [], loading, error, onRetry
         <div key={member.id} className="flex items-center gap-3 py-2 border-b border-base-300">
           <UserAvatar user={member} size="sm" />
           <div className="flex flex-col min-w-0">
-            <span className="font-ui text-sm font-medium truncate">{member.displayName ?? member.username}</span>
+            <span className="font-ui text-sm font-medium truncate">{member.name ?? member.displayName ?? member.username}</span>
             <span className="font-ui text-xs text-base-content/50 truncate">{member.id}</span>
           </div>
         </div>

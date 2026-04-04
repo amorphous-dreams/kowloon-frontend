@@ -23,10 +23,10 @@ export default function PostMeta({ post }) {
       <div className="flex flex-col gap-0.5 min-w-0">
         {userUrl
           ? <Link to={userUrl} className="font-ui text-sm font-medium text-base-content truncate hover:text-primary transition-colors">
-              {author?.displayName ?? author?.username}
+              {author?.name ?? author?.id}
             </Link>
           : <span className="font-ui text-sm font-medium text-base-content truncate">
-              {author?.displayName ?? author?.username}
+              {author?.name ?? author?.id}
             </span>
         }
         <div className="flex items-center gap-2">

@@ -81,8 +81,9 @@ function Attachments({ attachments = [], featuredImage = null }) {
 }
 
 export default function PostBody({ post }) {
-  const raw  = post?.source ?? post?.content ?? ''
-  const html = marked.parse(raw)
+  // body = pre-rendered HTML from server; fall back to rendering raw markdown for local/mock data
+  const rawSource = post?.source?.content ?? (typeof post?.source === 'string' ? post.source : null) ?? post?.content ?? ''
+  const html = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
   const isLink  = post?.type === 'Link'
   const postUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
   const titleLinksToPost = ['Article', 'Media'].includes(post?.type)

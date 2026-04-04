@@ -17,7 +17,7 @@ export default function UserCard({ user, isFollowing, onFollow, onUnfollow }) {
             to={`/users/${encodeURIComponent(user?.id)}`}
             className="font-display text-xl tracking-wide hover:text-primary transition-colors"
           >
-            {user?.displayName ?? user?.username}
+            {user?.name ?? user?.displayName ?? user?.username}
           </Link>
           <FollowButton userId={user?.id} isFollowing={isFollowing} onFollow={onFollow} onUnfollow={onUnfollow} />
         </div>

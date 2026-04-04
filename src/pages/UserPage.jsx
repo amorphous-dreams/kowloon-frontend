@@ -27,7 +27,7 @@ const hexMask = {
 const MOCK_USER = {
   id: '@jzellis@kwln.org',
   username: 'jzellis',
-  displayName: 'Joshua Ellis',
+  name: 'Joshua Ellis',
   profile: {
     name: 'Joshua Ellis',
     description: 'Writer, musician, technologist. Making things on the internet since 1994. Currently building Kowloon.',
@@ -128,9 +128,40 @@ export default function UserPage() {
         client.feeds.getUserPosts({ userId: id }),
         client.feeds.getUserCircles({ userId: id }),
       ])
-      setUser(userRes)
-      setPosts(postsRes?.orderedItems ?? [])
-      setCircles(circlesRes?.orderedItems ?? [])
+
+      // Unwrap { item: {...} } envelope and normalize ActivityPub → component shape
+      const raw = userRes?.item ?? userRes
+      const normalized = {
+        id: raw?.id ?? raw?.actorId,
+        username: raw?.preferredUsername ?? raw?.username,
+        name: raw?.name ?? raw?.preferredUsername ?? raw?.username,
+        profile: {
+          description: raw?.summary ?? raw?.profile?.description,
+          icon: raw?.icon ?? raw?.profile?.icon,
+          pronouns: raw?.profile?.pronouns,
+          urls: raw?.profile?.urls ?? (raw?.url ? [raw.url] : []),
+        },
+        postsCount: raw?.postsCount,
+        followersCount: raw?.followersCount,
+        followingCount: raw?.followingCount,
+      }
+      setUser(normalized)
+
+      const attributedTo = {
+        id: normalized.id,
+        name: normalized.name,
+        username: normalized.username,
+        icon: normalized.profile?.icon,
+      }
+      const rawPosts = postsRes?.orderedItems ?? postsRes ?? []
+      setPosts(rawPosts.map((p) => ({
+        ...p,
+        attributedTo: p.attributedTo ?? attributedTo,
+        published: p.published ?? p.publishedAt ?? p.createdAt,
+        visibility: p.visibility ?? (p.to === '@public' ? 'Public' : p.to?.startsWith('@') ? 'Server' : 'Audience'),
+      })))
+
+      setCircles(circlesRes?.orderedItems ?? circlesRes ?? [])
     } catch (err) {
       setError(err.message || 'Failed to load user.')
     } finally {
@@ -182,9 +213,9 @@ export default function UserPage() {
         }}
       >
         <div className="flex items-start gap-4">
-          <img src={user.profile?.icon} alt={user.displayName} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
+          <img src={user.profile?.icon} alt={user.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
           <div className="flex flex-col gap-2 min-w-0 pt-1 flex-1">
-            <h1 className="font-display text-4xl leading-none tracking-wide">{user.displayName}</h1>
+            <h1 className="font-display text-4xl leading-none tracking-wide">{user.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="font-ui text-xs uppercase tracking-widest text-base-content/65">{user.id}</span>
               {user.profile?.pronouns && <span className="font-ui text-xs uppercase tracking-widest text-base-content/45">{user.profile.pronouns}</span>}

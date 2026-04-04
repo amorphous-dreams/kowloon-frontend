@@ -263,7 +263,7 @@ export default function GroupPage() {
                 to={`/users/${encodeURIComponent(group.attributedTo.id)}`}
                 className="font-bold hover:text-primary transition-colors"
               >
-                {group.attributedTo.displayName}
+                {group.attributedTo.name ?? group.attributedTo.displayName}
               </Link>
               <span>·</span>
               <span className="flex items-center gap-1">
@@ -374,12 +374,12 @@ export default function GroupPage() {
                 style={hexMask}
               >
                 {member.profile?.icon
-                  ? <img src={member.profile.icon} alt={member.displayName} className="w-full h-full object-cover" />
+                  ? <img src={member.profile.icon} alt={member.name ?? member.displayName} className="w-full h-full object-cover" />
                   : null
                 }
               </div>
               <div className="flex flex-col gap-0 min-w-0">
-                <span className="font-ui text-sm font-bold text-base-content leading-tight">{member.displayName}</span>
+                <span className="font-ui text-sm font-bold text-base-content leading-tight">{member.name ?? member.displayName}</span>
                 <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 truncate">{member.id}</span>
               </div>
               {member.id === group.attributedTo.id && (

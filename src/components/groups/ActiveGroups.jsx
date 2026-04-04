@@ -124,7 +124,7 @@ export default function ActiveGroups({ groups = MOCK_GROUPS }) {
                   {group.recentPost.summary}
                 </p>
                 <span className="font-ui text-xs uppercase tracking-widest text-base-content/65">
-                  {group.recentPost.attributedTo?.displayName} · {relativeTime(group.recentPost.published)}
+                  {group.recentPost.attributedTo?.name ?? group.recentPost.attributedTo?.displayName} · {relativeTime(group.recentPost.published)}
                 </span>
               </div>
             )}

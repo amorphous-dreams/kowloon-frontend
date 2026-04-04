@@ -65,13 +65,13 @@ function CircleBrowseCard({ circle, onCopy, isLoggedIn }) {
               {circle.name}
             </Link>
             <div className="flex items-center gap-2 font-ui text-xs uppercase tracking-widest text-base-content/60">
-              {circle.actor?.displayName && (
+              {(circle.actor?.name ?? circle.actor?.displayName) && (
                 <>
                   <Link
                     to={`/users/${encodeURIComponent(circle.actorId)}`}
                     className="font-bold hover:text-primary transition-colors"
                   >
-                    {circle.actor.displayName}
+                    {circle.actor.name ?? circle.actor.displayName ?? circle.actorId}
                   </Link>
                   <span>·</span>
                 </>

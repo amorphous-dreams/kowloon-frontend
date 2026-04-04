@@ -74,7 +74,7 @@ function Reply({ reply }) {
             to={`/users/${encodeURIComponent(reply.attributedTo.id)}`}
             className="font-ui text-sm font-bold text-base-content hover:text-primary transition-colors"
           >
-            {reply.attributedTo.displayName}
+            {reply.attributedTo.name ?? reply.attributedTo.displayName}
           </Link>
           <Timestamp date={reply.published} />
         </div>

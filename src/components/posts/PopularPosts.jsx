@@ -151,7 +151,7 @@ export default function PopularPosts({ posts = MOCK_POPULAR }) {
                 {/* Author + counts */}
                 <div className="flex items-center justify-between pl-3">
                   <span className="font-ui text-sm font-bold uppercase tracking-widest text-base-content/75">
-                    {post.attributedTo.displayName}
+                    {post.attributedTo.name ?? post.attributedTo.displayName}
                   </span>
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-base-content/65">
