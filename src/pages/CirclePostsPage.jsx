@@ -1,56 +1,18 @@
 // CirclePostsPage — feed of posts addressed to a specific circle.
-// Shows circle name + back link, type filter, and post list.
 
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
+import { useClient } from '../hooks/useClient'
+import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
+import Spinner from '../components/ui/Spinner'
 import { toggleType, clearTypes } from '../app/feedSlice'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
-
-const MOCK_CIRCLE = {
-  id: 'circle:jazz@kwln.org',
-  name: 'Jazz & Improvised Music',
-  attributedTo: { id: '@recordhead@kwln.org', displayName: 'Record Head' },
-}
-
-const H = (n) => new Date(Date.now() - 1000 * 60 * 60 * n).toISOString()
-const AUTHOR = { id: '@recordhead@kwln.org', username: 'recordhead', displayName: 'Record Head', profile: { icon: 'https://picsum.photos/seed/recordhead/200/200' } }
-const AUTHOR2 = { id: '@jzellis@kwln.org', username: 'jzellis', displayName: 'Joshua Ellis', profile: { icon: 'https://picsum.photos/seed/jzellis/200/200' } }
-
-const MOCK_POSTS = [
-  {
-    id: 'post:3@kwln.org',
-    type: 'Link',
-    name: 'Blue Note Records: The Complete Discography',
-    source: 'An absolutely essential resource. Every cover, every session date, every pressing.',
-    href: 'https://www.discogs.com/label/3073-Blue-Note-Records',
-    published: H(2),
-    visibility: 'Public',
-    attributedTo: AUTHOR,
-  },
-  {
-    id: 'post:14@kwln.org',
-    type: 'Media',
-    name: 'Sketch: "Harbour Lights"',
-    source: 'Chord changes are still rough but the vibe is there.',
-    published: H(8),
-    visibility: 'Public',
-    attributedTo: AUTHOR,
-    attachments: [{ url: 'https://upload.wikimedia.org/wikipedia/commons/8/8c/WPGC_-_Jingle_%22Bright_New_Sound%22.ogg', mediaType: 'audio/ogg', name: 'Harbour Lights' }],
-  },
-  {
-    id: 'post:note3@kwln.org',
-    type: 'Note',
-    source: "Anyone catch Empirical at Ronnie's last night? That set in the second half was something else entirely.",
-    published: H(20),
-    visibility: 'Public',
-    attributedTo: AUTHOR2,
-  },
-]
 
 function TypeFilter() {
   const dispatch = useDispatch()
@@ -93,8 +55,77 @@ function TypeFilter() {
 
 export default function CirclePostsPage() {
   const { id } = useParams()
-  const circle = MOCK_CIRCLE // TODO: fetch by id
+  const { activeTypes } = useSelector((state) => state.feed)
+  const { user, sessionChecked } = useSelector((state) => state.auth)
+  const client = useClient()
+  const navigate = useNavigate()
   const { t } = useTranslation()
+
+  const circleId = decodeURIComponent(id)
+
+  const [circle, setCircle]     = useState(null)
+  const [circles, setCircles]   = useState([])
+  const [posts, setPosts]       = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [notFound, setNotFound] = useState(false)
+
+  // Load user's circles for the composer audience picker
+  useEffect(() => {
+    if (!sessionChecked || !user || !client) return
+    client.feeds.getUserCircles({ userId: user.id })
+      .then((res) => setCircles(res?.orderedItems ?? []))
+      .catch(() => setCircles([]))
+  }, [client, user?.id, sessionChecked])
+
+  // Load circle metadata
+  useEffect(() => {
+    if (!sessionChecked || !client) return
+    client.feeds.getCircle({ circleId })
+      .then((res) => setCircle(res))
+      .catch((err) => {
+        if (err?.status === 404 || err?.response?.status === 404) setNotFound(true)
+        else setNotFound(true) // treat any error as not found — don't leak
+      })
+  }, [client, circleId, sessionChecked])
+
+  // Load posts
+  const loadPosts = useCallback(async () => {
+    if (!sessionChecked || !client || notFound) return
+    setLoading(true)
+    try {
+      const res = await client.feeds.getCirclePosts({
+        circleId,
+        types: activeTypes.length ? activeTypes : undefined,
+      })
+      setPosts(res?.orderedItems ?? [])
+    } catch (err) {
+      if (err?.status === 404 || err?.response?.status === 404) setNotFound(true)
+      else setNotFound(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [client, circleId, activeTypes, sessionChecked, notFound])
+
+  useEffect(() => { loadPosts() }, [loadPosts])
+
+  if (!sessionChecked) return null
+
+  if (notFound) {
+    return (
+      <div className="flex flex-col gap-4 py-16 items-center">
+        <p className="font-display text-5xl text-base-content/20">404</p>
+        <p className="font-ui text-xs uppercase tracking-widest text-base-content/40">
+          {t('circle.notFound', { defaultValue: 'Feed not found' })}
+        </p>
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-4 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-primary transition-colors flex items-center gap-1.5"
+        >
+          <ArrowLeft size={13} /> {t('common.goBack', { defaultValue: 'Go back' })}
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -105,17 +136,28 @@ export default function CirclePostsPage() {
           to={`/circles/${encodeURIComponent(id)}`}
           className="flex items-center gap-1.5 font-ui text-xs uppercase tracking-widest text-base-content/65 hover:text-primary transition-colors self-start mb-2"
         >
-          <ArrowLeft size={13} /> {circle.name}
+          <ArrowLeft size={13} /> {circle?.name ?? '…'}
         </Link>
-        <h1 className="font-display text-4xl leading-none tracking-wide">Posts</h1>
+        <h1 className="font-display text-4xl leading-none tracking-wide">
+          {t('circle.posts', { defaultValue: 'Posts' })}
+        </h1>
       </div>
 
-      {/* Type filter */}
       <TypeFilter />
 
-      {/* Posts */}
-      <PostList posts={MOCK_POSTS} />
+      {user && (
+        <PostComposer
+          circles={circles}
+          onPostCreated={loadPosts}
+          initialValues={{ to: circleId }}
+          prompt={t('composer.promptCircle', { name: circle?.name ?? '…', defaultValue: `Write a post to ${circle?.name ?? '…'}…` })}
+        />
+      )}
 
+      {loading
+        ? <Spinner centered />
+        : <PostList posts={posts} />
+      }
     </div>
   )
 }

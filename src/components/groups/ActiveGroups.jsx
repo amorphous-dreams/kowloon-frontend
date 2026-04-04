@@ -1,9 +1,11 @@
 // ActiveGroups — sidebar widget showing groups with recent post activity.
 // Shows group icon, name, member count, and a snippet of the most recent post.
 
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
+import { useClient } from '../../hooks/useClient'
 import CircleIcon from '../ui/CircleIcon'
 
 const MOCK_GROUPS = [
@@ -88,8 +90,18 @@ function GroupAvatar({ group }) {
   )
 }
 
-export default function ActiveGroups({ groups = MOCK_GROUPS }) {
+export default function ActiveGroups() {
   const { t } = useTranslation()
+  const client = useClient()
+  const [groups, setGroups] = useState(MOCK_GROUPS)
+
+  useEffect(() => {
+    if (!client) return
+    client.feeds.getGroups({ limit: 5 })
+      .then((res) => setGroups(res?.orderedItems ?? []))
+      .catch(() => {})
+  }, [client])
+
   return (
     <div className="flex flex-col gap-0">
       <div className="flex items-center gap-2 mb-3" style={{ minHeight: '36px' }}>
@@ -107,9 +119,12 @@ export default function ActiveGroups({ groups = MOCK_GROUPS }) {
               </div>
               <div className="flex flex-col min-w-0 flex-1">
                 <div className="flex items-center" style={{ minHeight: '36px' }}>
-                  <span className="font-display text-xl leading-none tracking-wide">
+                  <Link
+                    to={`/groups/${encodeURIComponent(group.id)}`}
+                    className="font-display text-xl leading-none tracking-wide hover:text-primary transition-colors"
+                  >
                     {group.name}
-                  </span>
+                  </Link>
                 </div>
                 <span className="font-ui text-xs uppercase tracking-widest text-base-content/65">
                   {group.memberCount.toLocaleString()} members

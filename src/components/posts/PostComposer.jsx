@@ -225,25 +225,25 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function PostComposer({ circles = [], onPostCreated }) {
+export default function PostComposer({ circles = [], onPostCreated, initialValues = {}, defaultOpen = false, prompt }) {
   const { user } = useSelector((state) => state.auth)
   const client = useClient()
   const { t } = useTranslation()
 
-  const [expanded, setExpanded]       = useState(false)
-  const [postType, setPostType]       = useState('Note')
-  const [content, setContent]         = useState('')
-  const [title, setTitle]             = useState('')
-  const [href, setHref]               = useState('')
-  const [startDate, setStartDate]     = useState('')
-  const [endDate, setEndDate]         = useState('')
-  const [tags, setTags]               = useState([])
-  const [location, setLocation]       = useState('')
+  const [expanded, setExpanded]       = useState(defaultOpen)
+  const [postType, setPostType]       = useState(initialValues.type     ?? 'Note')
+  const [content, setContent]         = useState(initialValues.content  ?? '')
+  const [title, setTitle]             = useState(initialValues.title    ?? '')
+  const [href, setHref]               = useState(initialValues.href     ?? '')
+  const [startDate, setStartDate]     = useState(initialValues.startDate ?? '')
+  const [endDate, setEndDate]         = useState(initialValues.endDate  ?? '')
+  const [tags, setTags]               = useState(initialValues.tags     ?? [])
+  const [location, setLocation]       = useState(initialValues.location ?? '')
   const [attachments, setAttachments] = useState([])   // [{ file, title, alt }]
   const [featuredIdx, setFeaturedIdx] = useState(0)
   const [geo, setGeo]                 = useState(null) // { lat, lon } from browser
   const [locating, setLocating]       = useState(false)
-  const [audience, setAudience]       = useState('public')
+  const [audience, setAudience]       = useState(initialValues.to ?? initialValues.audience ?? 'public')
   const [submitting, setSubmitting]   = useState(false)
   const [error, setError]             = useState(null)
   const [editorKey, setEditorKey]     = useState(0)
@@ -463,7 +463,7 @@ export default function PostComposer({ circles = [], onPostCreated }) {
       >
         <UserAvatar user={mockUser} size="sm" />
         <span className="font-reading text-base-content/40 dark:text-base-content/65 group-hover:text-base-content/70 dark:group-hover:text-base-content/85 transition-colors select-none" aria-hidden="true">
-          {t('composer.prompt')}
+          {prompt ?? t('composer.prompt')}
         </span>
       </button>
     )

@@ -196,7 +196,10 @@ export default function GroupPage() {
         client.feeds.getGroup({ groupId: id }),
         client.feeds.getGroupPosts({ groupId: id }),
       ])
-      setGroup(groupRes)
+      setGroup({
+        ...groupRes,
+        attributedTo: groupRes.attributedTo ?? groupRes.actor ?? { id: groupRes.actorId },
+      })
       setPosts(postsRes?.orderedItems ?? [])
       if (authUser && groupRes?.members) {
         setJoined(groupRes.members.some((m) => m.id === authUser.id))
@@ -232,8 +235,9 @@ export default function GroupPage() {
   const isMember        = joined || (authUser && group.members?.some((m) => m.id === authUser.id))
   const needsApproval   = group.rsvpPolicy === 'restricted'
 
+  const members = group.members ?? []
   const MEMBER_PREVIEW = 5
-  const visibleMembers = showAllMembers ? group.members : group.members.slice(0, MEMBER_PREVIEW)
+  const visibleMembers = showAllMembers ? members : members.slice(0, MEMBER_PREVIEW)
 
   return (
     <div ref={containerRef} className="flex flex-col gap-8">
@@ -260,15 +264,15 @@ export default function GroupPage() {
             <h1 className="font-display text-4xl leading-none tracking-wide">{group.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-ui text-xs uppercase tracking-widest text-base-content/60">
               <Link
-                to={`/users/${encodeURIComponent(group.attributedTo.id)}`}
+                to={`/users/${encodeURIComponent(group.attributedTo?.id)}`}
                 className="font-bold hover:text-primary transition-colors"
               >
-                {group.attributedTo.name ?? group.attributedTo.displayName}
+                {group.attributedTo?.name ?? group.attributedTo?.id}
               </Link>
               <span>·</span>
               <span className="flex items-center gap-1">
                 <Users size={10} />
-                {group.memberCount.toLocaleString()} {t('group.members', { defaultValue: 'members' })}
+                {(group.memberCount ?? 0).toLocaleString()} {t('group.members', { defaultValue: 'members' })}
               </span>
               {group.location?.name && (
                 <>
@@ -382,7 +386,7 @@ export default function GroupPage() {
                 <span className="font-ui text-sm font-bold text-base-content leading-tight">{member.name ?? member.displayName}</span>
                 <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 truncate">{member.id}</span>
               </div>
-              {member.id === group.attributedTo.id && (
+              {member.id === group.attributedTo?.id && (
                 <span className="ml-auto font-ui text-xs uppercase tracking-widest text-base-content/40 shrink-0">
                   {t('group.owner', { defaultValue: 'Owner' })}
                 </span>
@@ -391,14 +395,14 @@ export default function GroupPage() {
           ))}
         </div>
 
-        {group.members.length > MEMBER_PREVIEW && (
+        {members.length > MEMBER_PREVIEW && (
           <button
             onClick={() => setShowAllMembers((s) => !s)}
             className="self-start flex items-center gap-1.5 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:text-primary transition-colors"
           >
             {showAllMembers
               ? <><ChevronUp size={13} /> {t('group.showFewer', { defaultValue: 'Show less' })}</>
-              : <><ChevronDown size={13} /> {t('group.showAll', { count: group.members.length, defaultValue: `All ${group.members.length} members` })}</>
+              : <><ChevronDown size={13} /> {t('group.showAll', { count: members.length, defaultValue: `All ${members.length} members` })}</>
             }
           </button>
         )}
@@ -406,7 +410,11 @@ export default function GroupPage() {
 
       {/* Composer — members only, no audience picker */}
       {(joined || isMember || isOwner) && isLoggedIn && (
-        <PostComposer />
+        <PostComposer
+          onPostCreated={load}
+          initialValues={{ to: `group:${id}` }}
+          prompt={t('composer.promptGroup', { name: group?.name ?? '…', defaultValue: `Write a post to ${group?.name ?? '…'}…` })}
+        />
       )}
 
       {/* Posts */}
