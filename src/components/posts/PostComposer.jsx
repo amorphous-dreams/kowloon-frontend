@@ -239,8 +239,9 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
   const [endDate, setEndDate]         = useState(initialValues.endDate  ?? '')
   const [tags, setTags]               = useState(initialValues.tags     ?? [])
   const [location, setLocation]       = useState(initialValues.location ?? '')
-  const [attachments, setAttachments] = useState([])   // [{ file, title, alt }]
+  const [attachments, setAttachments] = useState([])   // [{ file, title, alt, previewUrl }]
   const [featuredIdx, setFeaturedIdx] = useState(0)
+  const [featuredImage, setFeaturedImage] = useState(null) // URL or file ID from link preview
   const [geo, setGeo]                 = useState(null) // { lat, lon } from browser
   const [locating, setLocating]       = useState(false)
   const [audience, setAudience]       = useState(initialValues.to ?? initialValues.audience ?? 'public')
@@ -327,6 +328,7 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
     setGeo(null)
     setAttachments((prev) => { prev.forEach((a) => URL.revokeObjectURL(a.previewUrl)); return [] })
     setFeaturedIdx(0)
+    setFeaturedImage(null)
     setPostType('Note')
     setAudience('public')
     setError(null)
@@ -372,6 +374,7 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
       const meta = await client.http.get('/preview', { params: { url: href } })
       if (meta?.title && !title) setTitle(meta.title)
       if (meta?.summary && !content) setContent(meta.summary)
+      if (meta?.image && !featuredImage) setFeaturedImage(meta.image)
     } catch {}
     finally { setFetchingMeta(false) }
   }
@@ -426,6 +429,34 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
     setSubmitting(true)
     setError(null)
     try {
+      let uploadedAttachments
+      let uploadedFeaturedImage = featuredImage || undefined
+
+      // Upload Media attachments before creating the post
+      if (postType === 'Media' && attachments.length > 0) {
+        const uploaded = await Promise.all(
+          attachments.map((att) =>
+            client.files.upload({
+              file: att.file,
+              filename: att.file.name,
+              contentType: att.file.type,
+              title: att.title || att.file.name,
+              summary: att.alt || undefined,
+              to: audience,
+            })
+          )
+        )
+        uploadedAttachments = uploaded.map((res, i) => ({
+          fileId: res.file.id,
+          title: attachments[i].title || undefined,
+          alt: attachments[i].alt || undefined,
+        }))
+        // Use the featured attachment as the post's featured image
+        if (uploaded[featuredIdx]?.file?.id) {
+          uploadedFeaturedImage = uploaded[featuredIdx].file.id
+        }
+      }
+
       await client.activities.createPost({
         type: postType,
         title: title || undefined,
@@ -438,6 +469,8 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
           ? { type: 'Place', name: location, ...(geo ?? {}) }
           : undefined,
         to: audience,
+        attachments: uploadedAttachments,
+        featuredImage: uploadedFeaturedImage,
       })
       handleCancel()
       onPostCreated?.()

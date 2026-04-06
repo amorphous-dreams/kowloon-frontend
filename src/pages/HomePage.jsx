@@ -8,16 +8,55 @@ import { useTranslation } from 'react-i18next'
 import { useClient } from '../hooks/useClient'
 import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
+import PostTypeIcon from '../components/ui/PostTypeIcon'
 import Spinner from '../components/ui/Spinner'
+
+const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
+
+function TypeFilter({ activeType, onChange }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center gap-0 border-b border-base-300 pb-3 mb-2">
+      <button
+        onClick={() => onChange(null)}
+        className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
+          !activeType
+            ? 'bg-primary text-primary-content'
+            : 'bg-base-200 text-base-content/60 hover:bg-base-300'
+        }`}
+      >
+        {t('feed.all', { defaultValue: 'All' })}
+      </button>
+      {POST_TYPES.map((type) => (
+        <button
+          key={type}
+          onClick={() => onChange(activeType === type ? null : type)}
+          title={t(`postTypes.${type}`, { defaultValue: type })}
+          className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
+            activeType === type
+              ? 'bg-primary text-primary-content'
+              : 'bg-base-200 text-base-content/60 hover:bg-base-300'
+          }`}
+        >
+          <PostTypeIcon type={type} size="sm" />
+          <span className="hidden sm:inline">
+            {t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function HomePage() {
   const { user, sessionChecked } = useSelector((state) => state.auth)
   const client = useClient()
   const { t } = useTranslation()
 
-  const [circles, setCircles] = useState([])
-  const [posts, setPosts]     = useState([])
-  const [loading, setLoading] = useState(true)
+  const [circles, setCircles]     = useState([])
+  const [posts, setPosts]         = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [activeType, setActiveType] = useState(null)
 
   // Load user's circles for the composer audience picker
   useEffect(() => {
@@ -31,7 +70,7 @@ export default function HomePage() {
     if (!sessionChecked) return
     setLoading(true)
     try {
-      const res = await client.feeds.getServerPosts()
+      const res = await client.feeds.getServerPosts({ type: activeType ?? undefined })
       const items = (res?.orderedItems ?? []).map((p) => ({
         ...p,
         attributedTo: p.attributedTo ?? p.actor ?? { id: p.actorId },
@@ -43,7 +82,7 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [client, sessionChecked])
+  }, [client, sessionChecked, activeType])
 
   useEffect(() => { loadFeed() }, [loadFeed])
 
@@ -51,7 +90,15 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col">
-      {user && <PostComposer circles={circles} onPostCreated={loadFeed} initialValues={{ to: 'public' }} prompt={t('composer.promptPublic', { defaultValue: 'Write a public post…' })} />}
+      {user && (
+        <PostComposer
+          circles={circles}
+          onPostCreated={loadFeed}
+          initialValues={{ to: 'public' }}
+          prompt={t('composer.promptPublic', { defaultValue: 'Write a public post…' })}
+        />
+      )}
+      <TypeFilter activeType={activeType} onChange={setActiveType} />
       {loading
         ? <Spinner centered />
         : <PostList posts={posts} />

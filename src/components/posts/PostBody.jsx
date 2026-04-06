@@ -3,23 +3,32 @@
 // Props: post object
 
 import { Link } from 'react-router-dom'
+import { Link2 } from 'lucide-react'
 import { marked } from 'marked'
 import AudioPlayer from '../ui/AudioPlayer'
 
 marked.use({ breaks: true, gfm: true })
 
 function LinkTitle({ post }) {
+  const href = post.href
   let domain = null
-  if (post.href) {
-    try { domain = new URL(post.href).hostname.replace(/^www\./, '') } catch {}
+  if (href) {
+    try { domain = new URL(href).hostname.replace(/^www\./, '') } catch {}
   }
+
+  const inner = (
+    <span className="inline-flex items-center gap-2">
+      <Link2 size={28} className="shrink-0 opacity-50" />
+      {post.name}
+    </span>
+  )
 
   return (
     <div className="mb-3">
       <h1 className="font-display text-4xl lg:text-5xl mb-12">
-        {post.href
-          ? <a href={post.href} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">{post.name}</a>
-          : post.name
+        {href
+          ? <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">{inner}</a>
+          : inner
         }
       </h1>
       {domain && (
@@ -84,22 +93,31 @@ export default function PostBody({ post }) {
   // body = pre-rendered HTML from server; fall back to rendering raw markdown for local/mock data
   const rawSource = post?.source?.content ?? (typeof post?.source === 'string' ? post.source : null) ?? post?.content ?? ''
   const html = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
+  const title = post?.title ?? post?.name
   const isLink  = post?.type === 'Link'
   const postUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
   const titleLinksToPost = ['Article', 'Media'].includes(post?.type)
 
   return (
     <div className="font-reading text-base-content leading-relaxed">
-      {post?.name && (
+      {title && (
         isLink
-          ? <LinkTitle post={post} />
+          ? <LinkTitle post={{ ...post, name: title }} />
           : <h1 className="font-display text-4xl lg:text-5xl mt-4 mb-16">
               {titleLinksToPost && postUrl
-                ? <Link to={postUrl} className="hover:text-primary transition-colors">{post.name}</Link>
-                : post.name
+                ? <Link to={postUrl} className="hover:text-primary transition-colors">{title}</Link>
+                : title
               }
             </h1>
       )}
+      {isLink && (post?.featuredImage ?? post?.image) && (
+        <img
+          src={post.featuredImage ?? post.image}
+          alt={title ?? ''}
+          className="w-full object-cover max-h-64 mb-4"
+        />
+      )}
+
       <div
         className="prose prose-sm max-w-none text-[13.5px] [&_p]:leading-[1.45] [&_p]:font-[450] [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
         dangerouslySetInnerHTML={{ __html: html }}
