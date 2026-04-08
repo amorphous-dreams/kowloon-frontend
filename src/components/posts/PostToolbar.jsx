@@ -49,10 +49,10 @@ function isPublicPost(post) {
 
 // ── ShareButton ──────────────────────────────────────────────────────────────
 
-function ShareButton({ post, t }) {
+function ShareButton({ post, t, user }) {
   const [sharing, setSharing] = useState(false)
 
-  if (!isPublicPost(post)) return null
+  if (!user || !isPublicPost(post)) return null
 
   const postUrl = post.url ?? (post.id ? `/posts/${encodeURIComponent(post.id)}` : null)
   if (!postUrl) return null
@@ -116,8 +116,8 @@ export default function PostToolbar({ post }) {
         </button>
       )}
 
-      {/* Share — public posts only */}
-      <ShareButton post={post} t={t} />
+      {/* Share — logged-in users, public posts only */}
+      <ShareButton post={post} t={t} user={user} />
     </div>
   )
 }
