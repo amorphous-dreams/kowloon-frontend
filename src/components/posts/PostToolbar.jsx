@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
+import BookmarkComposer from '../bookmarks/BookmarkComposer'
 
 // ── Share helpers ────────────────────────────────────────────────────────────
 
@@ -95,6 +96,14 @@ function ShareButton({ post, t, user }) {
 export default function PostToolbar({ post }) {
   const { user } = useSelector((state) => state.auth)
   const { t } = useTranslation()
+  const [bookmarking, setBookmarking] = useState(false)
+
+  const postUrl = post?.url ?? (post?.id ? `/posts/${encodeURIComponent(post.id)}` : null)
+  const bookmarkInitial = postUrl ? {
+    href: postUrl,
+    title: post?.title ?? post?.name ?? undefined,
+    image: post?.image ?? post?.featuredImage ?? undefined,
+  } : null
 
   return (
     <div className="flex items-center gap-4 flex-1">
@@ -109,10 +118,21 @@ export default function PostToolbar({ post }) {
       )}
 
       {/* Bookmark */}
-      {user && (
-        <button className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors">
-          {t('post.bookmark')}
-        </button>
+      {user && bookmarkInitial && (
+        <>
+          <button
+            onClick={() => setBookmarking(true)}
+            className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
+          >
+            {t('post.bookmark')}
+          </button>
+          {bookmarking && (
+            <BookmarkComposer
+              initialValues={bookmarkInitial}
+              onClose={() => setBookmarking(false)}
+            />
+          )}
+        </>
       )}
 
       {/* Share — logged-in users, public posts only */}

@@ -102,11 +102,12 @@ export default function UserPage() {
   const authUser = useSelector((state) => state.auth.user)
   const { t } = useTranslation()
 
-  const [user, setUser]       = useState(null)
-  const [posts, setPosts]     = useState([])
-  const [circles, setCircles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
+  const [user, setUser]         = useState(null)
+  const [posts, setPosts]       = useState([])
+  const [circles, setCircles]   = useState([])
+  const [bookmarks, setBookmarks] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
   const [isFollowing, setIsFollowing] = useState(false)
 
   const containerRef = useRef(null)
@@ -123,10 +124,11 @@ export default function UserPage() {
     setLoading(true)
     setError(null)
     try {
-      const [userRes, postsRes, circlesRes] = await Promise.all([
+      const [userRes, postsRes, circlesRes, bookmarksRes] = await Promise.all([
         client.feeds.getUser({ userId: id }),
         client.feeds.getUserPosts({ userId: id }),
         client.feeds.getUserCircles({ userId: id }),
+        client.feeds.getUserBookmarks({ userId: id, type: 'Bookmark' }).catch(() => null),
       ])
 
       // Unwrap { item: {...} } envelope and normalize ActivityPub → component shape
@@ -162,6 +164,7 @@ export default function UserPage() {
       })))
 
       setCircles(circlesRes?.orderedItems ?? circlesRes ?? [])
+      setBookmarks((bookmarksRes?.orderedItems ?? bookmarksRes ?? []).slice(0, 5))
     } catch (err) {
       setError(err.message || 'Failed to load user.')
     } finally {
@@ -266,6 +269,42 @@ export default function UserPage() {
           <h2 className="font-display text-2xl tracking-wide">{t('circle.circles', { defaultValue: 'Circles' })}</h2>
           <div className="flex flex-wrap gap-2">
             {circles.map((c) => <CircleChip key={c.id} circle={c} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Public bookmarks */}
+      {bookmarks.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-2xl tracking-wide">{t('bookmark.bookmarks', { defaultValue: 'Bookmarks' })}</h2>
+            <Link
+              to={`/users/${encodeURIComponent(user.id)}/bookmarks`}
+              className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-primary transition-colors"
+            >
+              {t('common.viewAll', { defaultValue: 'View all' })} →
+            </Link>
+          </div>
+          <div className="flex flex-col border border-base-300">
+            {bookmarks.map((b) => {
+              const href = b.href ?? b.target
+              return (
+                <div key={b.id} className="flex items-center gap-3 px-3 py-2.5 border-b border-base-300 last:border-b-0 hover:bg-base-200 transition-colors">
+                  {href ? (
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 font-ui text-sm text-primary hover:opacity-70 transition-opacity flex-1 min-w-0 truncate">
+                      {b.title}
+                    </a>
+                  ) : (
+                    <span className="font-ui text-sm flex-1 min-w-0 truncate">{b.title}</span>
+                  )}
+                  {b.tags?.slice(0, 3).map((tag) => (
+                    <span key={tag} className="font-ui text-xs uppercase tracking-widest text-base-content/45 bg-base-300 px-1.5 py-0.5 shrink-0">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

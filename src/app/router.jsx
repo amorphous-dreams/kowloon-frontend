@@ -12,6 +12,7 @@ import UsersPage from '../pages/UsersPage'
 import UserPage from '../pages/UserPage'
 import UserPostsPage from '../pages/UserPostsPage'
 import UserCirclesPage from '../pages/UserCirclesPage'
+import UserBookmarksPage from '../pages/UserBookmarksPage'
 import GroupsPage from '../pages/GroupsPage'
 import GroupPage from '../pages/GroupPage'
 import GroupPostsPage from '../pages/GroupPostsPage'
@@ -48,6 +49,7 @@ const router = createBrowserRouter([
       { path: '/users/:id', element: <UserPage /> },
       { path: '/users/:id/posts', element: <UserPostsPage /> },
       { path: '/users/:id/circles', element: <UserCirclesPage /> },
+      { path: '/users/:id/bookmarks', element: <UserBookmarksPage /> },
       { path: '/groups', element: <GroupsPage /> },
       { path: '/groups/:id', element: <GroupPage /> },
       { path: '/groups/:id/posts', element: <GroupPostsPage /> },
