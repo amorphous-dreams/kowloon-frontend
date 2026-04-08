@@ -225,7 +225,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function PostComposer({ circles = [], onPostCreated, initialValues = {}, defaultOpen = false, prompt }) {
+export default function PostComposer({ circles = [], onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt }) {
   const { user } = useSelector((state) => state.auth)
   const client = useClient()
   const { t } = useTranslation()
@@ -241,7 +241,8 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
   const [location, setLocation]       = useState(initialValues.location ?? '')
   const [attachments, setAttachments] = useState([])   // [{ file, title, alt, previewUrl }]
   const [featuredIdx, setFeaturedIdx] = useState(0)
-  const [featuredImage, setFeaturedImage] = useState(null) // URL or file ID from link preview
+  const [featuredImage, setFeaturedImage] = useState(initialValues.featuredImage ?? null) // URL or file ID from link preview
+  const [target, setTarget]           = useState(initialValues.target ?? null) // ID of post being shared
   const [geo, setGeo]                 = useState(null) // { lat, lon } from browser
   const [locating, setLocating]       = useState(false)
   const [audience, setAudience]       = useState(initialValues.to ?? initialValues.audience ?? 'public')
@@ -329,9 +330,11 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
     setAttachments((prev) => { prev.forEach((a) => URL.revokeObjectURL(a.previewUrl)); return [] })
     setFeaturedIdx(0)
     setFeaturedImage(null)
+    setTarget(null)
     setPostType('Note')
     setAudience('public')
     setError(null)
+    onClose?.()
   }
 
   const handleGeolocate = () => {
@@ -471,6 +474,7 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
         to: audience,
         attachments: uploadedAttachments,
         featuredImage: uploadedFeaturedImage,
+        target: target || undefined,
       })
       handleCancel()
       onPostCreated?.()
@@ -485,6 +489,9 @@ export default function PostComposer({ circles = [], onPostCreated, initialValue
   const mockUser = user
 
   // ── Collapsed ─────────────────────────────────────────────────────────────
+  // In onClose (share) mode, never show the collapsed trigger — just unmount via onClose
+  if (!expanded && onClose) return null
+
   if (!expanded) {
     return (
       <button
