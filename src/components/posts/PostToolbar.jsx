@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import PostComposer from './PostComposer'
+import ReactButton from './ReactButton'
 
 // ── Share helpers ────────────────────────────────────────────────────────────
 
@@ -103,10 +104,8 @@ export default function PostToolbar({ post }) {
       </button>
 
       {/* React */}
-      {user && (
-        <button className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors">
-          {t('post.react')}
-        </button>
+      {user && post?.canReact !== 'none' && (
+        <ReactButton post={post} t={t} />
       )}
 
       {/* Bookmark */}
