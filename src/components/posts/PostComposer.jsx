@@ -590,9 +590,10 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
                 value={href}
                 onChange={(e) => setHref(e.target.value)}
                 onBlur={handleHrefBlur}
-                className="flex-1 px-4 py-3 bg-transparent font-display text-2xl tracking-wide text-base-content placeholder:text-base-content/30 outline-none min-w-0"
+                disabled={!!initialValues.href}
+                className={`flex-1 px-4 py-3 bg-transparent font-display text-2xl tracking-wide text-base-content placeholder:text-base-content/30 outline-none min-w-0 ${initialValues.href ? 'opacity-60 cursor-not-allowed' : ''}`}
               />
-              {!href && (
+              {!href && !initialValues.href && (
                 <button
                   type="button"
                   onClick={async () => {
@@ -606,6 +607,25 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
                   {t('composer.linkPaste')}
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Featured image preview — shown for Link type when a featuredImage is set */}
+          {postType === 'Link' && featuredImage && (
+            <div className="relative border-b-2 border-base-300">
+              <img
+                src={featuredImage}
+                alt=""
+                className="w-full max-h-48 object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => setFeaturedImage(null)}
+                aria-label={t('composer.removeFeaturedImage', { defaultValue: 'Remove image' })}
+                className="absolute top-2 right-2 px-2 py-1 bg-black/50 text-white font-ui text-xs uppercase tracking-widest hover:bg-black/70 transition-colors"
+              >
+                ✕
+              </button>
             </div>
           )}
 
