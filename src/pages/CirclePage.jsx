@@ -1,13 +1,16 @@
-// CirclePage — circle detail: icon, title, description, member list, and actions.
-// Copy is available to all logged-in users. Edit/Delete only for the circle owner.
+// CirclePage — circle detail: icon, name, description, creator, members.
+// Authorized users see the full page. Owners can edit inline and manage members.
 
 import { useParams, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Share2, Pencil, Trash2 } from 'lucide-react'
+import { Copy, Share2, Pencil, Trash2, X, Check, UserPlus, UserMinus, Loader } from 'lucide-react'
+import { useClient } from '../hooks/useClient'
 import UserAvatar from '../components/ui/UserAvatar'
 import CircleIcon from '../components/ui/CircleIcon'
+import Spinner from '../components/ui/Spinner'
+import ErrorState from '../components/ui/ErrorState'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -17,65 +20,294 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-const MOCK_CIRCLE = {
-  id: 'circle:jazz@kwln.org',
-  name: 'Jazz & Improvised Music',
-  icon: 'https://picsum.photos/seed/jazz11/200/200',
-  description: 'From bebop to free jazz. New recordings, old recordings, gear, theory, gigs. All eras, all traditions — the only requirement is that someone is listening.',
-  memberCount: 91,
-  reactCount: 38,
-  attributedTo: { id: '@recordhead@kwln.org', username: 'recordhead', displayName: 'Record Head', profile: { icon: 'https://picsum.photos/seed/recordhead/200/200' } },
-  members: [
-    { id: '@jzellis@kwln.org',       username: 'jzellis',       displayName: 'Joshua Ellis',       profile: { icon: 'https://picsum.photos/seed/jzellis/200/200',       bio: 'Writer, musician, and general troublemaker. Making things on the internet since 1994.' } },
-    { id: '@cityhacker@kwln.org',    username: 'cityhacker',    displayName: 'City Hacker',        profile: { icon: 'https://picsum.photos/seed/cityhacker/200/200',    bio: 'Urban infrastructure obsessive. I think about sewers more than is probably healthy.' } },
-    { id: '@designthink@kwln.org',   username: 'designthink',   displayName: 'Design Thinking',    profile: { icon: 'https://picsum.photos/seed/designthink/200/200',   bio: 'Graphic designer. Modernist sympathizer. Will argue about kerning.' } },
-    { id: '@recordhead@kwln.org',    username: 'recordhead',    displayName: 'Record Head',        profile: { icon: 'https://picsum.photos/seed/recordhead/200/200',    bio: 'Collector, obsessive, and occasional DJ. Blue Note completist. He/him.' } },
-    { id: '@milesahead@kwln.org',    username: 'milesahead',    displayName: 'Miles Ahead',        profile: { icon: 'https://picsum.photos/seed/milesahead/200/200',    bio: 'Trumpet player and armchair theorist. Kind of Blue, obviously.' } },
-    { id: '@bluebird@kwln.org',      username: 'bluebird',      displayName: 'Bluebird Parker',    profile: { icon: 'https://picsum.photos/seed/bluebird/200/200',      bio: 'Alto sax. Bebop or nothing. Do not talk to me about smooth jazz.' } },
-    { id: '@trane@kwln.org',         username: 'trane',         displayName: 'A. Trane',           profile: { icon: 'https://picsum.photos/seed/trane/200/200',         bio: 'A Love Supreme. Sheets of sound. Living in the changes.' } },
-    { id: '@mingusmouth@kwln.org',   username: 'mingusmouth',   displayName: 'Mingus Mouth',       profile: { icon: 'https://picsum.photos/seed/mingusmouth/200/200',   bio: 'Bassist. Composer. Opinionated about everything, especially bassists.' } },
-    { id: '@rollinsstone@kwln.org',  username: 'rollinsstone',  displayName: 'Rollins Stone',      profile: { icon: 'https://picsum.photos/seed/rollinsstone/200/200',  bio: 'Tenor man. Practised on the Williamsburg Bridge so I wouldn\'t bother the neighbours.' } },
-    { id: '@koloursofbop@kwln.org',  username: 'koloursofbop',  displayName: 'Kolours of Bop',     profile: { icon: 'https://picsum.photos/seed/koloursofbop/200/200',  bio: 'Visual artist inspired by the music. Trying to paint what Coltrane sounds like.' } },
-    { id: '@voiceofeve@kwln.org',    username: 'voiceofeve',    displayName: 'Eve Cassidy-Reed',   profile: { icon: 'https://picsum.photos/seed/voiceofeve/200/200',    bio: 'Vocalist and composer. Jazz, soul, and the bits in between. London via Lagos.' } },
-    { id: '@waxpoetic@kwln.org',     username: 'waxpoetic',     displayName: 'Wax Poetic',         profile: { icon: 'https://picsum.photos/seed/waxpoetic/200/200',     bio: 'Vinyl only. If it\'s not on wax it doesn\'t count. ~14,000 records and counting.' } },
-    { id: '@sidemansteve@kwln.org',  username: 'sidemansteve',  displayName: 'Sideman Steve',      profile: { icon: 'https://picsum.photos/seed/sidemansteve/200/200',  bio: 'Session guitarist. I\'ve played on records you\'ve heard. You don\'t know my name.' } },
-    { id: '@lowendbass@kwln.org',    username: 'lowendbass',    displayName: 'Low End Theory',     profile: { icon: 'https://picsum.photos/seed/lowendbass/200/200',    bio: 'Electric bass. The foundation of everything. Nobody notices until it stops.' } },
-    { id: '@clubbackroom@kwln.org',  username: 'clubbackroom',  displayName: 'The Backroom',       profile: { icon: 'https://picsum.photos/seed/clubbackroom/200/200',  bio: 'A small jazz club in Dalston. Gigs most Thursdays. Cash bar. No stag dos.' } },
-  ],
+const VISIBILITY_OPTIONS = [
+  { value: '@public', label: 'Public' },
+  { value: '@server', label: 'Server only' },
+  { value: '', label: 'Private (only you)' },
+]
+
+// ── MemberRow ─────────────────────────────────────────────────────────────────
+
+function MemberRow({ member, isOwner, onRemove, removing }) {
+  return (
+    <div className="flex items-center gap-3 py-4 border-b border-base-300 last:border-b-0 px-2 group">
+      <Link
+        to={`/users/${encodeURIComponent(member.id)}`}
+        className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+      >
+        {member.icon
+          ? <img src={member.icon} alt={member.name} className="w-10 h-10 object-cover shrink-0" style={hexMask} />
+          : <div className="w-10 h-10 bg-base-300 shrink-0 flex items-center justify-center" style={hexMask}>
+              <CircleIcon type="circle" size="sm" />
+            </div>
+        }
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="font-ui text-sm font-bold text-base-content truncate">{member.name ?? member.id}</span>
+          <span className="font-ui text-xs uppercase tracking-widest text-base-content/55 truncate">{member.id}</span>
+        </div>
+      </Link>
+      {isOwner && (
+        <button
+          onClick={() => onRemove(member.id)}
+          disabled={removing}
+          aria-label={`Remove ${member.name ?? member.id}`}
+          className="shrink-0 flex items-center gap-1 px-2.5 py-1 border border-error/30 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-30"
+        >
+          {removing ? <Loader size={11} className="animate-spin" /> : <UserMinus size={11} />}
+        </button>
+      )}
+    </div>
+  )
 }
+
+// ── AddMemberRow ──────────────────────────────────────────────────────────────
+
+function AddMemberRow({ circleId, onAdded }) {
+  const client = useClient()
+  const { t } = useTranslation()
+  const [input, setInput] = useState('')
+  const [preview, setPreview] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [adding, setAdding] = useState(false)
+
+  const handleLookup = async () => {
+    const val = input.trim()
+    if (!val) return
+    setLoading(true)
+    setError(null)
+    setPreview(null)
+    try {
+      const res = await client.feeds.getUser({ userId: val })
+      const raw = res?.item ?? res
+      if (!raw?.id) throw new Error('User not found')
+      setPreview({
+        id: raw.id,
+        name: raw.name ?? raw.profile?.name ?? raw.preferredUsername ?? raw.username,
+        icon: raw.icon ?? raw.profile?.icon ?? null,
+      })
+    } catch (err) {
+      setError(err.message || 'User not found')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAdd = async () => {
+    if (!preview) return
+    setAdding(true)
+    setError(null)
+    try {
+      await client.activities.addToCircle({ circleId, memberId: preview.id })
+      onAdded(preview)
+      setInput('')
+      setPreview(null)
+    } catch (err) {
+      setError(err.message || 'Failed to add member')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 pb-4 border-b-2 border-primary mb-2">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setPreview(null); setError(null) }}
+          onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+          placeholder={t('circle.addMemberPlaceholder', { defaultValue: '@user@domain' })}
+          className="flex-1 bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary"
+        />
+        <button
+          onClick={handleLookup}
+          disabled={!input.trim() || loading}
+          className="px-4 py-2 bg-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:bg-base-400 transition-colors disabled:opacity-40"
+        >
+          {loading ? <Loader size={14} className="animate-spin" /> : t('circle.lookup', { defaultValue: 'Look up' })}
+        </button>
+      </div>
+
+      {error && <p className="font-ui text-xs text-error">{error}</p>}
+
+      {preview && (
+        <div className="flex items-center gap-3 px-3 py-2 bg-base-200 border border-base-300">
+          {preview.icon
+            ? <img src={preview.icon} alt={preview.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
+            : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
+          }
+          <div className="flex flex-col gap-0 flex-1 min-w-0">
+            <span className="font-ui text-sm font-bold">{preview.name}</span>
+            <span className="font-ui text-xs uppercase tracking-widest text-base-content/55">{preview.id}</span>
+          </div>
+          <button
+            onClick={handleAdd}
+            disabled={adding}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
+          >
+            {adding ? <Loader size={11} className="animate-spin" /> : <UserPlus size={11} />}
+            {t('circle.addMember', { defaultValue: 'Add' })}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CirclePage() {
   const { id } = useParams()
-  const circle = MOCK_CIRCLE // TODO: fetch by id
-  const user = useSelector((state) => state.auth.user)
+  const client = useClient()
+  const authUser = useSelector((state) => state.auth.user)
   const { t } = useTranslation()
 
-  const isOwner = user && circle.attributedTo?.id === user.id
-  const isLoggedIn = !!user
+  const [circle, setCircle]   = useState(null)
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+
+  // Edit mode state
+  const [editing, setEditing]         = useState(false)
+  const [editName, setEditName]       = useState('')
+  const [editSummary, setEditSummary] = useState('')
+  const [editTo, setEditTo]           = useState('@public')
+  const [editIconFile, setEditIconFile] = useState(null)
+  const [editIconPreview, setEditIconPreview] = useState(null)
+  const [saving, setSaving]           = useState(false)
+  const [saveError, setSaveError]     = useState(null)
+  const iconInputRef = useRef(null)
 
   const containerRef = useRef(null)
   const [shadowProgress, setShadowProgress] = useState(0)
 
+  const load = useCallback(async () => {
+    if (!client) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await client.feeds.getCircle({ circleId: id })
+      const raw = res?.item ?? res
+      setCircle(raw)
+      setMembers(raw?.members ?? [])
+    } catch (err) {
+      setError(err.message || 'Failed to load circle.')
+    } finally {
+      setLoading(false)
+    }
+  }, [client, id])
+
+  useEffect(() => { load() }, [load])
+
+  // Scroll-driven shadow on sticky header
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    // Walk up to find the scrolling ancestor
     let parent = el.parentElement
-    while (parent && getComputedStyle(parent).overflowY === 'visible') {
-      parent = parent.parentElement
-    }
+    while (parent && getComputedStyle(parent).overflowY === 'visible') parent = parent.parentElement
     if (!parent) return
-    const handleScroll = () => {
-      setShadowProgress(Math.min(parent.scrollTop / 60, 1))
-    }
+    const handleScroll = () => setShadowProgress(Math.min(parent.scrollTop / 60, 1))
     parent.addEventListener('scroll', handleScroll, { passive: true })
     return () => parent.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // Seed edit fields from circle data
+  const startEditing = () => {
+    setEditName(circle.name ?? '')
+    setEditSummary(circle.summary ?? '')
+    setEditTo(circle.to ?? '@public')
+    setEditIconFile(null)
+    setEditIconPreview(circle.icon ?? null)
+    setSaveError(null)
+    setEditing(true)
+  }
+
+  const cancelEditing = () => {
+    if (editIconPreview && editIconPreview !== circle.icon) {
+      URL.revokeObjectURL(editIconPreview)
+    }
+    setEditing(false)
+    setEditIconFile(null)
+    setEditIconPreview(null)
+  }
+
+  const handleIconChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (editIconPreview && editIconPreview !== circle.icon) URL.revokeObjectURL(editIconPreview)
+    setEditIconFile(file)
+    setEditIconPreview(URL.createObjectURL(file))
+  }
+
+  const handleSave = async () => {
+    if (!editName.trim()) return
+    setSaving(true)
+    setSaveError(null)
+    try {
+      let iconValue = circle.icon
+
+      if (editIconFile) {
+        const uploaded = await client.files.upload({
+          file: editIconFile,
+          filename: editIconFile.name,
+          contentType: editIconFile.type,
+          to: '@public',
+        })
+        if (uploaded?.file?.url) iconValue = uploaded.file.url
+      }
+
+      await client.activities.updateCircle({
+        circleId: circle.id,
+        name: editName.trim(),
+        description: editSummary.trim(),
+        icon: iconValue,
+        to: editTo,
+      })
+
+      setCircle((prev) => ({
+        ...prev,
+        name: editName.trim(),
+        summary: editSummary.trim(),
+        icon: iconValue,
+        to: editTo,
+      }))
+      setEditing(false)
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save changes.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRemoveMember = async (memberId) => {
+    setRemovingId(memberId)
+    try {
+      await client.activities.removeFromCircle({ circleId: circle.id, memberId })
+      setMembers((prev) => prev.filter((m) => m.id !== memberId))
+      setCircle((prev) => ({ ...prev, memberCount: (prev.memberCount ?? members.length) - 1 }))
+    } catch {}
+    finally { setRemovingId(null) }
+  }
+
+  const handleMemberAdded = (member) => {
+    setMembers((prev) => [...prev, member])
+    setCircle((prev) => ({ ...prev, memberCount: (prev.memberCount ?? members.length) + 1 }))
+  }
+
+  if (loading) return <Spinner centered />
+  if (error)   return <ErrorState message={error} onRetry={load} />
+  if (!circle) return null
+
+  const isOwner   = !!(authUser && circle.actorId === authUser.id)
+  const isLoggedIn = !!authUser
+  const currentIcon = editing ? editIconPreview : circle.icon
+
   return (
     <div ref={containerRef} className="flex flex-col gap-8">
 
-      {/* Header — sticky within the scrolling content column */}
+      {/* Sticky header */}
       <div
         className="sticky top-0 bg-base-100 z-10 flex flex-col gap-4 pt-6 pb-6 px-4 border-b-2 border-base-300"
         style={{
@@ -84,92 +316,171 @@ export default function CirclePage() {
         }}
       >
         <div className="flex items-start gap-4">
-          {/* Icon */}
-          {circle.icon
-            ? <img src={circle.icon} alt={circle.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
-            : <div className="w-20 h-20 bg-secondary flex items-center justify-center shrink-0" style={hexMask}>
-                <CircleIcon type="circle" size="lg" className="text-secondary-content opacity-70" />
-              </div>
-          }
-          {/* Name + creator + count + description + posts link */}
+
+          {/* Icon — clickable in edit mode */}
+          <button
+            type="button"
+            onClick={() => editing && iconInputRef.current?.click()}
+            className={editing ? 'cursor-pointer opacity-80 hover:opacity-100 transition-opacity shrink-0' : 'shrink-0 cursor-default'}
+            aria-label={editing ? t('circle.changeIcon', { defaultValue: 'Change icon' }) : undefined}
+          >
+            {currentIcon
+              ? <img src={currentIcon} alt={circle.name} className="w-20 h-20 object-cover" style={hexMask} />
+              : <div className="w-20 h-20 bg-secondary flex items-center justify-center" style={hexMask}>
+                  <CircleIcon type="circle" size="lg" className="text-secondary-content opacity-70" />
+                </div>
+            }
+          </button>
+          <input
+            ref={iconInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleIconChange}
+          />
+
+          {/* Info */}
           <div className="flex flex-col gap-3 min-w-0 pt-1 flex-1">
-            <h1 className="font-display text-4xl leading-none tracking-wide">{circle.name}</h1>
-            <div className="flex items-center gap-2 font-ui text-sm uppercase tracking-widest text-base-content/70">
-              <Link to={`/users/${encodeURIComponent(circle.attributedTo.id)}`} className="font-bold hover:text-primary transition-colors">
-                {circle.attributedTo.name ?? circle.attributedTo.displayName}
-              </Link>
+            {editing ? (
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="font-display text-4xl leading-none tracking-wide bg-transparent border-b-2 border-primary focus:outline-none w-full"
+              />
+            ) : (
+              <h1 className="font-display text-4xl leading-none tracking-wide">{circle.name}</h1>
+            )}
+
+            <div className="flex items-center gap-2 font-ui text-xs uppercase tracking-widest text-base-content/60">
+              {circle.actorId && (
+                <Link to={`/users/${encodeURIComponent(circle.actorId)}`} className="hover:text-primary transition-colors">
+                  {circle.actor?.name ?? circle.actorId}
+                </Link>
+              )}
               <span>·</span>
-              <span>{circle.memberCount} {t('circle.members', { defaultValue: 'members' })}</span>
+              <span>{members.length} {t('circle.members', { defaultValue: 'members' })}</span>
               {circle.reactCount > 0 && (
-                <>
-                  <span>·</span>
-                  <span>{circle.reactCount} {t('circle.reacts', { defaultValue: 'reacts' })}</span>
-                </>
+                <><span>·</span><span>{circle.reactCount} {t('circle.reacts', { defaultValue: 'reacts' })}</span></>
               )}
             </div>
-            {circle.description && (
-              <p className="font-reading text-base text-base-content/80 leading-relaxed">
-                {circle.description}
-              </p>
+
+            {editing ? (
+              <textarea
+                value={editSummary}
+                onChange={(e) => setEditSummary(e.target.value)}
+                rows={3}
+                placeholder={t('circle.descriptionPlaceholder', { defaultValue: 'Description (optional)' })}
+                className="font-reading text-base bg-base-200 border border-base-300 px-3 py-2 focus:outline-none focus:border-primary resize-none w-full"
+              />
+            ) : circle.summary ? (
+              <p className="font-reading text-base text-base-content/80 leading-relaxed">{circle.summary}</p>
+            ) : null}
+
+            {editing ? (
+              <div className="flex items-center gap-3">
+                <label className="font-ui text-xs uppercase tracking-widest text-base-content/60">
+                  {t('circle.visibility', { defaultValue: 'Visibility' })}
+                </label>
+                <select
+                  value={editTo}
+                  onChange={(e) => setEditTo(e.target.value)}
+                  className="bg-base-200 border border-base-300 px-3 py-1.5 font-ui text-xs focus:outline-none focus:border-primary"
+                >
+                  {VISIBILITY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {saveError && <p className="font-ui text-xs text-error">{saveError}</p>}
+
+            {!editing && (
+              <Link
+                to={`/circles/${encodeURIComponent(circle.id)}/posts`}
+                className="self-start flex items-center gap-2 px-4 py-2 bg-base-200 hover:bg-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:text-base-content transition-colors"
+              >
+                {t('circle.postsLink')}
+              </Link>
             )}
-            <Link
-              to={`/circles/${encodeURIComponent(circle.id)}/posts`}
-              className="self-start flex items-center gap-2 px-4 py-2 bg-base-200 hover:bg-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:text-base-content transition-colors"
-            >
-              {t('circle.postsLink')}
-            </Link>
           </div>
+
           {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0 pt-1">
-            {isLoggedIn && (
-              <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
-                <Copy size={12} /> {t('circle.copy')}
-              </button>
-            )}
-            <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
-              <Share2 size={12} /> {t('circle.share')}
-            </button>
-            {isOwner && (
+          <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
+            {editing ? (
               <>
-                <Link
-                  to={`/circles/${encodeURIComponent(circle.id)}/edit`}
+                <button
+                  onClick={handleSave}
+                  disabled={!editName.trim() || saving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
+                >
+                  {saving ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
+                  {t('common.save', { defaultValue: 'Save' })}
+                </button>
+                <button
+                  onClick={cancelEditing}
+                  disabled={saving}
                   className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
                 >
-                  <Pencil size={12} /> {t('common.edit')}
-                </Link>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 border border-error/40 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error transition-colors">
-                  <Trash2 size={12} /> {t('common.delete')}
+                  <X size={12} /> {t('common.cancel', { defaultValue: 'Cancel' })}
                 </button>
+              </>
+            ) : (
+              <>
+                {isLoggedIn && (
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
+                    <Copy size={12} /> {t('circle.copy')}
+                  </button>
+                )}
+                <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
+                  <Share2 size={12} /> {t('circle.share')}
+                </button>
+                {isOwner && (
+                  <>
+                    <button
+                      onClick={startEditing}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+                    >
+                      <Pencil size={12} /> {t('common.edit')}
+                    </button>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 border border-error/40 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error transition-colors">
+                      <Trash2 size={12} /> {t('common.delete')}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>
-        </div>
 
+        </div>
       </div>
 
       {/* Members */}
       <div className="flex flex-col gap-3">
         <h2 className="font-display text-2xl tracking-wide">{t('circle.members')}</h2>
-        <div className="flex flex-col gap-0 border-t border-base-300">
-          {circle.members.map((member) => (
-            <Link
-              key={member.id}
-              to={`/users/${encodeURIComponent(member.id)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-start gap-3 py-5 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
-            >
-              <UserAvatar user={member} size="sm" />
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="font-ui text-sm font-bold text-base-content">{member.displayName}</span>
-                <span className="font-ui text-sm uppercase tracking-widest text-base-content/65">{member.id}</span>
-                {member.profile?.bio && (
-                  <p className="font-reading text-base text-base-content/75 leading-snug mt-1">{member.profile.bio}</p>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
+
+        {isOwner && (
+          <AddMemberRow circleId={circle.id} onAdded={handleMemberAdded} />
+        )}
+
+        {members.length > 0 ? (
+          <div className="flex flex-col border-t border-base-300">
+            {members.map((member) => (
+              <MemberRow
+                key={member.id}
+                member={member}
+                isOwner={isOwner}
+                onRemove={handleRemoveMember}
+                removing={removingId === member.id}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="font-ui text-sm uppercase tracking-widest text-base-content/45">
+            {t('circle.noMembers', { defaultValue: 'No members yet.' })}
+          </p>
+        )}
       </div>
 
     </div>
