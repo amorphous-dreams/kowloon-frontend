@@ -14,7 +14,7 @@ async function getEmojis(client) {
   if (!fetchPromise) {
     fetchPromise = client.feeds.getServerInfo()
       .then((info) => {
-        cachedEmojis = info?.settings?.likeEmojis ?? DEFAULT_EMOJIS
+        cachedEmojis = info?.settings?.reactEmojis ?? DEFAULT_EMOJIS
         return cachedEmojis
       })
       .catch(() => {
