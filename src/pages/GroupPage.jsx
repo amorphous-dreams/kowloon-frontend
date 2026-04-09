@@ -196,10 +196,7 @@ export default function GroupPage() {
         client.feeds.getGroup({ groupId: id }),
         client.feeds.getGroupPosts({ groupId: id }),
       ])
-      setGroup({
-        ...groupRes,
-        attributedTo: groupRes.attributedTo ?? groupRes.actor ?? { id: groupRes.actorId },
-      })
+      setGroup(groupRes)
       setPosts(postsRes?.orderedItems ?? [])
       if (authUser && groupRes?.members) {
         setJoined(groupRes.members.some((m) => m.id === authUser.id))
@@ -231,7 +228,7 @@ export default function GroupPage() {
   if (!group)  return null
 
   const isLoggedIn      = !!authUser
-  const isOwner         = authUser && group.attributedTo?.id === authUser.id
+  const isOwner         = authUser && group.actor?.id === authUser.id
   const isMember        = joined || (authUser && group.members?.some((m) => m.id === authUser.id))
   const needsApproval   = group.rsvpPolicy === 'restricted'
 
@@ -264,10 +261,10 @@ export default function GroupPage() {
             <h1 className="font-display text-4xl leading-none tracking-wide">{group.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-ui text-xs uppercase tracking-widest text-base-content/60">
               <Link
-                to={`/users/${encodeURIComponent(group.attributedTo?.id)}`}
+                to={`/users/${encodeURIComponent(group.actor?.id)}`}
                 className="font-bold hover:text-primary transition-colors"
               >
-                {group.attributedTo?.name ?? group.attributedTo?.id}
+                {group.actor?.name ?? group.actor?.id}
               </Link>
               <span>·</span>
               <span className="flex items-center gap-1">
@@ -386,7 +383,7 @@ export default function GroupPage() {
                 <span className="font-ui text-sm font-bold text-base-content leading-tight">{member.name ?? member.displayName}</span>
                 <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 truncate">{member.id}</span>
               </div>
-              {member.id === group.attributedTo?.id && (
+              {member.id === group.actor?.id && (
                 <span className="ml-auto font-ui text-xs uppercase tracking-widest text-base-content/40 shrink-0">
                   {t('group.owner', { defaultValue: 'Owner' })}
                 </span>
