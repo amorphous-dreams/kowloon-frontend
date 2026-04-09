@@ -1,7 +1,7 @@
 // CirclePage — circle detail: icon, name, description, creator, members.
 // Authorized users see the full page. Owners can edit inline and manage members.
 
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -161,6 +161,7 @@ function AddMemberRow({ circleId, onAdded }) {
 export default function CirclePage() {
   const { id } = useParams()
   const client = useClient()
+  const navigate = useNavigate()
   const authUser = useSelector((state) => state.auth.user)
   const { t } = useTranslation()
 
@@ -431,7 +432,18 @@ export default function CirclePage() {
             ) : (
               <>
                 {isLoggedIn && (
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
+                  <button
+                    onClick={() => navigate('/circles/new', {
+                      state: {
+                        name: circle.name,
+                        description: circle.summary ?? '',
+                        icon: circle.icon ?? null,
+                        to: circle.to ?? '@public',
+                        members,
+                      }
+                    })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+                  >
                     <Copy size={12} /> {t('circle.copy')}
                   </button>
                 )}

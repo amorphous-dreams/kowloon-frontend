@@ -11,9 +11,9 @@
 //   className     — extra classes on the trigger button
 
 import { useState, useRef, useEffect, useId } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Search, ChevronDown } from 'lucide-react'
-import NewCircleModal from './NewCircleModal'
 import CircleIcon from '../ui/CircleIcon'
 
 const hexMask = {
@@ -36,12 +36,12 @@ export default function CircleSelector({
   className = '',
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const id = useId()
   const listboxId = `${id}-listbox`
 
   const [open, setOpen]         = useState(false)
   const [query, setQuery]       = useState('')
-  const [creating, setCreating] = useState(false)
   const [focusedIndex, setFocusedIndex] = useState(-1)
 
   const containerRef = useRef(null)
@@ -133,7 +133,7 @@ export default function CircleSelector({
       else setFocusedIndex(index - 1)
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      if (opt.id === '__create__') { setOpen(false); setCreating(true) }
+      if (opt.id === '__create__') { setOpen(false); navigate('/circles/new') }
       else handleSelect(opt.id)
     } else if (e.key === 'Escape') {
       setOpen(false)
@@ -296,7 +296,7 @@ export default function CircleSelector({
                     ref={(el) => { optionRefs.current[i] = el }}
                     type="button"
                     tabIndex={-1}
-                    onClick={() => { setOpen(false); setCreating(true) }}
+                    onClick={() => { setOpen(false); navigate('/circles/new') }}
                     onKeyDown={(e) => handleOptionKeyDown(e, i)}
                     className="w-full px-4 py-2.5 text-left font-ui text-xs uppercase tracking-widest text-primary hover:bg-base-200 transition-colors"
                   >
@@ -309,12 +309,6 @@ export default function CircleSelector({
         </div>
       )}
 
-      {creating && (
-        <NewCircleModal
-          onClose={() => setCreating(false)}
-          onCreated={(circle) => { onCreateCircle?.(circle); setCreating(false) }}
-        />
-      )}
     </div>
   )
 }

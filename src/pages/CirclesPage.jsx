@@ -9,7 +9,7 @@ const MOCK_CIRCLES = [
 ]
 
 import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { Copy } from 'lucide-react'
@@ -18,7 +18,6 @@ import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
-import NewCircleModal from '../components/circles/NewCircleModal'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -119,7 +118,7 @@ export default function CirclesPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [copySource, setCopySource] = useState(null)
+  const navigate = useNavigate()
 
   const load = useCallback(async (sortOrder, pageNum) => {
     if (!client) {
@@ -155,7 +154,15 @@ export default function CirclesPage() {
   }
 
   const handleCopy = (circle) => {
-    setCopySource(circle)
+    navigate('/circles/new', {
+      state: {
+        name: circle.name,
+        description: circle.summary ?? '',
+        icon: circle.icon ?? null,
+        to: circle.to ?? '@public',
+        members: circle.members ?? [],
+      }
+    })
   }
 
   const totalPages = Math.ceil(totalItems / itemsPerPage)
@@ -177,7 +184,17 @@ export default function CirclesPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-0 border border-base-300">
+        <div className="flex items-center gap-3">
+          {user && (
+            <Link
+              to="/circles/new"
+              state={{ to: '@public' }}
+              className="px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors"
+            >
+              {t('circle.create', { defaultValue: 'Create Circle' })}
+            </Link>
+          )}
+          <div className="flex items-center gap-0 border border-base-300">
           <button
             onClick={() => handleSort('date')}
             className={`px-4 py-2 font-ui text-xs uppercase tracking-widest transition-colors ${
@@ -198,6 +215,7 @@ export default function CirclesPage() {
           >
             {t('sort.popular', { defaultValue: 'Popular' })}
           </button>
+        </div>
         </div>
       </div>
 
@@ -245,19 +263,6 @@ export default function CirclesPage() {
 
     </div>
 
-    {copySource && (
-      <NewCircleModal
-        title={t('circle.copyTitle', { defaultValue: 'Copy Circle' })}
-        initialData={{
-          name: copySource.name,
-          summary: copySource.summary,
-          icon: copySource.icon,
-          members: copySource.members ?? [],
-        }}
-        onClose={() => setCopySource(null)}
-        onCreated={() => setCopySource(null)}
-      />
-    )}
-    </>
+</>
   )
 }
