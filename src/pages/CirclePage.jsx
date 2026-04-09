@@ -11,6 +11,7 @@ import UserAvatar from '../components/ui/UserAvatar'
 import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
+import PostComposer from '../components/posts/PostComposer'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -168,6 +169,7 @@ export default function CirclePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
   const [removingId, setRemovingId] = useState(null)
+  const [sharing, setSharing] = useState(false)
 
   // Edit mode state
   const [editing, setEditing]         = useState(false)
@@ -433,7 +435,10 @@ export default function CirclePage() {
                     <Copy size={12} /> {t('circle.copy')}
                   </button>
                 )}
-                <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
+                <button
+                  onClick={() => setSharing(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+                >
                   <Share2 size={12} /> {t('circle.share')}
                 </button>
                 {isOwner && (
@@ -482,6 +487,27 @@ export default function CirclePage() {
           </p>
         )}
       </div>
+
+      {sharing && (
+        <PostComposer
+          circles={[]}
+          defaultOpen
+          initialValues={{
+            type: 'Link',
+            href: `${window.location.origin}/circles/${encodeURIComponent(circle.id)}`,
+            title: circle.name,
+            content: circle.summary
+              ? circle.summary.split('\n').map((l) => `> ${l}`).join('\n')
+              : '',
+            featuredImage: circle.icon ?? null,
+            target: circle.id,
+            to: 'public',
+          }}
+          onClose={() => setSharing(false)}
+          onPostCreated={() => setSharing(false)}
+          prompt={t('composer.shareCirclePrompt', { defaultValue: 'Share this circle\u2026' })}
+        />
+      )}
 
     </div>
   )
