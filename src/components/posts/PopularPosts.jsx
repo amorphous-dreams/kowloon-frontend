@@ -2,82 +2,15 @@
 // Ranked by reaction + reply count. Shows post type color, title/summary, author, and counts.
 // Media posts additionally show a thumbnail or A/V placeholder.
 
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MessageSquare, Smile, Play, Music } from 'lucide-react'
 import { POST_TYPES } from '../../lib/postTypes'
 import PostTypeIcon from '../ui/PostTypeIcon'
+import { useClient } from '../../hooks/useClient'
 
 const MEDIA_COLOR = POST_TYPES['Media']?.color ?? '#009084'
-
-const MOCK_POPULAR = [
-  {
-    id: 'post:2@kwln.org',
-    type: 'Article',
-    name: 'On the Aesthetics of Midcentury Design',
-    summary: 'Reid Miles understood that negative space is content — that what you leave out is as important as what you put in.',
-    attributedTo: { id: '@designthink@kwln.org', displayName: 'Design Thinking' },
-    replyCount: 24,
-    reactCount: 91,
-  },
-  {
-    id: 'post:8@kwln.org',
-    type: 'Media',
-    name: 'Rooftop at golden hour',
-    summary: 'The light does something different up here.',
-    attributedTo: { id: '@jzellis@kwln.org', displayName: 'Joshua Ellis' },
-    featuredImage: 'https://picsum.photos/seed/roof1/800/800',
-    replyCount: 5,
-    reactCount: 74,
-  },
-  {
-    id: 'post:3@kwln.org',
-    type: 'Link',
-    name: 'Blue Note Records: The Complete Discography',
-    summary: 'An absolutely essential resource. Every cover, every session date, every pressing.',
-    attributedTo: { id: '@recordhead@kwln.org', displayName: 'Record Head' },
-    replyCount: 8,
-    reactCount: 57,
-  },
-  {
-    id: 'post:5@kwln.org',
-    type: 'Media',
-    name: 'New track: "Wanchai Drift"',
-    summary: 'Recorded this late last night. Somewhere between jazz and something else entirely.',
-    attributedTo: { id: '@jzellis@kwln.org', displayName: 'Joshua Ellis' },
-    attachments: [{ mediaType: 'audio/ogg' }],
-    replyCount: 14,
-    reactCount: 52,
-  },
-  {
-    id: 'post:4@kwln.org',
-    type: 'Event',
-    name: 'Kowloon Dev Meetup #4',
-    summary: 'Come hang out and talk federated social networks, indie web, ActivityPub, and whatever else you\'re building.',
-    attributedTo: { id: '@jzellis@kwln.org', displayName: 'Joshua Ellis' },
-    replyCount: 12,
-    reactCount: 44,
-  },
-  {
-    id: 'post:20@kwln.org',
-    type: 'Media',
-    name: 'Timelapse: setting up the stage',
-    summary: 'Four hours in forty seconds.',
-    attributedTo: { id: '@jzellis@kwln.org', displayName: 'Joshua Ellis' },
-    attachments: [{ mediaType: 'video/mp4' }],
-    replyCount: 9,
-    reactCount: 41,
-  },
-  {
-    id: 'post:1@kwln.org',
-    type: 'Note',
-    name: null,
-    summary: 'Just finished reading The Stars My Destination for the third time. Still the best science fiction novel ever written, no notes.',
-    attributedTo: { id: '@jzellis@kwln.org', displayName: 'Joshua Ellis' },
-    replyCount: 19,
-    reactCount: 38,
-  },
-]
 
 function MediaThumb({ post }) {
   if (post.featuredImage) {
@@ -108,8 +41,27 @@ function MediaThumb({ post }) {
   )
 }
 
-export default function PopularPosts({ posts = MOCK_POPULAR }) {
+export default function PopularPosts() {
   const { t } = useTranslation()
+  const client = useClient()
+  const [posts, setPosts] = useState([])
+
+  useEffect(() => {
+    if (!client) return
+    client.feeds.getServerPosts({ limit: 20 })
+      .then((res) => {
+        const items = res?.orderedItems ?? []
+        // Sort by combined react + reply count descending, take top 7
+        const sorted = [...items]
+          .sort((a, b) => (b.reactCount + b.replyCount) - (a.reactCount + a.replyCount))
+          .slice(0, 7)
+        setPosts(sorted)
+      })
+      .catch(() => {})
+  }, [client])
+
+  if (!posts.length) return null
+
   return (
     <div className="flex flex-col gap-0">
       <div className="flex items-center gap-2 mb-3" style={{ minHeight: '36px' }}>
@@ -120,6 +72,7 @@ export default function PopularPosts({ posts = MOCK_POPULAR }) {
         {posts.map((post) => {
           const typeColor = POST_TYPES[post.type]?.color
           const showThumb = post.type === 'Media'
+          const author = post.actor ?? post.attributedTo
 
           return (
             <li key={post.id} className="border-b border-base-300 last:border-b-0 mb-3 last:mb-0">
@@ -151,16 +104,16 @@ export default function PopularPosts({ posts = MOCK_POPULAR }) {
                 {/* Author + counts */}
                 <div className="flex items-center justify-between pl-3">
                   <span className="font-ui text-sm font-bold uppercase tracking-widest text-base-content/75">
-                    {post.attributedTo.name ?? post.attributedTo.displayName}
+                    {author?.name ?? author?.displayName}
                   </span>
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-base-content/65">
                       <Smile size={11} />
-                      {post.reactCount}
+                      {post.reactCount ?? 0}
                     </span>
                     <span className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-base-content/65">
                       <MessageSquare size={11} />
-                      {post.replyCount}
+                      {post.replyCount ?? 0}
                     </span>
                   </div>
                 </div>

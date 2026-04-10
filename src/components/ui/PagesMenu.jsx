@@ -1,40 +1,37 @@
 // PagesMenu — hierarchical server pages navigation tree.
-// Props: pages (array of { id, name, slug, children? })
-// Falls back to mock data if no pages prop passed.
+// Self-fetches from GET /pages and groups by parentFolder.
 
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
+import { useClient } from '../../hooks/useClient'
 
-const MOCK_PAGES = [
-  {
-    id: 'page:about@kwln.org',
-    name: 'About',
-    slug: 'about',
-    children: [
-      { id: 'page:rules@kwln.org',   name: 'Rules & Guidelines', slug: 'rules' },
-      { id: 'page:privacy@kwln.org', name: 'Privacy Policy',     slug: 'privacy' },
-    ],
-  },
-  {
-    id: 'page:projects@kwln.org',
-    name: 'Projects',
-    slug: 'projects',
-    children: [
-      { id: 'page:kowloon@kwln.org', name: 'Kowloon',      slug: 'kowloon' },
-      { id: 'page:music@kwln.org',   name: 'Music Archive', slug: 'music-archive' },
-    ],
-  },
-  {
-    id: 'page:contact@kwln.org',
-    name: 'Contact',
-    slug: 'contact',
-    children: [],
-  },
-]
-
-export default function PagesMenu({ pages = MOCK_PAGES }) {
+export default function PagesMenu() {
   const { t } = useTranslation()
+  const client = useClient()
+  const [pages, setPages] = useState([])
+
+  useEffect(() => {
+    if (!client) return
+    // Call the HTTP layer directly — getServerPages() requires a serverId that
+    // we don't need in single-server mode; the backend treats it as optional.
+    client.feeds.http.get('/pages', { params: { limit: 50 } })
+      .then((res) => {
+        const items = res?.orderedItems ?? res?.items ?? []
+        // Build two-level tree: top-level pages + their children
+        const top = items.filter((p) => !p.parentFolder)
+        const tree = top.map((p) => ({
+          ...p,
+          children: items.filter((c) => c.parentFolder === p.id),
+        }))
+        setPages(tree)
+      })
+      .catch(() => {})
+  }, [client])
+
+  if (!pages.length) return null
+
   return (
     <div className="flex flex-col gap-0 border-b-2 border-base-300 pb-5">
       <div className="flex items-center gap-2 mb-3" style={{ minHeight: '36px' }}>
@@ -46,25 +43,24 @@ export default function PagesMenu({ pages = MOCK_PAGES }) {
           {pages.map((page) => (
             <li key={page.id}>
               <Link
-                to={`/pages/${page.slug}`}
+                to={`/pages/${encodeURIComponent(page.slug ?? page.id)}`}
                 className="flex items-center justify-between py-1.5 font-ui text-sm uppercase tracking-widest text-base-content/80 hover:text-primary transition-colors group"
               >
-                {page.name}
+                {page.title ?? page.name}
                 {page.children?.length > 0 && (
                   <ChevronRight className="w-3 h-3 text-base-content/55 group-hover:text-primary transition-colors" />
                 )}
               </Link>
 
-              {/* Second-level pages */}
               {page.children?.length > 0 && (
                 <ul className="flex flex-col gap-0 border-l-2 border-base-300 ml-2 mb-1">
                   {page.children.map((child) => (
                     <li key={child.id}>
                       <Link
-                        to={`/pages/${child.slug}`}
+                        to={`/pages/${encodeURIComponent(child.slug ?? child.id)}`}
                         className="block pl-3 py-1 font-ui text-sm uppercase tracking-widest text-base-content/70 hover:text-primary transition-colors"
                       >
-                        {child.name}
+                        {child.title ?? child.name}
                       </Link>
                     </li>
                   ))}

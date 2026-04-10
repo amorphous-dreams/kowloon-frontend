@@ -207,7 +207,7 @@ export default function GroupsPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await client.feeds.browseGroups({ sort: sortOrder, page: pageNum })
+      const res = await client.feeds.getGroups({ sort: sortOrder, page: pageNum })
       setGroups(res.orderedItems ?? [])
       setTotalItems(res.totalItems ?? 0)
       setItemsPerPage(res.itemsPerPage ?? 20)

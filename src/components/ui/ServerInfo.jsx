@@ -1,38 +1,40 @@
 // ServerInfo — server icon, name, description, and location.
-// Used in the sidebar and on the public landing page.
-// Props: server object from server info API (TBD).
-// Falls back to mock data if no server prop is passed.
+// Self-fetches from GET / (server info endpoint).
 
+import { useEffect, useState } from 'react'
 import { MapPin } from 'lucide-react'
+import { useClient } from '../../hooks/useClient'
 
-const MOCK_SERVER = {
-  name: 'My Kowloon Server',
-  icon: '/logo.png',
-  description: 'A small, friendly server for writers, musicians, and people who think too much. Open registration. Be excellent to each other.',
-  city: 'London',
-  region: 'England',
-  country: 'UK',
-}
+export default function ServerInfo() {
+  const client = useClient()
+  const [server, setServer] = useState(null)
 
-export default function ServerInfo({ server = MOCK_SERVER }) {
+  useEffect(() => {
+    if (!client) return
+    client.feeds.getServerInfo()
+      .then((res) => setServer(res))
+      .catch(() => {})
+  }, [client])
+
+  if (!server) return null
+
   return (
     <div className="flex flex-col gap-0 border-b-2 border-base-300 pb-5">
       {/* Icon + name */}
       <div className="flex items-center gap-3 mb-4">
-        <img src={server.icon} alt={server.name} className="w-10 h-10 object-contain shrink-0" />
+        {server.icon && (
+          <img src={server.icon} alt={server.name} className="w-10 h-10 object-contain shrink-0" />
+        )}
         <span className="font-display text-4xl tracking-wide text-base-content leading-none">
           {server.name}
         </span>
       </div>
 
-      {/* Location */}
-      {(server.city || server.country) && (
-        <div className="flex items-center gap-1.5 mb-3 text-base-content/70 pl-[52px]">
-          <MapPin className="w-3 h-3 shrink-0" />
-          <span className="font-ui text-xs uppercase tracking-widest">
-            {[server.city, server.region, server.country].filter(Boolean).join(', ')}
-          </span>
-        </div>
+      {/* Subtitle */}
+      {server.subtitle && (
+        <p className="font-ui text-xs uppercase tracking-widest text-base-content/55 mb-2 pl-[52px]">
+          {server.subtitle}
+        </p>
       )}
 
       {/* Description */}

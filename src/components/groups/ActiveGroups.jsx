@@ -8,52 +8,6 @@ import { Users } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import CircleIcon from '../ui/CircleIcon'
 
-const MOCK_GROUPS = [
-  {
-    id: 'group:jazz@kwln.org',
-    name: 'London Jazz Society',
-    icon: 'https://picsum.photos/seed/jazzgroup/200/200',
-    memberCount: 214,
-    recentPost: {
-      attributedTo: { displayName: 'Record Head' },
-      summary: 'Tickets for the Ronnie Scott\'s anniversary night are up — grab them before they go.',
-      published: new Date(Date.now() - 1000 * 60 * 47).toISOString(),
-    },
-  },
-  {
-    id: 'group:indieweb@kwln.org',
-    name: 'Indie Web London',
-    icon: 'https://picsum.photos/seed/indiewebgroup/200/200',
-    memberCount: 88,
-    recentPost: {
-      attributedTo: { displayName: 'City Hacker' },
-      summary: 'Anyone working on ActivityPub implementations? Would love to compare notes at the next meetup.',
-      published: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    },
-  },
-  {
-    id: 'group:design@kwln.org',
-    name: 'Midcentury Design Collective',
-    icon: 'https://picsum.photos/seed/designgroup/200/200',
-    memberCount: 156,
-    recentPost: {
-      attributedTo: { displayName: 'Design Thinking' },
-      summary: 'Just found a near-mint copy of Müller-Brockmann\'s Grid Systems at a market stall. Genuinely shaking.',
-      published: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-    },
-  },
-  {
-    id: 'group:scifi@kwln.org',
-    name: 'Science Fiction Reading Group',
-    icon: 'https://picsum.photos/seed/scifigroup/200/200',
-    memberCount: 73,
-    recentPost: {
-      attributedTo: { displayName: 'Joshua Ellis' },
-      summary: 'Next month we\'re doing A Fire Upon the Deep. Full novel, so start early.',
-      published: new Date(Date.now() - 1000 * 60 * 60 * 11).toISOString(),
-    },
-  },
-]
 
 function relativeTime(iso) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -93,7 +47,7 @@ function GroupAvatar({ group }) {
 export default function ActiveGroups() {
   const { t } = useTranslation()
   const client = useClient()
-  const [groups, setGroups] = useState(MOCK_GROUPS)
+  const [groups, setGroups] = useState([])
 
   useEffect(() => {
     if (!client) return
@@ -101,6 +55,8 @@ export default function ActiveGroups() {
       .then((res) => setGroups(res?.orderedItems ?? []))
       .catch(() => {})
   }, [client])
+
+  if (!groups.length) return null
 
   return (
     <div className="flex flex-col gap-0">
