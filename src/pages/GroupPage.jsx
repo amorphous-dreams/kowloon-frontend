@@ -417,7 +417,7 @@ export default function GroupPage() {
       {/* Posts */}
       <div className="flex flex-col gap-4">
         <TypeFilter />
-        <PostList posts={MOCK_POSTS} />
+        <PostList posts={posts} />
       </div>
 
     </div>
