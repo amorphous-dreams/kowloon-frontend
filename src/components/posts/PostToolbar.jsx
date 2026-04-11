@@ -3,11 +3,13 @@
 // Props: post object
 
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
 import BookmarkComposer from '../bookmarks/BookmarkComposer'
+import { useClient } from '../../hooks/useClient'
 
 // ── Share helpers ────────────────────────────────────────────────────────────
 
@@ -73,7 +75,7 @@ function ShareButton({ post, t, user }) {
     <>
       <button
         onClick={() => setSharing(true)}
-        className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors ml-auto"
+        className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
       >
         {t('post.share')}
       </button>
@@ -91,6 +93,50 @@ function ShareButton({ post, t, user }) {
   )
 }
 
+// ── OwnerActions ─────────────────────────────────────────────────────────────
+
+function OwnerActions({ post, t }) {
+  const client = useClient()
+  const navigate = useNavigate()
+  const [deleting, setDeleting] = useState(false)
+
+  const editUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}/edit` : null
+
+  const handleDelete = async () => {
+    if (!window.confirm(t('post.deleteConfirm', { defaultValue: 'Delete this post? This cannot be undone.' }))) return
+    setDeleting(true)
+    try {
+      await client.activities.deletePost({ postId: post.id })
+      navigate('/')
+    } catch {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {editUrl && (
+        <Link
+          to={editUrl}
+          className="font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+        >
+          {t('common.edit', { defaultValue: 'Edit' })}
+        </Link>
+      )}
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className="font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-error transition-colors disabled:opacity-30"
+      >
+        {deleting
+          ? t('common.deleting', { defaultValue: 'Deleting…' })
+          : t('common.delete', { defaultValue: 'Delete' })
+        }
+      </button>
+    </div>
+  )
+}
+
 // ── PostToolbar ──────────────────────────────────────────────────────────────
 
 export default function PostToolbar({ post }) {
@@ -104,6 +150,8 @@ export default function PostToolbar({ post }) {
     title: post?.title ?? post?.name ?? undefined,
     image: post?.image ?? post?.featuredImage ?? undefined,
   } : null
+
+  const isOwner = user && post?.attributedTo?.id && user.id === post.attributedTo.id
 
   return (
     <div className="flex items-center gap-4 flex-1">
@@ -135,8 +183,11 @@ export default function PostToolbar({ post }) {
         </>
       )}
 
-      {/* Share — logged-in users, public posts only */}
-      <ShareButton post={post} t={t} user={user} />
+      {/* Right side: Share + owner actions */}
+      <div className="flex items-center gap-3 ml-auto">
+        <ShareButton post={post} t={t} user={user} />
+        {isOwner && <OwnerActions post={post} t={t} />}
+      </div>
     </div>
   )
 }

@@ -25,6 +25,7 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, sessionChecked, status, error } = useSelector((state) => state.auth)
+  const { registrationIsOpen } = useSelector((state) => state.server)
   const { t } = useTranslation()
 
   const [serverUrl, setServerUrl]           = useState(FIXED_SERVER || '')
@@ -127,6 +128,14 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {registrationIsOpen === false && (
+            <div className="mb-6 px-4 py-3 border-l-4 border-warning bg-warning/5">
+              <p className="font-ui text-xs uppercase tracking-widest text-warning/80">
+                {t('auth.inviteOnly', { defaultValue: 'This server requires an invite to register.' })}
+              </p>
+            </div>
+          )}
+
           {displayError && (
             <div role="alert" className="mb-6 px-4 py-3 border-l-4 border-error bg-error/5">
               <p className="font-ui text-xs uppercase tracking-widest text-error">{displayError}</p>
@@ -211,13 +220,17 @@ export default function RegisterPage() {
 
             <Field
               label={t('auth.inviteCode', { defaultValue: 'Invite Code' })}
-              hint={t('auth.inviteCodeNote', { defaultValue: 'if required' })}
+              hint={registrationIsOpen === false
+                ? t('common.required', { defaultValue: 'required' })
+                : t('auth.inviteCodeNote', { defaultValue: 'if required' })
+              }
             >
               <input
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
                 placeholder={t('auth.inviteCodePlaceholder', { defaultValue: 'XXXX-XXXX' })}
+                required={registrationIsOpen === false}
                 autoComplete="off"
                 className={inputCls}
               />
