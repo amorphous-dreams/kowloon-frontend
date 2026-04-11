@@ -1,23 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { logoutAsync } from '../../features/auth/authSlice'
 import { useClient } from '../../hooks/useClient'
-
-// TODO: pull from server info API / Redux slice
-const SERVER_NAME = 'My Kowloon Server'
-const SERVER_PAGES = [
-  { label: 'About',    slug: 'about',    children: [
-    { label: 'Rules & Guidelines', slug: 'rules' },
-    { label: 'Privacy Policy',     slug: 'privacy' },
-  ]},
-  { label: 'Projects', slug: 'projects', children: [
-    { label: 'Kowloon',       slug: 'kowloon' },
-    { label: 'Music Archive', slug: 'music-archive' },
-  ]},
-  { label: 'Contact',  slug: 'contact',  children: [] },
-]
 
 function BellIcon() {
   return (
@@ -44,11 +30,32 @@ const navLinkClass = ({ isActive }) =>
   }`
 
 export function Header() {
-  const dispatch  = useDispatch()
-  const navigate  = useNavigate()
-  const { user }  = useSelector((state) => state.auth)
-  const client    = useClient()
-  const { t }     = useTranslation()
+  const dispatch   = useDispatch()
+  const navigate   = useNavigate()
+  const { user }   = useSelector((state) => state.auth)
+  const server     = useSelector((state) => state.server)
+  const client     = useClient()
+  const { t }      = useTranslation()
+
+  const [menuOpen, setMenuOpen]         = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [pages, setPages]               = useState([])
+
+  // Fetch pages for the mobile hamburger menu
+  useEffect(() => {
+    if (!client) return
+    client.feeds.http.get('/pages', { params: { limit: 50 } })
+      .then((res) => {
+        const items = res?.orderedItems ?? res?.items ?? []
+        const top = items.filter((p) => !p.parentFolder)
+        const tree = top.map((p) => ({
+          ...p,
+          children: items.filter((c) => c.parentFolder === p.id),
+        }))
+        setPages(tree)
+      })
+      .catch(() => {})
+  }, [client])
 
   const NAV_LINKS = [
     { to: '/',         label: t('nav.feed')    },
@@ -57,17 +64,15 @@ export function Header() {
     { to: '/search',   label: t('nav.search')  },
   ]
 
-  const [menuOpen, setMenuOpen]     = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-
   const handleLogout = async () => {
     await dispatch(logoutAsync())
     navigate('/login')
   }
 
-  const avatarUrl  = user?.icon ? client?.files?.serveUrl(user.icon, {}) : null
-  const userHandle = user?.id || user?.username
+  const avatarUrl   = user?.icon ? client?.files?.serveUrl(user.icon, {}) : null
+  const userHandle  = user?.id || user?.username
   const userInitial = user?.username?.[0]?.toUpperCase() ?? '?'
+  const serverName  = server.name || 'Kowloon'
 
   return (
     <header className="bg-secondary border-b-4 border-primary sticky top-0 z-50">
@@ -80,7 +85,7 @@ export function Header() {
           </div>
           <div className="flex items-center px-4 lg:px-5 bg-black/20">
             <span className="font-display text-2xl lg:text-3xl tracking-[0.15em] text-secondary-content whitespace-nowrap">
-              {SERVER_NAME}
+              {serverName}
             </span>
           </div>
         </Link>
@@ -210,35 +215,41 @@ export function Header() {
               ))}
 
               {/* Server info */}
-              <li className="px-4 py-4 border-t border-base-300 dark:border-white/10">
-                <p className="font-reading text-sm text-base-content/75 dark:text-white/95 leading-relaxed">
-                  A small, friendly server for writers, musicians, and people who think too much.
-                </p>
-              </li>
+              {server.description && (
+                <li className="px-4 py-4 border-t border-base-300 dark:border-white/10">
+                  <p className="font-reading text-sm text-base-content/75 dark:text-white/95 leading-relaxed">
+                    {server.description}
+                  </p>
+                </li>
+              )}
 
               {/* Pages */}
-              <li className="px-4 pt-1 pb-1 font-ui text-xs uppercase tracking-widest text-base-content/40 dark:text-white/60 border-t border-base-300 dark:border-white/10">
-                {t('nav.pages')}
-              </li>
-              {SERVER_PAGES.map((page) => (
-                <li key={page.slug}>
-                  <Link
-                    to={`/pages/${page.slug}`}
-                    className="block px-4 py-2 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                  >
-                    {page.label}
-                  </Link>
-                  {page.children?.map((child) => (
-                    <Link
-                      key={child.slug}
-                      to={`/pages/${child.slug}`}
-                      className="block pl-8 pr-4 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 dark:text-white/80 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                    >
-                      {child.label}
-                    </Link>
+              {pages.length > 0 && (
+                <>
+                  <li className="px-4 pt-3 pb-1 font-ui text-xs uppercase tracking-widest text-base-content/40 dark:text-white/60 border-t border-base-300 dark:border-white/10">
+                    {t('nav.pages')}
+                  </li>
+                  {pages.map((page) => (
+                    <li key={page.id}>
+                      <Link
+                        to={`/pages/${encodeURIComponent(page.slug ?? page.id)}`}
+                        className="block px-4 py-2 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
+                      >
+                        {page.title ?? page.name}
+                      </Link>
+                      {page.children?.map((child) => (
+                        <Link
+                          key={child.id}
+                          to={`/pages/${encodeURIComponent(child.slug ?? child.id)}`}
+                          className="block pl-8 pr-4 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 dark:text-white/80 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
+                        >
+                          {child.title ?? child.name}
+                        </Link>
+                      ))}
+                    </li>
                   ))}
-                </li>
-              ))}
+                </>
+              )}
 
               {/* Sign in / Register — logged-out only */}
               {!user && (

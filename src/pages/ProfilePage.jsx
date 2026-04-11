@@ -104,12 +104,21 @@ export default function ProfilePage() {
   const [saved, setSaved]   = useState(false)
   const [error, setError]   = useState(null)
 
-  const handleIconFile = (e) => {
+  const handleIconFile = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const url = URL.createObjectURL(file)
-    setIconPreview(url)
-    // TODO: upload file, get back URL, set iconUrl
+    setIconPreview(URL.createObjectURL(file))
+    try {
+      const res = await client.files.upload({
+        file,
+        filename: file.name,
+        contentType: file.type,
+        to: '@public',
+      })
+      if (res?.file?.url) setIconUrl(res.file.url)
+    } catch {
+      // Preview stays; save will use previous iconUrl if upload failed
+    }
   }
 
   const addUrl = () => {

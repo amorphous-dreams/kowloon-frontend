@@ -1,22 +1,12 @@
 // ServerInfo — server icon, name, description, and location.
-// Self-fetches from GET / (server info endpoint).
+// Reads from Redux serverSlice (fetched at app startup).
 
-import { useEffect, useState } from 'react'
-import { MapPin } from 'lucide-react'
-import { useClient } from '../../hooks/useClient'
+import { useSelector } from 'react-redux'
 
 export default function ServerInfo() {
-  const client = useClient()
-  const [server, setServer] = useState(null)
+  const server = useSelector((state) => state.server)
 
-  useEffect(() => {
-    if (!client) return
-    client.feeds.getServerInfo()
-      .then((res) => setServer(res))
-      .catch(() => {})
-  }, [client])
-
-  if (!server) return null
+  if (server.status !== 'succeeded' || !server.name) return null
 
   return (
     <div className="flex flex-col gap-0 border-b-2 border-base-300 pb-5">

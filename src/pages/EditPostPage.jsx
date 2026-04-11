@@ -1,31 +1,20 @@
 // EditPostPage — edit an existing post. Owner only.
 // Pre-populated with existing post data; same form as NewPostPage.
 
-import { useState, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, MapPin } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import PostTypeSelector from '../components/posts/PostTypeSelector'
 import RichTextEditor from '../components/posts/RichTextEditor'
 import CircleSelector from '../components/circles/CircleSelector'
+import Spinner from '../components/ui/Spinner'
+import ErrorState from '../components/ui/ErrorState'
 
 const NOTE_MAX_WORDS = 500
 const NOTE_MAX_CHARS = 5000
 const countWords = (md) => md.trim().split(/\s+/).filter(Boolean).length
-
-// ── Mock ──────────────────────────────────────────────────────────────────────
-
-const MOCK_POST = {
-  id: 'post:2@kwln.org',
-  type: 'Article',
-  name: 'On the Aesthetics of Midcentury Design',
-  source: 'Reid Miles understood that negative space *is* content — that what you leave out is as important as what you put in.',
-  visibility: 'public',
-  tag: [{ name: '#design' }, { name: '#midcentury' }],
-  location: null,
-}
 
 // ── Shared form helpers ───────────────────────────────────────────────────────
 
@@ -87,25 +76,48 @@ export default function EditPostPage() {
   const client = useClient()
   const { t } = useTranslation()
 
-  const post = MOCK_POST // TODO: fetch by id
+  const [loading, setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
-  const initialTags = (post.tag ?? [])
-    .map((t) => t.name?.replace(/^#/, '').toLowerCase())
-    .filter(Boolean)
-
-  const [postType, setPostType]   = useState(post.type ?? 'Note')
-  const [title, setTitle]         = useState(post.name ?? '')
-  const [content, setContent]     = useState(post.source ?? '')
-  const [href, setHref]           = useState(post.href ?? '')
-  const [startDate, setStartDate] = useState(post.startTime ?? '')
-  const [endDate, setEndDate]     = useState(post.endTime ?? '')
-  const [location, setLocation]   = useState(post.location?.name ?? '')
-  const [geo, setGeo]             = useState(post.location?.lat ? { lat: post.location.lat, lon: post.location.lon } : null)
-  const [tags, setTags]           = useState(initialTags)
-  const [audience, setAudience]   = useState(post.visibility ?? 'public')
+  const [postType, setPostType]   = useState('Note')
+  const [title, setTitle]         = useState('')
+  const [content, setContent]     = useState('')
+  const [href, setHref]           = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate]     = useState('')
+  const [location, setLocation]   = useState('')
+  const [geo, setGeo]             = useState(null)
+  const [tags, setTags]           = useState([])
+  const [audience, setAudience]   = useState('@public')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]         = useState(null)
   const [locating, setLocating]   = useState(false)
+
+  const load = useCallback(async () => {
+    if (!client) return
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const res = await client.feeds.getPost({ postId: id })
+      const post = res?.item ?? res
+      setPostType(post.type ?? 'Note')
+      setTitle(post.name ?? '')
+      setContent(post.source ?? '')
+      setHref(post.href ?? '')
+      setStartDate(post.startTime ?? '')
+      setEndDate(post.endTime ?? '')
+      setLocation(post.location?.name ?? '')
+      setGeo(post.location?.lat ? { lat: post.location.lat, lon: post.location.lon } : null)
+      setTags((post.tag ?? []).map((t) => t.name?.replace(/^#/, '').toLowerCase()).filter(Boolean))
+      setAudience(post.to ?? post.visibility ?? '@public')
+    } catch (err) {
+      setLoadError(err.message || 'Failed to load post.')
+    } finally {
+      setLoading(false)
+    }
+  }, [client, id])
+
+  useEffect(() => { load() }, [load])
 
   const wordCount   = postType === 'Note' ? countWords(content) : 0
   const charCount   = postType === 'Note' ? content.length : 0
@@ -170,6 +182,9 @@ export default function EditPostPage() {
       setSubmitting(false)
     }
   }
+
+  if (loading) return <Spinner centered />
+  if (loadError) return <ErrorState message={loadError} onRetry={load} />
 
   return (
     <div className="flex flex-col gap-0">
