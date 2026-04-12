@@ -94,27 +94,40 @@ export default function PostBody({ post }) {
   const rawSource = post?.source?.content ?? (typeof post?.source === 'string' ? post.source : null) ?? post?.content ?? ''
   const html = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
   const title = post?.title ?? post?.name
-  const isLink  = post?.type === 'Link'
-  const postUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
+  const isLink   = post?.type === 'Link'
+  const isMedia  = post?.type === 'Media'
+  const postUrl  = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
   const titleLinksToPost = ['Article', 'Media'].includes(post?.type)
+
+  // Hero image: use featuredImage for all types; for Media fall back to first image attachment
+  const heroSrc = post?.featuredImage
+    ?? (isMedia ? post?.attachments?.find((a) => a?.mediaType?.startsWith('image/'))?.url : null)
+    ?? (isLink ? post?.image : null)
+
+  // For Media posts, skip the attachment already shown as the hero
+  const remainingAttachments = isMedia && heroSrc
+    ? (post?.attachments ?? []).filter((a) => a?.url !== heroSrc)
+    : (post?.attachments ?? [])
 
   return (
     <div className="font-reading text-base-content leading-relaxed">
       {title && (
         isLink
           ? <LinkTitle post={{ ...post, name: title }} />
-          : <h1 className="font-display text-4xl lg:text-5xl mt-4 mb-16">
+          : <h1 className="font-display text-4xl lg:text-5xl mt-4 mb-8">
               {titleLinksToPost && postUrl
                 ? <Link to={postUrl} className="hover:text-primary transition-colors">{title}</Link>
                 : title
               }
             </h1>
       )}
-      {isLink && (post?.featuredImage ?? post?.image) && (
+
+      {/* Hero image — after title, before body */}
+      {heroSrc && (
         <img
-          src={post.featuredImage ?? post.image}
+          src={heroSrc}
           alt={title ?? ''}
-          className="w-full object-cover max-h-64 mb-4"
+          className={`w-full object-cover mb-6 ${isLink ? 'max-h-64' : 'max-h-[28rem]'}`}
         />
       )}
 
@@ -123,7 +136,9 @@ export default function PostBody({ post }) {
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
-      {post?.attachments?.length > 0 && <Attachments attachments={post.attachments} featuredImage={post.featuredImage ?? post.image ?? null} />}
+      {remainingAttachments.length > 0 && (
+        <Attachments attachments={remainingAttachments} featuredImage={heroSrc} />
+      )}
     </div>
   )
 }

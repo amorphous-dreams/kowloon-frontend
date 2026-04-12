@@ -156,9 +156,17 @@ export default function PostToolbar({ post }) {
   return (
     <div className="flex items-center gap-4 flex-1">
       {/* Reply */}
-      <button className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors">
-        {t('post.reply')}
-      </button>
+      {post?.id && (
+        <Link
+          to={`/posts/${encodeURIComponent(post.id)}#replies`}
+          className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
+        >
+          {post.replyCount > 0
+            ? t('post.replyCount', { count: post.replyCount, defaultValue: `${post.replyCount} ${post.replyCount === 1 ? 'reply' : 'replies'}` })
+            : t('post.reply', { defaultValue: 'Reply' })
+          }
+        </Link>
+      )}
 
       {/* React */}
       {user && post?.canReact !== 'none' && (

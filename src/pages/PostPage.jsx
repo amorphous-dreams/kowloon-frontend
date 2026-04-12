@@ -18,22 +18,17 @@ const MOCK_POST = {
   id: 'post:2@kwln.org',
   type: 'Article',
   name: 'On the Aesthetics of Midcentury Design',
-  source: `There is something about the graphic design of the 1950s that feels both timeless and urgently contemporary. Reid Miles understood that negative space *is* content — that what you leave out is as important as what you put in.
-
-Look at a Blue Note record sleeve from 1957. The typography is aggressive but controlled. The photography — almost always Francis Wolff's — is cropped to the point of abstraction. There is one thing happening on that cover, and it is happening with total commitment.
-
-## The Grid as Argument
-
-Midcentury designers didn't use grids because they were fashionable. They used grids because a grid is a *position* — a statement that visual relationships are meaningful, that alignment is a form of respect for the reader's eye.
-
-Pick a typeface and mean it. Leave space empty on purpose. Make the thing *say* something.`,
-  published: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+  body: `<p>There is something about the graphic design of the 1950s that feels both timeless and urgently contemporary. Reid Miles understood that negative space <em>is</em> content — that what you leave out is as important as what you put in.</p>
+<p>Look at a Blue Note record sleeve from 1957. The typography is aggressive but controlled. The photography — almost always Francis Wolff's — is cropped to the point of abstraction. There is one thing happening on that cover, and it is happening with total commitment.</p>
+<h2>The Grid as Argument</h2>
+<p>Midcentury designers didn't use grids because they were fashionable. They used grids because a grid is a <em>position</em> — a statement that visual relationships are meaningful, that alignment is a form of respect for the reader's eye.</p>
+<p>Pick a typeface and mean it. Leave space empty on purpose. Make the thing <em>say</em> something.</p>`,
+  createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
   visibility: 'Public',
-  attributedTo: {
+  actor: {
     id: '@designthink@kwln.org',
-    username: 'designthink',
-    displayName: 'Design Thinking',
-    profile: { icon: 'https://picsum.photos/seed/designthink/200/200' },
+    name: 'Design Thinking',
+    icon: 'https://picsum.photos/seed/designthink/200/200',
   },
   replyCount: 3,
   reactCount: 91,
@@ -42,51 +37,57 @@ Pick a typeface and mean it. Leave space empty on purpose. Make the thing *say* 
 const MOCK_REPLIES = [
   {
     id: 'reply:1',
-    source: "This is exactly what I've been trying to articulate for years. The grid isn't a constraint — it's a commitment.",
-    published: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
-    attributedTo: { id: '@recordhead@kwln.org', username: 'recordhead', displayName: 'Record Head', profile: { icon: 'https://picsum.photos/seed/recordhead/200/200' } },
+    body: "<p>This is exactly what I've been trying to articulate for years. The grid isn't a constraint — it's a commitment.</p>",
+    createdAt: new Date(Date.now() - 1000 * 60 * 90).toISOString(),
+    actor: { id: '@recordhead@kwln.org', name: 'Record Head', icon: 'https://picsum.photos/seed/recordhead/200/200' },
   },
   {
     id: 'reply:2',
-    source: "The Francis Wolff photography point is so right. Those crops are almost violent in how decisive they are.",
-    published: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-    attributedTo: { id: '@jzellis@kwln.org', username: 'jzellis', displayName: 'Joshua Ellis', profile: { icon: 'https://picsum.photos/seed/jzellis/200/200' } },
+    body: "<p>The Francis Wolff photography point is so right. Those crops are almost violent in how decisive they are.</p>",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+    actor: { id: '@jzellis@kwln.org', name: 'Joshua Ellis', icon: 'https://picsum.photos/seed/jzellis/200/200' },
   },
   {
     id: 'reply:3',
-    source: "Have you read Müller-Brockmann's own writing on the grid? His explanations of *why* are even better than the posters.",
-    published: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    attributedTo: { id: '@cityhacker@kwln.org', username: 'cityhacker', displayName: 'City Hacker', profile: { icon: 'https://picsum.photos/seed/cityhacker/200/200' } },
+    body: "<p>Have you read Müller-Brockmann's own writing on the grid? His explanations of <em>why</em> are even better than the posters.</p>",
+    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    actor: { id: '@cityhacker@kwln.org', name: 'City Hacker', icon: 'https://picsum.photos/seed/cityhacker/200/200' },
   },
 ]
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function Reply({ reply }) {
+  const actor = reply.actor ?? {}
+  const html = reply.body || reply.source?.content || ''
+
   return (
     <div className="flex gap-3 py-5 border-b border-base-300 last:border-b-0">
       <div className="shrink-0">
-        <UserAvatar user={reply.attributedTo} size="sm" />
+        <UserAvatar user={actor} size="sm" />
       </div>
       <div className="flex flex-col gap-1.5 flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <Link
-            to={`/users/${encodeURIComponent(reply.attributedTo.id)}`}
+            to={`/users/${encodeURIComponent(actor.id ?? '')}`}
             className="font-ui text-sm font-bold text-base-content hover:text-primary transition-colors"
           >
-            {reply.attributedTo.name ?? reply.attributedTo.displayName}
+            {actor.name ?? actor.displayName ?? actor.id}
           </Link>
-          <Timestamp date={reply.published} />
+          <Timestamp date={reply.createdAt} />
         </div>
-        <p className="font-reading text-sm text-base-content/80 leading-relaxed">
-          {reply.source}
-        </p>
+        {html ? (
+          <div
+            className="prose prose-sm max-w-none text-[13.5px] [&_p]:leading-[1.45] [&_p]:font-[450] font-reading text-base-content/80"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ) : null}
       </div>
     </div>
   )
 }
 
-function ReplyComposer({ postId, onSubmitted }) {
+function ReplyComposer({ postId, canReply, onSubmitted }) {
   const { t } = useTranslation()
   const user = useSelector((state) => state.auth.user)
   const client = useClient()
@@ -94,7 +95,18 @@ function ReplyComposer({ postId, onSubmitted }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
+  // Not logged in — no composer
   if (!user) return null
+
+  // canReply controls who can reply: '' or undefined = anyone, '@public' = public,
+  // '@server' = server members, a circle ID = circle members, '@none' = closed
+  if (canReply === '@none') {
+    return (
+      <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 pt-4">
+        {t('post.repliesClosed', { defaultValue: 'Replies are closed for this post.' })}
+      </p>
+    )
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -126,16 +138,21 @@ function ReplyComposer({ postId, onSubmitted }) {
           className="w-full px-4 py-3 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-reading text-sm text-base-content placeholder:text-base-content/30 resize-none transition-colors"
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e) }}
         />
-        <div className="flex items-center justify-end gap-3">
-          {error && <span className="font-ui text-xs uppercase tracking-widest text-error">{error}</span>}
-          <button
-            type="submit"
-            disabled={!text.trim() || submitting}
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-          >
-            <Send size={12} />
-            {submitting ? t('post.replying', { defaultValue: 'Replying…' }) : t('post.reply', { defaultValue: 'Reply' })}
-          </button>
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-ui text-xs text-base-content/30 uppercase tracking-widest">
+            {t('post.replyHint', { defaultValue: 'Cmd/Ctrl+Enter to submit' })}
+          </span>
+          <div className="flex items-center gap-3">
+            {error && <span className="font-ui text-xs uppercase tracking-widest text-error">{error}</span>}
+            <button
+              type="submit"
+              disabled={!text.trim() || submitting}
+              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            >
+              <Send size={12} />
+              {submitting ? t('post.replying', { defaultValue: 'Replying…' }) : t('post.reply', { defaultValue: 'Reply' })}
+            </button>
+          </div>
         </div>
       </div>
     </form>
@@ -195,22 +212,22 @@ export default function PostPage() {
 
       <PostCard post={post} />
 
-      <div className="flex flex-col gap-0">
+      <div className="flex flex-col gap-0" id="replies">
         <div className="flex items-center justify-between border-b-2 border-base-300 pb-4 mb-2">
           <h2 className="font-display text-2xl tracking-wide">
             {t('post.replyCount', { count: replies.length, defaultValue: `${replies.length} replies` })}
           </h2>
         </div>
 
-        <ReplyComposer postId={id} onSubmitted={load} />
-
         {replies.length > 0 && (
-          <div className="mt-4 border-t border-base-300">
+          <div className="border-b border-base-300">
             {replies.map((reply) => (
               <Reply key={reply.id} reply={reply} />
             ))}
           </div>
         )}
+
+        <ReplyComposer postId={id} canReply={post.canReply} onSubmitted={load} />
       </div>
 
     </div>
