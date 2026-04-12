@@ -70,9 +70,12 @@ export default function ReactButton({ post, t }) {
     setOpen(false)
     setPending(true)
     try {
-      await client.activities.react({ postId: post.id, emoji, name })
-      setLocalCount((c) => c + 1)
-      setLocalPreview((prev) => prev ?? emoji)
+      const res = await client.activities.react({ postId: post.id, emoji, name })
+      // Only update local state if a new react was actually created
+      if (res?.result?.status !== 'already_reacted') {
+        setLocalCount((c) => c + 1)
+        setLocalPreview((prev) => prev ?? emoji)
+      }
     } catch (err) {
       console.warn('[ReactButton] react failed:', err.message)
     } finally {
