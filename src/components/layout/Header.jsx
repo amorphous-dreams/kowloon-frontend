@@ -40,6 +40,7 @@ export function Header() {
   const [menuOpen, setMenuOpen]         = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [pages, setPages]               = useState([])
+  const [unreadCount, setUnreadCount]   = useState(0)
 
   // Fetch pages for the mobile hamburger menu
   useEffect(() => {
@@ -56,6 +57,15 @@ export function Header() {
       })
       .catch(() => {})
   }, [client])
+
+  // Poll unread notification count every 60s
+  useEffect(() => {
+    if (!client || !user) return
+    const poll = () => client.notifications.unreadCount().then((res) => setUnreadCount(res?.count ?? 0)).catch(() => {})
+    poll()
+    const id = setInterval(poll, 60_000)
+    return () => clearInterval(id)
+  }, [client, user])
 
   const NAV_LINKS = [
     { to: '/',         label: t('nav.feed')    },
@@ -108,14 +118,16 @@ export function Header() {
           {user && (
             <Link
               to="/notifications"
-              aria-label={t('a11y.notifications')}
+              aria-label={unreadCount > 0 ? t('a11y.notificationCount', { count: unreadCount, defaultValue: `${unreadCount} unread notifications` }) : t('a11y.notifications')}
               className="flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
             >
               <div className="indicator">
                 <BellIcon />
-                {/* Unread count badge — wired when notifications slice is ready.
-                    When rendered: add aria-label={t('a11y.notificationCount', { count })} to the Link above
-                    and role="status" aria-live="polite" aria-atomic="true" to the badge span. */}
+                {unreadCount > 0 && (
+                  <span role="status" aria-live="polite" aria-atomic="true" className="indicator-item badge bg-primary text-primary-content border-0 font-ui text-[10px] min-w-[1.1rem] h-[1.1rem] px-1">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </div>
             </Link>
           )}

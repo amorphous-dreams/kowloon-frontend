@@ -1,101 +1,78 @@
-// NotificationsPage — user notifications: mentions, reacts, follows, invites.
+// NotificationsPage — user notifications: replies, reacts, follows, join requests.
 // Authenticated users only.
 
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useClient } from '../hooks/useClient'
-import { AtSign, Heart, UserPlus, Users, Bell, X, Check, CheckCheck } from 'lucide-react'
+import { MessageSquare, Heart, UserPlus, Users, Bell, X, Check, CheckCheck } from 'lucide-react'
 import Timestamp from '../components/ui/Timestamp'
 import UserAvatar from '../components/ui/UserAvatar'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 
-// ── Mock fallback ─────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const H = (n) => new Date(Date.now() - 1000 * 60 * n).toISOString()
-const ACTOR_R = { id: '@recordhead@kwln.org',  username: 'recordhead',  displayName: 'Record Head',     profile: { icon: 'https://picsum.photos/seed/recordhead/200/200' } }
-const ACTOR_M = { id: '@milesahead@kwln.org',  username: 'milesahead',  displayName: 'Miles Ahead',     profile: { icon: 'https://picsum.photos/seed/milesahead/200/200' } }
-const ACTOR_B = { id: '@bluebird@kwln.org',    username: 'bluebird',    displayName: 'Bluebird Parker', profile: { icon: 'https://picsum.photos/seed/bluebird/200/200' } }
-const ACTOR_C = { id: '@cityhacker@kwln.org',  username: 'cityhacker',  displayName: 'City Hacker',     profile: { icon: 'https://picsum.photos/seed/cityhacker/200/200' } }
-
-const MOCK_NOTIFICATIONS = [
-  { id: 'notif:1', type: 'mention',      actor: ACTOR_R, published: H(12),  read: false, context: { postId: 'post:note1@kwln.org', excerpt: "@jzellis you make a compelling case but I think you're missing the influence of Swiss typography." } },
-  { id: 'notif:2', type: 'react',        actor: ACTOR_M, published: H(35),  read: false, context: { postId: 'post:2@kwln.org', excerpt: 'On the Aesthetics of Midcentury Design' } },
-  { id: 'notif:3', type: 'follow',       actor: ACTOR_B, published: H(72),  read: false, context: null },
-  { id: 'notif:4', type: 'react',        actor: ACTOR_C, published: H(120), read: true,  context: { postId: 'post:1@kwln.org', excerpt: 'The Stars My Destination is still the best science fiction novel ever written, no notes.' } },
-  { id: 'notif:5', type: 'circle_invite', actor: ACTOR_R, published: H(180), read: true, context: { circleId: 'circle:jazz@kwln.org', circleName: 'Jazz & Improvised Music' } },
-  { id: 'notif:6', type: 'group_invite',  actor: ACTOR_M, published: H(300), read: true, context: { groupId: 'group:jazz@kwln.org', groupName: 'London Jazz Society' } },
-]
-
-const FILTER_TYPES = ['all', 'mention', 'react', 'follow', 'circle_invite', 'group_invite']
+const FILTER_TYPES = ['all', 'reply', 'react', 'follow', 'new_post', 'join_request', 'join_approved']
 
 const NOTIF_ICONS = {
-  mention:       <AtSign   size={14} />,
-  react:         <Heart    size={14} />,
-  follow:        <UserPlus size={14} />,
-  circle_invite: <Users    size={14} />,
-  group_invite:  <Users    size={14} />,
+  reply:         <MessageSquare size={14} />,
+  react:         <Heart         size={14} />,
+  follow:        <UserPlus      size={14} />,
+  new_post:      <Bell          size={14} />,
+  join_request:  <Users         size={14} />,
+  join_approved: <Users         size={14} />,
 }
 
 const NOTIF_COLORS = {
-  mention:       'text-primary',
+  reply:         'text-primary',
   react:         'text-error',
   follow:        'text-success',
-  circle_invite: 'text-secondary',
-  group_invite:  'text-secondary',
+  new_post:      'text-base-content/60',
+  join_request:  'text-secondary',
+  join_approved: 'text-secondary',
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+// Renders the notification body using backend-supplied summary + href.
+// actorId is used to make the actor name a profile link.
 function NotifBody({ notif }) {
-  const { t } = useTranslation()
-  const actor = notif.actor
-  const ctx = notif.context
-  const actorLink = (
-    <Link to={`/users/${encodeURIComponent(actor.id)}`} className="font-bold hover:text-primary transition-colors">
-      {actor.displayName}
-    </Link>
+  const actorProfileUrl = `/users/${encodeURIComponent(notif.actorId)}`
+  // summary is e.g. "Miles Ahead reacted to your post" — we link the actor name portion
+  const actorName = notif.actorName || notif.actorId
+  const restOfSummary = notif.summary?.replace(actorName, '').trim()
+
+  return (
+    <p className="font-ui text-sm text-base-content/80 leading-snug">
+      <Link to={actorProfileUrl} className="font-bold hover:text-primary transition-colors">
+        {actorName}
+      </Link>
+      {restOfSummary && <> {restOfSummary}</>}
+      {notif.href && (
+        <Link to={notif.href.replace(/^https?:\/\/[^/]+/, '')} className="block font-reading text-xs text-base-content/60 mt-1 italic hover:text-primary transition-colors">
+          {notif.href.replace(/^https?:\/\/[^/]+/, '')}
+        </Link>
+      )}
+    </p>
   )
-  switch (notif.type) {
-    case 'mention': return (
-      <p className="font-ui text-sm text-base-content/80 leading-snug">
-        {actorLink} {t('notif.mentioned', { defaultValue: 'mentioned you in a post' })}
-        {ctx?.excerpt && <Link to={`/posts/${encodeURIComponent(ctx.postId)}`} className="block font-reading text-xs text-base-content/60 mt-1 italic hover:text-primary transition-colors">"{ctx.excerpt}"</Link>}
-      </p>
-    )
-    case 'react': return (
-      <p className="font-ui text-sm text-base-content/80 leading-snug">
-        {actorLink} {t('notif.reacted', { defaultValue: 'reacted to' })}{' '}
-        {ctx?.postId ? <Link to={`/posts/${encodeURIComponent(ctx.postId)}`} className="font-reading italic hover:text-primary transition-colors">{ctx.excerpt}</Link> : t('notif.yourPost', { defaultValue: 'your post' })}
-      </p>
-    )
-    case 'follow': return <p className="font-ui text-sm text-base-content/80 leading-snug">{actorLink} {t('notif.followed', { defaultValue: 'followed you' })}</p>
-    case 'circle_invite': return (
-      <p className="font-ui text-sm text-base-content/80 leading-snug">
-        {actorLink} {t('notif.circleInvite', { defaultValue: 'added you to' })}{' '}
-        {ctx?.circleId ? <Link to={`/circles/${encodeURIComponent(ctx.circleId)}`} className="font-bold hover:text-primary transition-colors">{ctx.circleName}</Link> : t('notif.aCircle', { defaultValue: 'a circle' })}
-      </p>
-    )
-    case 'group_invite': return (
-      <p className="font-ui text-sm text-base-content/80 leading-snug">
-        {actorLink} {t('notif.groupInvite', { defaultValue: 'invited you to join' })}{' '}
-        {ctx?.groupId ? <Link to={`/groups/${encodeURIComponent(ctx.groupId)}`} className="font-bold hover:text-primary transition-colors">{ctx.groupName}</Link> : t('notif.aGroup', { defaultValue: 'a group' })}
-      </p>
-    )
-    default: return null
-  }
 }
 
 function NotifCard({ notif, onMarkRead, onDismiss }) {
   const iconClass = NOTIF_COLORS[notif.type] ?? 'text-base-content/60'
+  // Build a minimal actor shape for UserAvatar
+  const actor = {
+    id: notif.actorId,
+    username: notif.actorName,
+    profile: { icon: notif.actorIcon },
+  }
   return (
     <div className={`flex items-start gap-3 py-4 border-b border-base-300 group transition-colors ${notif.read ? 'opacity-60' : ''}`}>
       <div className={`shrink-0 mt-1 ${iconClass}`}>{NOTIF_ICONS[notif.type] ?? <Bell size={14} />}</div>
-      <div className="shrink-0"><UserAvatar user={notif.actor} size="sm" /></div>
+      <div className="shrink-0"><UserAvatar user={actor} size="sm" /></div>
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         <NotifBody notif={notif} />
-        <Timestamp date={notif.published} />
+        <Timestamp date={notif.createdAt} />
       </div>
       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         {!notif.read && (
@@ -120,11 +97,7 @@ export default function NotificationsPage() {
   const [error, setError]     = useState(null)
 
   const load = useCallback(async () => {
-    if (!client) {
-      setNotifications(MOCK_NOTIFICATIONS)
-      setLoading(false)
-      return
-    }
+    if (!client) { setLoading(false); return }
     setLoading(true)
     setError(null)
     try {
@@ -141,12 +114,12 @@ export default function NotificationsPage() {
 
   const markRead = async (id) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
-    if (client) await client.notifications.markRead({ notificationId: id }).catch(() => {})
+    if (client) await client.notifications.markRead(id).catch(() => {})
   }
 
   const dismiss = async (id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id))
-    if (client) await client.notifications.dismiss({ notificationId: id }).catch(() => {})
+    if (client) await client.notifications.dismiss(id).catch(() => {})
   }
 
   const markAllRead = async () => {
@@ -158,12 +131,13 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.read).length
 
   const FILTER_LABELS = {
-    all:           t('notif.all',           { defaultValue: 'All' }),
-    mention:       t('notif.mentions',      { defaultValue: 'Mentions' }),
-    react:         t('notif.reacts',        { defaultValue: 'Reacts' }),
-    follow:        t('notif.follows',       { defaultValue: 'Follows' }),
-    circle_invite: t('notif.circleInvites', { defaultValue: 'Circles' }),
-    group_invite:  t('notif.groupInvites',  { defaultValue: 'Groups' }),
+    all:           t('notif.all',          { defaultValue: 'All' }),
+    reply:         t('notif.replies',      { defaultValue: 'Replies' }),
+    react:         t('notif.reacts',       { defaultValue: 'Reacts' }),
+    follow:        t('notif.follows',      { defaultValue: 'Follows' }),
+    new_post:      t('notif.newPosts',     { defaultValue: 'New Posts' }),
+    join_request:  t('notif.joinRequests', { defaultValue: 'Join Requests' }),
+    join_approved: t('notif.joinApproved', { defaultValue: 'Approved' }),
   }
 
   return (

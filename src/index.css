@@ -23,9 +23,11 @@ textarea:focus-visible {
 
 /* ─── Kowloon Theme ───────────────────────────────────────────────────────── */
 /* Inspired by Blue Note Records / 1950s midcentury print design.
-   High contrast, vivid accent, warm paper tones, sharp geometry. */
+   High contrast, vivid accent, warm paper tones, sharp geometry.
+   These are the fallback values used when no theme is injected (i.e. "system"
+   theme in light mode). themeSlice.js overrides these via a <style> tag when
+   a specific theme is active; the dark media query below handles "system" dark. */
 
-/* Light mode (default) */
 [data-theme="kowloon"] {
   color-scheme: light;
 
@@ -57,11 +59,16 @@ textarea:focus-visible {
   --color-success: oklch(62% 0.17 145deg);
   --color-success-content: oklch(97% 0.005 145deg);
   --color-warning: oklch(78% 0.19 88deg);
-  --color-warning-content: oklch(
-    13% 0.008 265deg
-  ); /* warning keeps the yellow */
+  --color-warning-content: oklch(13% 0.008 265deg);
   --color-error: oklch(55% 0.22 25deg);
   --color-error-content: oklch(97% 0.005 25deg);
+
+  /* Post type accent colors — light defaults */
+  --post-color-note:    #b76c00;
+  --post-color-article: #006893;
+  --post-color-media:   #009084;
+  --post-color-link:    #417843;
+  --post-color-event:   #cc272e;
 
   /* Geometry — sharp, print-like, no pill shapes */
   --radius-selector: 0;
@@ -71,43 +78,24 @@ textarea:focus-visible {
   --border: 2px;
 }
 
-/* Dark mode — same aesthetic, dramatic night palette */
+/* "System" dark mode fallback — only active when no theme is injected
+   (i.e. user chose "System" or themes haven't loaded yet). When a specific
+   theme is injected, its <style> tag comes after this in the cascade and wins. */
 @media (prefers-color-scheme: dark) {
   [data-theme="kowloon"] {
     color-scheme: dark;
 
-    /* Base — dark navy-charcoal, like a dimly lit room */
     --color-base-100: oklch(12% 0.02 265deg);
     --color-base-200: oklch(17% 0.02 265deg);
     --color-base-300: oklch(24% 0.02 265deg);
     --color-base-content: oklch(90% 0.018 85deg);
-
-    /* Primary — brighter steel blue for dark bg */
     --color-primary: oklch(63% 0.1 228deg);
     --color-primary-content: oklch(97% 0.005 228deg);
-
-    /* Secondary — header stays navy, slightly deeper */
     --color-secondary: oklch(28% 0.14 265deg);
     --color-secondary-content: oklch(90% 0.018 85deg);
-
-    /* Neutral — dark surface for dropdowns */
     --color-neutral: oklch(20% 0.012 265deg);
     --color-neutral-content: oklch(90% 0.018 85deg);
-  }
-}
 
-/* ─── Post Type Colors ───────────────────────────────────────────────────── */
-
-:root {
-  --post-color-note:    #b76c00;
-  --post-color-article: #006893;
-  --post-color-media:   #009084;
-  --post-color-link:    #417843;
-  --post-color-event:   #cc272e;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
     --post-color-note:    #e8920a;
     --post-color-article: #2ab4e8;
     --post-color-media:   #00c4ae;
