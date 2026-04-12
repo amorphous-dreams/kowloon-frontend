@@ -40,6 +40,7 @@ export default function ReactButton({ post, t }) {
   const [emojis, setEmojis] = useState(cachedEmojis ?? DEFAULT_EMOJIS)
   const [pending, setPending] = useState(false)
   const [localCount, setLocalCount] = useState(post?.reactCount ?? 0)
+  const [localPreview, setLocalPreview] = useState(post?.reactPreview ?? null)
   const buttonRef = useRef(null)
   const popupRef = useRef(null)
 
@@ -71,6 +72,7 @@ export default function ReactButton({ post, t }) {
     try {
       await client.activities.react({ postId: post.id, emoji, name })
       setLocalCount((c) => c + 1)
+      setLocalPreview((prev) => prev ?? emoji)
     } catch (err) {
       console.warn('[ReactButton] react failed:', err.message)
     } finally {
@@ -87,7 +89,7 @@ export default function ReactButton({ post, t }) {
         disabled={pending}
         className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors disabled:opacity-30"
       >
-        {t('post.react')}{localCount > 0 ? ` (${localCount})` : ''}
+        {localPreview && <span className="mr-1">{localPreview}</span>}{t('post.react')}{localCount > 0 ? ` (${localCount})` : ''}
       </button>
 
       {open && (
