@@ -116,20 +116,34 @@ export function Header() {
 
           {/* Notifications (auth'd only) */}
           {user && (
-            <Link
-              to="/notifications"
-              aria-label={unreadCount > 0 ? t('a11y.notificationCount', { count: unreadCount, defaultValue: `${unreadCount} unread notifications` }) : t('a11y.notifications')}
-              className="flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
-            >
-              <div className="indicator">
-                <BellIcon />
-                {unreadCount > 0 && (
-                  <span role="status" aria-live="polite" aria-atomic="true" className="indicator-item badge bg-primary text-primary-content border-0 font-ui text-[10px] min-w-[1.1rem] h-[1.1rem] px-1">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </div>
-            </Link>
+            <>
+              {/* Persistent live region — always in DOM so screen readers catch count changes */}
+              <span
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className="sr-only"
+              >
+                {unreadCount > 0
+                  ? t('a11y.notificationCount', { count: unreadCount, defaultValue: `${unreadCount} unread notifications` })
+                  : ''}
+              </span>
+
+              <Link
+                to="/notifications"
+                aria-label={t('a11y.notifications', { defaultValue: 'Notifications' })}
+                className="flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
+              >
+                <div className="indicator">
+                  <BellIcon />
+                  {unreadCount > 0 && (
+                    <span aria-hidden="true" className="indicator-item badge bg-primary text-primary-content border-0 font-ui text-[10px] min-w-[1.1rem] h-[1.1rem] px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </>
           )}
 
           {/* User menu */}
