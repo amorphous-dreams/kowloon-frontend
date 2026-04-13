@@ -1,0 +1,235 @@
+// AdminInvitesPage — create, list, and deactivate invites.
+
+import { useState, useEffect, useCallback } from 'react'
+import { Trash2, Plus, Copy, Check } from 'lucide-react'
+import { useClient } from '../../hooks/useClient'
+import Spinner from '../../components/ui/Spinner'
+
+function fmtDate(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function CreateForm({ onCreated, onCancel }) {
+  const client = useClient()
+  const [type, setType] = useState('individual')
+  const [email, setEmail] = useState('')
+  const [maxRedemptions, setMaxRedemptions] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const options = { type, note: note || undefined, expiresAt: expiresAt || undefined }
+      if (type === 'individual') options.email = email
+      if (type === 'open' && maxRedemptions) options.maxRedemptions = Number(maxRedemptions)
+      const res = await client.admin.createInvite(options)
+      onCreated(res.invite)
+    } catch (err) {
+      setError(err?.message || 'Failed to create invite')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="border-2 border-primary p-6 mb-6 flex flex-col gap-4">
+      <h2 className="font-display text-2xl tracking-wide">New Invite</h2>
+      {error && <p className="font-ui text-xs text-error">{error}</p>}
+
+      <div className="flex gap-0">
+        {['individual', 'open'].map((t) => (
+          <button key={t} type="button" onClick={() => setType(t)}
+            className={`px-4 py-2 font-ui text-xs uppercase tracking-widest border-r border-base-300 last:border-r-0 transition-colors ${
+              type === t ? 'bg-secondary text-secondary-content' : 'bg-base-200 text-base-content/60 hover:bg-base-300'
+            }`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {type === 'individual' && (
+          <div className="col-span-2 flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Email *</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} required type="email"
+              className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+        )}
+        {type === 'open' && (
+          <div className="flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Max Redemptions</label>
+            <input value={maxRedemptions} onChange={(e) => setMaxRedemptions(e.target.value)} type="number" min="1"
+              placeholder="Unlimited"
+              className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+        )}
+        <div className="flex flex-col gap-1">
+          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Expires</label>
+          <input value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} type="date"
+            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+        </div>
+        <div className="flex flex-col gap-1 col-span-2">
+          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Note</label>
+          <input value={note} onChange={(e) => setNote(e.target.value)}
+            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <button type="submit" disabled={saving}
+          className="px-5 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest disabled:opacity-50">
+          {saving ? 'Creating…' : 'Create'}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="px-5 py-2 border border-base-300 font-ui text-xs uppercase tracking-widest hover:bg-base-200 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button onClick={handleCopy} className="p-1 text-base-content/30 hover:text-base-content transition-colors" title="Copy">
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+    </button>
+  )
+}
+
+export default function AdminInvitesPage() {
+  const client = useClient()
+  const [invites, setInvites] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [denied, setDenied] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [filter, setFilter] = useState('active')
+  const [pending, setPending] = useState(null)
+
+  const load = useCallback(async () => {
+    if (!client) return
+    setLoading(true)
+    try {
+      const params = {}
+      if (filter === 'active') params.active = true
+      else if (filter === 'inactive') params.active = false
+      const res = await client.admin.getInvites(params)
+      setInvites(res?.orderedItems ?? [])
+    } catch (err) {
+      if (err?.status === 403 || err?.statusCode === 403) setDenied(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [client, filter])
+
+  useEffect(() => { load() }, [load])
+
+  const handleDeactivate = async (inviteId) => {
+    if (!confirm('Deactivate this invite?')) return
+    setPending(inviteId)
+    try {
+      await client.admin.deleteInvite({ inviteId })
+      setInvites((prev) => prev.map((i) => i.id === inviteId ? { ...i, active: false } : i))
+    } catch {}
+    setPending(null)
+  }
+
+  const handleCreated = (invite) => {
+    setInvites((prev) => [invite, ...prev])
+    setShowForm(false)
+  }
+
+  if (denied) return (
+    <div className="py-16 text-center"><p className="font-display text-3xl tracking-wide">Access Denied</p></div>
+  )
+
+  const FILTERS = [['active', 'Active'], ['inactive', 'Inactive'], ['all', 'All']]
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between border-b-2 border-base-300 pb-4 mb-6">
+        <h1 className="font-display text-5xl tracking-wide">Invites</h1>
+        <button onClick={() => setShowForm((v) => !v)}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest">
+          <Plus size={13} /> New Invite
+        </button>
+      </div>
+
+      {showForm && <CreateForm onCreated={handleCreated} onCancel={() => setShowForm(false)} />}
+
+      <div className="flex gap-0 mb-6">
+        {FILTERS.map(([val, label]) => (
+          <button key={val} onClick={() => setFilter(val)}
+            className={`px-4 py-2 font-ui text-xs uppercase tracking-widest border-r border-base-300 last:border-r-0 transition-colors ${
+              filter === val ? 'bg-secondary text-secondary-content' : 'bg-base-200 text-base-content/60 hover:bg-base-300'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <Spinner centered /> : (
+        <table className="w-full">
+          <thead>
+            <tr className="border-b-2 border-base-300">
+              {['Type', 'Code', 'Recipient / Note', 'Redeemed', 'Expires', 'Status', ''].map((h) => (
+                <th key={h} className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left pb-2 pr-4 last:pr-0">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {invites.map((inv) => (
+              <tr key={inv.id} className={`border-b border-base-300 hover:bg-base-200 ${!inv.active ? 'opacity-50' : ''}`}>
+                <td className="py-3 pr-4">
+                  <span className="font-ui text-xs uppercase tracking-widest px-2 py-0.5 bg-base-200">{inv.type}</span>
+                </td>
+                <td className="py-3 pr-4">
+                  <span className="font-mono text-xs">{inv.code}</span>
+                  <CopyButton text={inv.url ?? inv.code} />
+                </td>
+                <td className="py-3 pr-4 font-ui text-xs text-base-content/60 max-w-36 truncate">
+                  {inv.email ?? inv.note ?? '—'}
+                </td>
+                <td className="py-3 pr-4 font-ui text-xs text-base-content/60">
+                  {inv.type === 'open'
+                    ? `${inv.redemptionCount ?? 0}${inv.maxRedemptions ? ` / ${inv.maxRedemptions}` : ''}`
+                    : inv.usedAt ? fmtDate(inv.usedAt) : 'No'
+                  }
+                </td>
+                <td className="py-3 pr-4 font-ui text-xs text-base-content/50 whitespace-nowrap">{fmtDate(inv.expiresAt)}</td>
+                <td className="py-3 pr-4">
+                  <span className={`font-ui text-xs uppercase tracking-widest px-2 py-0.5 ${inv.active ? 'bg-success/15 text-success' : 'bg-base-300 text-base-content/50'}`}>
+                    {inv.active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="py-3 text-right">
+                  {inv.active && (
+                    <button onClick={() => handleDeactivate(inv.id)} disabled={pending === inv.id}
+                      className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Deactivate">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {invites.length === 0 && (
+              <tr><td colSpan={7} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No invites found</td></tr>
+            )}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}

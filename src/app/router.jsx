@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import Layout from '../components/layout/Layout'
 import PublicLayout from '../components/layout/PublicLayout'
+import AdminLayout from '../components/layout/AdminLayout'
 import LoginPage from '../features/auth/LoginPage'
 import RegisterPage from '../features/auth/RegisterPage'
 
@@ -32,6 +33,15 @@ import NewCirclePage from '../pages/NewCirclePage'
 import EditCirclePage from '../pages/EditCirclePage'
 import NotificationsPage from '../pages/NotificationsPage'
 import ProfilePage from '../pages/ProfilePage'
+
+// Admin pages
+import AdminDashboardPage  from '../pages/admin/AdminDashboardPage'
+import AdminUsersPage      from '../pages/admin/AdminUsersPage'
+import AdminPostsPage      from '../pages/admin/AdminPostsPage'
+import AdminGroupsPage     from '../pages/admin/AdminGroupsPage'
+import AdminInvitesPage    from '../pages/admin/AdminInvitesPage'
+import AdminModerationPage from '../pages/admin/AdminModerationPage'
+import AdminSettingsPage   from '../pages/admin/AdminSettingsPage'
 
 const router = createBrowserRouter([
   // Auth pages — standalone, no layout
@@ -74,6 +84,20 @@ const router = createBrowserRouter([
       { path: '/circles/:id/edit', element: <EditCirclePage /> },
       { path: '/notifications', element: <NotificationsPage /> },
       { path: '/profile', element: <ProfilePage /> },
+    ],
+  },
+
+  // Admin routes — AdminLayout checks auth; each page handles its own 403
+  {
+    element: <AdminLayout />,
+    children: [
+      { path: '/admin',            element: <AdminDashboardPage /> },
+      { path: '/admin/users',      element: <AdminUsersPage /> },
+      { path: '/admin/posts',      element: <AdminPostsPage /> },
+      { path: '/admin/groups',     element: <AdminGroupsPage /> },
+      { path: '/admin/invites',    element: <AdminInvitesPage /> },
+      { path: '/admin/moderation', element: <AdminModerationPage /> },
+      { path: '/admin/settings',   element: <AdminSettingsPage /> },
     ],
   },
 ])
