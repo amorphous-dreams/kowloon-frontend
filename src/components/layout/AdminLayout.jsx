@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux'
 import { Navigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FileText, Users2,
-  Mail, Flag, Settings, ArrowLeft,
+  Mail, Flag, Settings, ArrowLeft, Palette,
 } from 'lucide-react'
 
 const NAV = [
@@ -16,6 +16,7 @@ const NAV = [
   { to: '/admin/groups',     label: 'Groups',       icon: Users2 },
   { to: '/admin/invites',    label: 'Invites',      icon: Mail },
   { to: '/admin/moderation', label: 'Moderation',   icon: Flag },
+  { to: '/admin/themes',     label: 'Themes',       icon: Palette },
   { to: '/admin/settings',   label: 'Settings',     icon: Settings },
 ]
 
