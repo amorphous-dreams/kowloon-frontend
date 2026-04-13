@@ -206,12 +206,14 @@ export default function ProfilePage() {
     setError(null)
     try {
       await client.activities.updateProfile({
-        name: displayName,
-        description: bio,
-        icon: iconUrl,
-        urls,
-        pronouns,
-        preferences: { defaultPostTypes: defaultTypes },
+        profile: {
+          name: displayName,
+          description: bio,
+          icon: iconUrl,
+          urls,
+          pronouns,
+        },
+        prefs: { defaultPostTypes: defaultTypes },
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)

@@ -79,7 +79,7 @@ export function Header() {
     navigate('/login')
   }
 
-  const avatarUrl   = user?.icon ? client?.files?.serveUrl(user.icon, {}) : null
+  const avatarUrl   = user?.profile?.icon ?? null
   const userHandle  = user?.id || user?.username
   const userInitial = user?.username?.[0]?.toUpperCase() ?? '?'
   const serverName  = server.name || 'Kowloon'
