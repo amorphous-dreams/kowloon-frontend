@@ -101,6 +101,12 @@ const authSlice = createSlice({
     clearError(state) {
       state.error = null
     },
+    // Merge updated profile/prefs into the auth user without a full re-login
+    patchUser(state, action) {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload }
+      }
+    },
     // Dev-only: toggle mock user without hitting the server
     devSetUser(state, action) {
       state.user = action.payload
@@ -172,5 +178,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { setServerUrl, clearError, devSetUser } = authSlice.actions
+export const { setServerUrl, clearError, patchUser, devSetUser } = authSlice.actions
 export default authSlice.reducer

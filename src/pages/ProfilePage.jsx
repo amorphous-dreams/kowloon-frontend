@@ -9,6 +9,7 @@ import { useClient } from '../hooks/useClient'
 import CircleSelector from '../components/circles/CircleSelector'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import { setActiveTheme } from '../features/theme/themeSlice'
+import { patchUser } from '../features/auth/authSlice'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -215,6 +216,16 @@ export default function ProfilePage() {
         },
         prefs: { defaultPostTypes: defaultTypes },
       })
+      // Update Redux store so header/avatar refresh immediately
+      const profilePatch = { name: displayName, description: bio, icon: iconUrl, urls, pronouns }
+      dispatch(patchUser({ profile: profilePatch }))
+      // Keep client's cached user in sync so actor fields stay fresh
+      if (client.auth._user) {
+        client.auth._user = {
+          ...client.auth._user,
+          profile: { ...client.auth._user.profile, ...profilePatch },
+        }
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
