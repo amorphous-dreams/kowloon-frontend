@@ -1,5 +1,5 @@
-// SearchPage — search posts, users, groups, circles, pages.
-// Reads ?q= and ?type= from URL; updates on input.
+// SearchPage — search posts, users, groups, pages, bookmarks.
+// Reads ?q= and ?type= from URL; updates on input with debounce.
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
@@ -20,52 +20,53 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-const SEARCH_TYPES = ['all', 'posts', 'users', 'groups', 'circles', 'pages']
+// Backend supports: posts, pages, users, groups, bookmarks (no circles)
+const SEARCH_TYPES = ['all', 'posts', 'users', 'groups', 'pages']
 
-// ── Mock results ──────────────────────────────────────────────────────────────
+// Map frontend type tab → searchIn key the backend understands
+const TYPE_TO_SEARCH_IN = {
+  posts:  { posts: true },
+  users:  { users: true },
+  groups: { groups: true },
+  pages:  { pages: true },
+}
 
-const AUTHOR = { id: '@recordhead@kwln.org', username: 'recordhead', displayName: 'Record Head', profile: { icon: 'https://picsum.photos/seed/recordhead/200/200' } }
-const H = (n) => new Date(Date.now() - 1000 * 60 * 60 * n).toISOString()
+/**
+ * Group a flat orderedItems array (each item has _searchType) into buckets.
+ * Normalizes field names to what the result renderers expect.
+ */
+function groupResults(items) {
+  const buckets = { posts: [], users: [], groups: [], pages: [], bookmarks: [] }
 
-const MOCK_RESULTS = {
-  posts: [
-    {
-      id: 'post:2@kwln.org',
-      type: 'Article',
-      name: 'On the Aesthetics of Midcentury Design',
-      source: 'Reid Miles understood that negative space *is* content.',
-      published: H(2),
-      visibility: 'Public',
-      attributedTo: AUTHOR,
-    },
-    {
-      id: 'post:3@kwln.org',
-      type: 'Link',
-      name: 'Blue Note Records: The Complete Discography',
-      source: 'An absolutely essential resource.',
-      href: 'https://www.discogs.com/label/3073-Blue-Note-Records',
-      published: H(12),
-      visibility: 'Public',
-      attributedTo: AUTHOR,
-    },
-  ],
-  users: [
-    { id: '@recordhead@kwln.org',  username: 'recordhead',  displayName: 'Record Head',     profile: { icon: 'https://picsum.photos/seed/recordhead/200/200',  description: 'Collector, obsessive, and occasional DJ. Blue Note completist.' } },
-    { id: '@jzellis@kwln.org',     username: 'jzellis',     displayName: 'Joshua Ellis',    profile: { icon: 'https://picsum.photos/seed/jzellis/200/200',     description: 'Writer, musician, technologist.' } },
-    { id: '@milesahead@kwln.org',  username: 'milesahead',  displayName: 'Miles Ahead',     profile: { icon: 'https://picsum.photos/seed/milesahead/200/200',  description: 'Trumpet player and armchair theorist.' } },
-  ],
-  groups: [
-    { id: 'group:jazz@kwln.org',   name: 'London Jazz Society',       icon: 'https://picsum.photos/seed/jazzgroup/200/200',   memberCount: 214, summary: 'Jazz lovers in London and beyond.' },
-    { id: 'group:design@kwln.org', name: 'Midcentury Design Guild',   icon: 'https://picsum.photos/seed/designguild/200/200', memberCount: 89,  summary: 'Eames, Noguchi, Saarinen, and everything in between.' },
-  ],
-  circles: [
-    { id: 'circle:jazz@kwln.org',   name: 'Jazz & Improvised Music', icon: 'https://picsum.photos/seed/jazz11/200/200',      memberCount: 91,  summary: 'From bebop to free jazz.' },
-    { id: 'circle:design@kwln.org', name: 'Midcentury Design',       icon: 'https://picsum.photos/seed/design77/200/200',    memberCount: 89,  summary: 'Post your finds.' },
-  ],
-  pages: [
-    { id: 'page:manifesto@kwln.org', name: 'The Kowloon Manifesto', summary: 'What we are building and why.', updatedAt: H(48) },
-    { id: 'page:style@kwln.org',     name: 'Style Guide',            summary: 'Visual language and conventions.', updatedAt: H(120) },
-  ],
+  for (const item of items) {
+    const t = item._searchType
+    if (t === 'Post') {
+      buckets.posts.push({
+        ...item,
+        name: item.title ?? item.name,
+        attributedTo: { id: item.actorId },
+      })
+    } else if (t === 'User') {
+      buckets.users.push({
+        ...item,
+        displayName: item.profile?.name ?? item.username ?? item.id,
+      })
+    } else if (t === 'Group') {
+      buckets.groups.push({
+        ...item,
+        summary: item.description ?? item.summary,
+      })
+    } else if (t === 'Page') {
+      buckets.pages.push({
+        ...item,
+        name: item.title ?? item.name,
+      })
+    } else if (t === 'Bookmark') {
+      buckets.bookmarks.push(item)
+    }
+  }
+
+  return buckets
 }
 
 // ── Result renderers ──────────────────────────────────────────────────────────
@@ -113,29 +114,6 @@ function GroupResult({ group }) {
   )
 }
 
-function CircleResult({ circle }) {
-  return (
-    <Link
-      to={`/circles/${encodeURIComponent(circle.id)}`}
-      className="flex items-start gap-3 py-4 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
-    >
-      {circle.icon
-        ? <img src={circle.icon} alt={circle.name} className="w-10 h-10 object-cover shrink-0" style={hexMask} />
-        : <div className="w-10 h-10 bg-secondary flex items-center justify-center shrink-0" style={hexMask}>
-            <CircleIcon type="circle" size="md" className="opacity-70 text-secondary-content" />
-          </div>
-      }
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="font-display text-xl tracking-wide leading-none">{circle.name}</span>
-        <span className="font-ui text-xs uppercase tracking-widest text-base-content/55">{circle.memberCount} members</span>
-        {circle.summary && (
-          <p className="font-reading text-sm text-base-content/70 leading-snug mt-0.5 line-clamp-2">{circle.summary}</p>
-        )}
-      </div>
-    </Link>
-  )
-}
-
 function PageResult({ page }) {
   return (
     <Link
@@ -173,43 +151,38 @@ export default function SearchPage() {
   const initialQ    = searchParams.get('q') ?? ''
   const initialType = searchParams.get('type') ?? 'all'
 
-  const [query, setQuery]   = useState(initialQ)
-  const [type, setType]     = useState(initialType)
+  const [query, setQuery]     = useState(initialQ)
+  const [type, setType]       = useState(initialType)
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [inputValue, setInputValue] = useState(initialQ)
 
-  const search = useCallback(async (q, t) => {
+  const search = useCallback(async (q, activeType) => {
     if (!q.trim()) { setResults(null); return }
     setLoading(true)
     try {
-      if (!client) {
-        // Mock: filter results by query string (case-insensitive substring match)
-        const lq = q.toLowerCase()
-        const filtered = {
-          posts:   MOCK_RESULTS.posts.filter((p) => (p.name ?? p.source ?? '').toLowerCase().includes(lq)),
-          users:   MOCK_RESULTS.users.filter((u) => (u.displayName + u.id).toLowerCase().includes(lq)),
-          groups:  MOCK_RESULTS.groups.filter((g) => (g.name + (g.summary ?? '')).toLowerCase().includes(lq)),
-          circles: MOCK_RESULTS.circles.filter((c) => (c.name + (c.summary ?? '')).toLowerCase().includes(lq)),
-          pages:   MOCK_RESULTS.pages.filter((p) => (p.name + (p.summary ?? '')).toLowerCase().includes(lq)),
-        }
-        setResults(filtered)
-        return
-      }
-      const res = await client.search.search({ q, type: t === 'all' ? undefined : t })
-      setResults(res)
-    } catch {}
-    finally { setLoading(false) }
+      const searchIn = activeType !== 'all' ? TYPE_TO_SEARCH_IN[activeType] : undefined
+      const res = await client.search.search({ query: q, searchIn })
+      setResults(groupResults(res?.orderedItems ?? []))
+    } catch (err) {
+      console.warn('[SearchPage] search failed:', err.message)
+      setResults({ posts: [], users: [], groups: [], pages: [], bookmarks: [] })
+    } finally {
+      setLoading(false)
+    }
   }, [client])
 
-  // Debounce search
+  // Debounce: update query + URL after 350ms of no typing
   useEffect(() => {
     const timer = setTimeout(() => {
       setQuery(inputValue)
-      setSearchParams(inputValue ? { q: inputValue, ...(type !== 'all' ? { type } : {}) } : {}, { replace: true })
+      setSearchParams(
+        inputValue ? { q: inputValue, ...(type !== 'all' ? { type } : {}) } : {},
+        { replace: true }
+      )
     }, 350)
     return () => clearTimeout(timer)
-  }, [inputValue, type])
+  }, [inputValue, type, setSearchParams])
 
   useEffect(() => {
     if (query) search(query, type)
@@ -219,12 +192,11 @@ export default function SearchPage() {
   const hasResults = results && Object.values(results).some((arr) => arr.length > 0)
 
   const TYPE_LABELS = {
-    all:     t('search.all',     { defaultValue: 'All' }),
-    posts:   t('search.posts',   { defaultValue: 'Posts' }),
-    users:   t('search.users',   { defaultValue: 'Users' }),
-    groups:  t('search.groups',  { defaultValue: 'Groups' }),
-    circles: t('search.circles', { defaultValue: 'Circles' }),
-    pages:   t('search.pages',   { defaultValue: 'Pages' }),
+    all:    t('search.all',    { defaultValue: 'All' }),
+    posts:  t('search.posts',  { defaultValue: 'Posts' }),
+    users:  t('search.users',  { defaultValue: 'Users' }),
+    groups: t('search.groups', { defaultValue: 'Groups' }),
+    pages:  t('search.pages',  { defaultValue: 'Pages' }),
   }
 
   return (
@@ -242,7 +214,7 @@ export default function SearchPage() {
             type="search"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={t('search.placeholder', { defaultValue: 'Search…' })}
+            placeholder={t('search.placeholder', { defaultValue: 'Search\u2026' })}
             autoFocus
             aria-label={t('search.placeholder', { defaultValue: 'Search' })}
             className="w-full pl-12 pr-12 py-4 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-display text-3xl tracking-wide text-base-content placeholder:text-base-content/25 transition-colors"
@@ -298,35 +270,28 @@ export default function SearchPage() {
 
           {(type === 'all' || type === 'posts') && results.posts?.length > 0 && (
             <div>
-              {type === 'all' && <SectionHeader title={t('search.posts', { defaultValue: 'Posts' })} count={results.posts.length} />}
+              {type === 'all' && <SectionHeader title={TYPE_LABELS.posts} count={results.posts.length} />}
               {results.posts.map((post) => <PostCard key={post.id} post={post} />)}
             </div>
           )}
 
           {(type === 'all' || type === 'users') && results.users?.length > 0 && (
             <div>
-              {type === 'all' && <SectionHeader title={t('search.users', { defaultValue: 'Users' })} count={results.users.length} />}
+              {type === 'all' && <SectionHeader title={TYPE_LABELS.users} count={results.users.length} />}
               {results.users.map((user) => <UserResult key={user.id} user={user} />)}
             </div>
           )}
 
           {(type === 'all' || type === 'groups') && results.groups?.length > 0 && (
             <div>
-              {type === 'all' && <SectionHeader title={t('search.groups', { defaultValue: 'Groups' })} count={results.groups.length} />}
+              {type === 'all' && <SectionHeader title={TYPE_LABELS.groups} count={results.groups.length} />}
               {results.groups.map((group) => <GroupResult key={group.id} group={group} />)}
-            </div>
-          )}
-
-          {(type === 'all' || type === 'circles') && results.circles?.length > 0 && (
-            <div>
-              {type === 'all' && <SectionHeader title={t('search.circles', { defaultValue: 'Circles' })} count={results.circles.length} />}
-              {results.circles.map((circle) => <CircleResult key={circle.id} circle={circle} />)}
             </div>
           )}
 
           {(type === 'all' || type === 'pages') && results.pages?.length > 0 && (
             <div>
-              {type === 'all' && <SectionHeader title={t('search.pages', { defaultValue: 'Pages' })} count={results.pages.length} />}
+              {type === 'all' && <SectionHeader title={TYPE_LABELS.pages} count={results.pages.length} />}
               {results.pages.map((page) => <PageResult key={page.id} page={page} />)}
             </div>
           )}
