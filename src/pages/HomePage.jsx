@@ -53,18 +53,9 @@ export default function HomePage() {
   const client = useClient()
   const { t } = useTranslation()
 
-  const [circles, setCircles]     = useState([])
   const [posts, setPosts]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [activeType, setActiveType] = useState(null)
-
-  // Load user's circles for the composer audience picker
-  useEffect(() => {
-    if (!sessionChecked || !user || !client) return
-    client.feeds.getUserCircles({ userId: user.id })
-      .then((res) => setCircles(res?.orderedItems ?? []))
-      .catch(() => setCircles([]))
-  }, [client, user?.id, sessionChecked])
 
   const loadFeed = useCallback(async () => {
     if (!sessionChecked) return
@@ -92,7 +83,6 @@ export default function HomePage() {
     <div className="flex flex-col">
       {user && (
         <PostComposer
-          circles={circles}
           onPostCreated={loadFeed}
           initialValues={{ to: 'public' }}
           prompt={t('composer.promptPublic', { defaultValue: 'Write a public post…' })}

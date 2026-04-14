@@ -9,6 +9,7 @@ import FocusTrap from 'focus-trap-react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
+import { Upload } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import UserAvatar from '../ui/UserAvatar'
 import PostTypeSelector from './PostTypeSelector'
@@ -161,16 +162,16 @@ function SortableAttachmentRow(props) {
   }
   return (
     <div ref={setNodeRef} style={style}>
-      <AttachmentRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+      <AttachmentRow {...props} dragHandleProps={{ ...attributes, ...listeners }} uploadError={props.uploadErrors?.[props.att.previewUrl]} />
     </div>
   )
 }
 
-function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatured, dragHandleProps = {} }) {
+function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatured, dragHandleProps = {}, uploadError }) {
   const { t } = useTranslation()
   const isAudio = att.file.type.startsWith('audio/')
   return (
-    <div className={`flex gap-3 items-start py-2.5 border-b border-base-300 bg-base-100 ${isAudio ? 'flex-col' : ''}`}>
+    <div className={`flex gap-3 items-start py-2.5 border-b border-base-300 bg-base-100 ${isAudio ? 'flex-col' : ''} ${uploadError ? 'bg-error/5' : ''}`}>
       {/* Drag handle */}
       <button
         type="button"
@@ -202,6 +203,9 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
         />
       </div>
       <div className="flex flex-col gap-1 items-end shrink-0 pt-0.5">
+        {uploadError && (
+          <span className="font-ui text-xs uppercase tracking-widest text-error">{uploadError}</span>
+        )}
         <button
           type="button"
           onClick={() => onRemove(index)}
@@ -225,8 +229,9 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function PostComposer({ circles = [], onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt }) {
+export default function PostComposer({ onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt }) {
   const { user } = useSelector((state) => state.auth)
+  const { items: myCircles } = useSelector((state) => state.myCircles)
   const client = useClient()
   const { t } = useTranslation()
 
@@ -241,7 +246,10 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
   const [location, setLocation]       = useState(initialValues.location ?? '')
   const [attachments, setAttachments] = useState([])   // [{ file, title, alt, previewUrl }]
   const [featuredIdx, setFeaturedIdx] = useState(0)
-  const [featuredImage, setFeaturedImage] = useState(initialValues.featuredImage ?? null) // URL or file ID from link preview
+  const [featuredImage, setFeaturedImage] = useState(initialValues.featuredImage ?? null) // URL or file ID from link/article preview
+  const [artFeaturedFile, setArtFeaturedFile]       = useState(null)    // File for Article featured image
+  const [artFeaturedPreview, setArtFeaturedPreview] = useState(null)    // object URL preview
+  const [uploadErrors, setUploadErrors] = useState({}) // previewUrl → error string
   const [target, setTarget]           = useState(initialValues.target ?? null) // ID of post being shared
   const [geo, setGeo]                 = useState(null) // { lat, lon } from browser
   const [locating, setLocating]       = useState(false)
@@ -252,10 +260,11 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
   const [fetchingMeta, setFetchingMeta] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
-  const composerRef = useRef(null)
-  const fileInputRef = useRef(null)
-  const hrefInputRef = useRef(null)
-  const triggerRef  = useRef(null)
+  const composerRef      = useRef(null)
+  const fileInputRef     = useRef(null)
+  const artImageInputRef = useRef(null)
+  const hrefInputRef     = useRef(null)
+  const triggerRef       = useRef(null)
 
   const wordCount = postType === 'Note' ? countWords(content) : 0
   const charCount = postType === 'Note' ? content.length : 0
@@ -330,6 +339,9 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
     setAttachments((prev) => { prev.forEach((a) => URL.revokeObjectURL(a.previewUrl)); return [] })
     setFeaturedIdx(0)
     setFeaturedImage(null)
+    if (artFeaturedPreview) { URL.revokeObjectURL(artFeaturedPreview); setArtFeaturedPreview(null) }
+    setArtFeaturedFile(null)
+    setUploadErrors({})
     setTarget(null)
     setPostType('Note')
     setAudience('public')
@@ -382,6 +394,15 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
     finally { setFetchingMeta(false) }
   }
 
+  const handleArtImageFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (artFeaturedPreview) URL.revokeObjectURL(artFeaturedPreview)
+    setArtFeaturedFile(file)
+    setArtFeaturedPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
   const handleFileAdd = (e) => {
     const files = Array.from(e.target.files)
     setAttachments((prev) => [
@@ -431,13 +452,25 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
   const handleSubmit = async () => {
     setSubmitting(true)
     setError(null)
+    setUploadErrors({})
     try {
       let uploadedAttachments
       let uploadedFeaturedImage = featuredImage || undefined
 
+      // Upload Article featured image if a file was selected
+      if (postType === 'Article' && artFeaturedFile) {
+        const res = await client.files.upload({
+          file: artFeaturedFile,
+          filename: artFeaturedFile.name,
+          contentType: artFeaturedFile.type,
+          to: audience,
+        })
+        if (res?.file?.id) uploadedFeaturedImage = res.file.id
+      }
+
       // Upload Media attachments before creating the post
       if (postType === 'Media' && attachments.length > 0) {
-        const uploaded = await Promise.all(
+        const results = await Promise.allSettled(
           attachments.map((att) =>
             client.files.upload({
               file: att.file,
@@ -449,14 +482,24 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
             })
           )
         )
-        uploadedAttachments = uploaded.map((res, i) => ({
-          fileId: res.file.id,
+        // Surface per-attachment errors
+        const errors = {}
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') errors[attachments[i].previewUrl] = r.reason?.message ?? 'Upload failed'
+        })
+        if (Object.keys(errors).length > 0) {
+          setUploadErrors(errors)
+          setSubmitting(false)
+          return
+        }
+        uploadedAttachments = results.map((r, i) => ({
+          fileId: r.value.file.id,
           title: attachments[i].title || undefined,
           alt: attachments[i].alt || undefined,
         }))
         // Use the featured attachment as the post's featured image
-        if (uploaded[featuredIdx]?.file?.id) {
-          uploadedFeaturedImage = uploaded[featuredIdx].file.id
+        if (results[featuredIdx]?.value?.file?.id) {
+          uploadedFeaturedImage = results[featuredIdx].value.file.id
         }
       }
 
@@ -486,7 +529,6 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
   }
 
   if (!user) return null
-  const mockUser = user
 
   // ── Collapsed ─────────────────────────────────────────────────────────────
   // In onClose (share) mode, never show the collapsed trigger — just unmount via onClose
@@ -501,7 +543,7 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
         className="w-full flex items-center gap-3 px-4 py-3 bg-base-100 border-2 border-base-300 hover:border-primary focus-visible:outline-none focus-visible:border-primary cursor-text transition-colors mb-8 group text-left"
         aria-label={t('composer.prompt')}
       >
-        <UserAvatar user={mockUser} size="sm" />
+        <UserAvatar user={user} size="sm" />
         <span className="font-reading text-base-content/40 dark:text-base-content/65 group-hover:text-base-content/70 dark:group-hover:text-base-content/85 transition-colors select-none" aria-hidden="true">
           {prompt ?? t('composer.prompt')}
         </span>
@@ -565,7 +607,8 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
                       {attachments.map((att, i) => (
                         <SortableAttachmentRow key={att.previewUrl} att={att} index={i}
                           onUpdate={updateAttachment} onRemove={removeAttachment}
-                          isFeatured={i === featuredIdx} onSetFeatured={setFeaturedIdx} />
+                          isFeatured={i === featuredIdx} onSetFeatured={setFeaturedIdx}
+                          uploadErrors={uploadErrors} />
                       ))}
                     </SortableContext>
                   </DndContext>
@@ -641,6 +684,35 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
             />
           )}
 
+          {/* Article featured image */}
+          {postType === 'Article' && (
+            <div className="border-b-2 border-base-300">
+              {artFeaturedPreview ? (
+                <div className="relative">
+                  <img src={artFeaturedPreview} alt="" className="w-full max-h-48 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => { URL.revokeObjectURL(artFeaturedPreview); setArtFeaturedPreview(null); setArtFeaturedFile(null) }}
+                    aria-label={t('composer.removeFeaturedImage', { defaultValue: 'Remove image' })}
+                    className="absolute top-2 right-2 px-2 py-1 bg-black/50 text-white font-ui text-xs uppercase tracking-widest hover:bg-black/70 transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => artImageInputRef.current?.click()}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content hover:bg-base-200 transition-colors"
+                >
+                  <Upload size={12} />
+                  {t('composer.addFeaturedImage', { defaultValue: 'Add featured image' })}
+                </button>
+              )}
+              <input ref={artImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleArtImageFile} />
+            </div>
+          )}
+
           {/* Event datetimes + location */}
           {postType === 'Event' && (
             <>
@@ -704,7 +776,7 @@ export default function PostComposer({ circles = [], onPostCreated, onClose, ini
 
         {/* Footer — pinned to bottom, never scrolls away */}
         <div className="flex items-center justify-between gap-3 px-3 py-2 bg-base-200 border-t-2 border-base-300 shrink-0">
-          <CircleSelector circles={circles} value={audience} onChange={setAudience} showAudience allowCreate direction="up" />
+          <CircleSelector circles={myCircles} value={audience} onChange={setAudience} showAudience allowCreate direction="up" />
           <div className="flex items-center gap-3">
             {error && <span role="alert" aria-live="assertive" className="font-ui text-xs uppercase tracking-widest text-error">{error}</span>}
             {postType === 'Note' && (

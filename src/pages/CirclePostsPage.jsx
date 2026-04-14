@@ -64,18 +64,9 @@ export default function CirclePostsPage() {
   const circleId = decodeURIComponent(id)
 
   const [circle, setCircle]     = useState(null)
-  const [circles, setCircles]   = useState([])
   const [posts, setPosts]       = useState([])
   const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
-
-  // Load user's circles for the composer audience picker
-  useEffect(() => {
-    if (!sessionChecked || !user || !client) return
-    client.feeds.getUserCircles({ userId: user.id })
-      .then((res) => setCircles(res?.orderedItems ?? []))
-      .catch(() => setCircles([]))
-  }, [client, user?.id, sessionChecked])
 
   // Load circle metadata
   useEffect(() => {
@@ -147,7 +138,6 @@ export default function CirclePostsPage() {
 
       {user && (
         <PostComposer
-          circles={circles}
           onPostCreated={loadPosts}
           initialValues={{ to: circleId }}
           prompt={t('composer.promptCircle', { name: circle?.name ?? '…', defaultValue: `Write a post to ${circle?.name ?? '…'}…` })}

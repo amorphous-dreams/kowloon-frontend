@@ -502,7 +502,6 @@ export default function CirclePage() {
 
       {sharing && (
         <PostComposer
-          circles={[]}
           defaultOpen
           initialValues={{
             type: 'Link',
