@@ -1,15 +1,14 @@
 // Home — public face of the server. Always shows the @public post feed.
-// Authenticated users are redirected to their Following circle on login;
-// this page is also where they can compose a post.
+// Authenticated users can also compose here.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { useClient } from '../hooks/useClient'
+import { useFeed } from '../hooks/useFeed'
 import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
-import Spinner from '../components/ui/Spinner'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
@@ -53,29 +52,25 @@ export default function HomePage() {
   const client = useClient()
   const { t } = useTranslation()
 
-  const [posts, setPosts]         = useState([])
-  const [loading, setLoading]     = useState(true)
   const [activeType, setActiveType] = useState(null)
 
-  const loadFeed = useCallback(async () => {
-    if (!sessionChecked) return
-    setLoading(true)
-    try {
-      const res = await client.feeds.getServerPosts({ type: activeType ?? undefined })
-      const items = (res?.orderedItems ?? []).map((p) => ({
-        ...p,
-        attributedTo: p.attributedTo ?? p.actor ?? { id: p.actorId },
-        published: p.published ?? p.createdAt,
-      }))
-      setPosts(items)
-    } catch {
-      setPosts([])
-    } finally {
-      setLoading(false)
-    }
-  }, [client, sessionChecked, activeType])
+  const fetchPosts = useCallback(async (cursor) => {
+    const page = cursor ?? 1
+    const res = await client.feeds.getServerPosts({ type: activeType ?? undefined, page })
+    const items = (res?.orderedItems ?? []).map((p) => ({
+      ...p,
+      attributedTo: p.attributedTo ?? p.actor ?? { id: p.actorId },
+      published: p.published ?? p.createdAt,
+    }))
+    const { totalItems = 0, itemsPerPage = 20 } = res ?? {}
+    const fetchedPage = res?.page ?? page
+    const hasMore = fetchedPage * itemsPerPage < totalItems
+    return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
+  }, [client, activeType]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { loadFeed() }, [loadFeed])
+  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+    sessionChecked ? fetchPosts : null
+  )
 
   if (!sessionChecked) return null
 
@@ -83,16 +78,20 @@ export default function HomePage() {
     <div className="flex flex-col">
       {user && (
         <PostComposer
-          onPostCreated={loadFeed}
+          onPostCreated={() => {}}
           initialValues={{ to: 'public' }}
-          prompt={t('composer.promptPublic', { defaultValue: 'Write a public post…' })}
+          prompt={t('composer.promptPublic', { defaultValue: 'Write a public post\u2026' })}
         />
       )}
       <TypeFilter activeType={activeType} onChange={setActiveType} />
-      {loading
-        ? <Spinner centered />
-        : <PostList posts={posts} />
-      }
+      <PostList
+        posts={items}
+        loading={loading}
+        error={error}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   )
 }

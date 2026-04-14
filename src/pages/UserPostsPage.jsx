@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
+import { useFeed } from '../hooks/useFeed'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import Spinner from '../components/ui/Spinner'
@@ -13,20 +14,6 @@ import ErrorState from '../components/ui/ErrorState'
 import { toggleType, clearTypes } from '../app/feedSlice'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
-
-const MOCK_USER = {
-  id: '@jzellis@kwln.org',
-  username: 'jzellis',
-  name: 'Joshua Ellis',
-  profile: { icon: 'https://picsum.photos/seed/jzellis/400/400' },
-}
-
-const H = (n) => new Date(Date.now() - 1000 * 60 * 60 * n).toISOString()
-const MOCK_POSTS = [
-  { id: 'post:1@kwln.org', type: 'Note',    source: 'Just finished reading *The Stars My Destination* for the third time. Still the best science fiction novel ever written, no notes.', published: H(1),  visibility: 'Public', attributedTo: MOCK_USER },
-  { id: 'post:2@kwln.org', type: 'Article', name: 'On the Aesthetics of Midcentury Design', source: 'Reid Miles understood that negative space is content.', published: H(10), visibility: 'Public', attributedTo: MOCK_USER },
-  { id: 'post:3@kwln.org', type: 'Link',    name: 'The Internet We Lost', source: 'Everything I loved about the early web is still there.', href: 'https://example.com/internet-we-lost', published: H(36), visibility: 'Public', attributedTo: MOCK_USER },
-]
 
 function TypeFilter() {
   const dispatch = useDispatch()
@@ -65,60 +52,61 @@ export default function UserPostsPage() {
   const { id } = useParams()
   const client = useClient()
   const { t } = useTranslation()
+  const { activeTypes } = useSelector((state) => state.feed)
 
-  const [user, setUser]   = useState(null)
-  const [posts, setPosts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [user, setUser]       = useState(null)
+  const [userLoading, setUserLoading] = useState(true)
+  const [userError, setUserError]     = useState(null)
 
-  const load = useCallback(async () => {
-    if (!client) {
-      setUser(MOCK_USER)
-      setPosts(MOCK_POSTS)
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const [userRes, postsRes] = await Promise.all([
-        client.feeds.getUser({ userId: id }),
-        client.feeds.getUserPosts({ userId: id }),
-      ])
-
-      const raw = userRes?.item ?? userRes
-      const normalized = {
-        id: raw?.id ?? raw?.actorId,
-        username: raw?.preferredUsername ?? raw?.username,
-        name: raw?.name ?? raw?.preferredUsername ?? raw?.username,
-        profile: { icon: raw?.icon ?? raw?.profile?.icon },
-      }
-      setUser(normalized)
-
-      const attributedTo = {
-        id: normalized.id,
-        name: normalized.name,
-        username: normalized.username,
-        icon: normalized.profile?.icon,
-      }
-      const rawPosts = postsRes?.orderedItems ?? postsRes ?? []
-      setPosts(rawPosts.map((p) => ({
-        ...p,
-        attributedTo: p.attributedTo ?? attributedTo,
-        published: p.published ?? p.publishedAt ?? p.createdAt,
-        visibility: p.visibility ?? (p.to === '@public' ? 'Public' : p.to?.startsWith('@') ? 'Server' : 'Audience'),
-      })))
-    } catch (err) {
-      setError(err.message || 'Failed to load posts.')
-    } finally {
-      setLoading(false)
-    }
+  // Load user profile once
+  useEffect(() => {
+    if (!client) return
+    client.feeds.getUser({ userId: id })
+      .then((res) => {
+        const raw = res?.item ?? res
+        setUser({
+          id: raw?.id ?? raw?.actorId,
+          username: raw?.preferredUsername ?? raw?.username,
+          name: raw?.name ?? raw?.preferredUsername ?? raw?.username,
+          profile: { icon: raw?.icon ?? raw?.profile?.icon },
+        })
+      })
+      .catch((err) => setUserError(err.message || 'Failed to load user'))
+      .finally(() => setUserLoading(false))
   }, [client, id])
 
-  useEffect(() => { load() }, [load])
+  const fetchPosts = useCallback(async (cursor) => {
+    const page = cursor ?? 1
+    const res = await client.feeds.getUserPosts({
+      userId: id,
+      type: activeTypes.length === 1 ? activeTypes[0] : undefined,
+      page,
+    })
+    const attributedTo = user ? {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      icon: user.profile?.icon,
+    } : undefined
+    const rawPosts = res?.orderedItems ?? res ?? []
+    const items = rawPosts.map((p) => ({
+      ...p,
+      attributedTo: p.attributedTo ?? attributedTo,
+      published: p.published ?? p.publishedAt ?? p.createdAt,
+      visibility: p.visibility ?? (p.to === '@public' ? 'Public' : p.to?.startsWith('@') ? 'Server' : 'Audience'),
+    }))
+    const { totalItems = 0, itemsPerPage = 20 } = res ?? {}
+    const fetchedPage = res?.page ?? page
+    const hasMore = fetchedPage * itemsPerPage < totalItems
+    return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
+  }, [client, id, activeTypes, user])
 
-  if (loading) return <Spinner centered />
-  if (error)   return <ErrorState message={error} onRetry={load} />
+  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+    client ? fetchPosts : null
+  )
+
+  if (userLoading) return <Spinner centered />
+  if (userError)   return <ErrorState message={userError} />
 
   const displayName = user?.name ?? id
 
@@ -139,7 +127,14 @@ export default function UserPostsPage() {
 
       <TypeFilter />
 
-      <PostList posts={posts} />
+      <PostList
+        posts={items}
+        loading={loading}
+        error={error}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
+      />
 
     </div>
   )

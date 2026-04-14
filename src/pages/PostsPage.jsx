@@ -1,11 +1,11 @@
 // PostsPage — server-wide public post firehose, filterable by type.
 
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useClient } from '../hooks/useClient'
+import { useFeed } from '../hooks/useFeed'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
-import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
@@ -14,38 +14,21 @@ export default function PostsPage() {
   const { t } = useTranslation()
   const client = useClient()
 
-  const [posts, setPosts]           = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
-  const [page, setPage]             = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [activeType, setActiveType] = useState(null)
 
-  const load = useCallback(async (p = 1, type = null) => {
-    if (!client) { setLoading(false); return }
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await client.feeds.getServerPosts({ page: p, type: type ?? undefined })
-      setPosts(res?.orderedItems ?? [])
-      const total  = res?.totalItems ?? 0
-      const perPage = res?.itemsPerPage ?? 20
-      setTotalPages(Math.max(1, Math.ceil(total / perPage)))
-    } catch (err) {
-      setError(err.message || 'Failed to load posts.')
-    } finally {
-      setLoading(false)
-    }
-  }, [client])
+  const fetchPosts = useCallback(async (cursor) => {
+    const page = cursor ?? 1
+    const res = await client.feeds.getServerPosts({ page, type: activeType ?? undefined })
+    const items = res?.orderedItems ?? []
+    const { totalItems = 0, itemsPerPage = 20 } = res ?? {}
+    const fetchedPage = res?.page ?? page
+    const hasMore = fetchedPage * itemsPerPage < totalItems
+    return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
+  }, [client, activeType])
 
-  useEffect(() => {
-    setPage(1)
-    load(1, activeType)
-  }, [activeType, load])
-
-  useEffect(() => {
-    load(page, activeType)
-  }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+    client ? fetchPosts : null
+  )
 
   const handleTypeClick = (type) => {
     setActiveType((prev) => prev === type ? null : type)
@@ -78,16 +61,16 @@ export default function PostsPage() {
         ))}
       </div>
 
-      {loading ? (
-        <Spinner centered />
-      ) : error ? (
-        <ErrorState message={error} onRetry={() => load(page, activeType)} />
+      {error && !loading ? (
+        <ErrorState message={error} />
       ) : (
         <PostList
-          posts={posts}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
+          posts={items}
+          loading={loading}
+          error={null}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
           ignoreTypeFilter
         />
       )}

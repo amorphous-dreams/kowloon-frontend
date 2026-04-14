@@ -6,10 +6,10 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
+import { useFeed } from '../hooks/useFeed'
 import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
-import Spinner from '../components/ui/Spinner'
 import { toggleType, clearTypes } from '../app/feedSlice'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
@@ -64,8 +64,6 @@ export default function CirclePostsPage() {
   const circleId = decodeURIComponent(id)
 
   const [circle, setCircle]     = useState(null)
-  const [posts, setPosts]       = useState([])
-  const [loading, setLoading]   = useState(true)
   const [notFound, setNotFound] = useState(false)
 
   // Load circle metadata
@@ -73,31 +71,25 @@ export default function CirclePostsPage() {
     if (!sessionChecked || !client) return
     client.feeds.getCircle({ circleId })
       .then((res) => setCircle(res))
-      .catch((err) => {
-        if (err?.status === 404 || err?.response?.status === 404) setNotFound(true)
-        else setNotFound(true) // treat any error as not found — don't leak
-      })
+      .catch(() => setNotFound(true))
   }, [client, circleId, sessionChecked])
 
-  // Load posts
-  const loadPosts = useCallback(async () => {
-    if (!sessionChecked || !client || notFound) return
-    setLoading(true)
-    try {
-      const res = await client.feeds.getCirclePosts({
-        circleId,
-        types: activeTypes.length ? activeTypes : undefined,
-      })
-      setPosts(res?.orderedItems ?? [])
-    } catch (err) {
-      if (err?.status === 404 || err?.response?.status === 404) setNotFound(true)
-      else setNotFound(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [client, circleId, activeTypes, sessionChecked, notFound])
+  // Cursor-based fetch: returns nextCursor (ISO string) or null
+  const fetchPosts = useCallback(async (cursor) => {
+    const res = await client.feeds.getCirclePosts({
+      circleId,
+      types: activeTypes.length ? activeTypes : undefined,
+      since: cursor ?? undefined,
+    })
+    const items = res?.orderedItems ?? []
+    const nc = res?.nextCursor ?? null
+    return { items, nextCursor: nc, hasMore: nc !== null }
+  }, [client, circleId, activeTypes]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { loadPosts() }, [loadPosts])
+  const ready = sessionChecked && !notFound && !!client
+  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+    ready ? fetchPosts : null
+  )
 
   if (!sessionChecked) return null
 
@@ -127,7 +119,7 @@ export default function CirclePostsPage() {
           to={`/circles/${encodeURIComponent(id)}`}
           className="flex items-center gap-1.5 font-ui text-xs uppercase tracking-widest text-base-content/65 hover:text-primary transition-colors self-start mb-2"
         >
-          <ArrowLeft size={13} /> {circle?.name ?? '…'}
+          <ArrowLeft size={13} /> {circle?.name ?? '\u2026'}
         </Link>
         <h1 className="font-display text-4xl leading-none tracking-wide">
           {t('circle.posts', { defaultValue: 'Posts' })}
@@ -138,16 +130,20 @@ export default function CirclePostsPage() {
 
       {user && (
         <PostComposer
-          onPostCreated={loadPosts}
+          onPostCreated={() => {}}
           initialValues={{ to: circleId }}
-          prompt={t('composer.promptCircle', { name: circle?.name ?? '…', defaultValue: `Write a post to ${circle?.name ?? '…'}…` })}
+          prompt={t('composer.promptCircle', { name: circle?.name ?? '\u2026', defaultValue: `Write a post to ${circle?.name ?? '\u2026'}\u2026` })}
         />
       )}
 
-      {loading
-        ? <Spinner centered />
-        : <PostList posts={posts} />
-      }
+      <PostList
+        posts={items}
+        loading={loading}
+        error={error}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
+      />
     </div>
   )
 }

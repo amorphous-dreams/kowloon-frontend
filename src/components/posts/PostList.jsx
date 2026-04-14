@@ -1,5 +1,5 @@
-// PostList — renders a paginated list of PostCards, or a media grid when only Media is filtered.
-// Props: posts (array), page, totalPages, onPageChange, loading, error
+// PostList — renders a list of PostCards, or a media grid when only Media is filtered.
+// Props: posts (array), loading, error, hasMore, loadingMore, onLoadMore
 
 import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
@@ -8,8 +8,7 @@ import PostCard from './PostCard'
 import Spinner from '../ui/Spinner'
 import EmptyState from '../ui/EmptyState'
 import ErrorState from '../ui/ErrorState'
-import Pagination from '../ui/Pagination'
-import { POST_TYPES } from '../../lib/postTypes'
+import LoadMoreButton from '../ui/LoadMoreButton'
 import { Play } from 'lucide-react'
 
 // ── Media grid ────────────────────────────────────────────────────────────────
@@ -78,7 +77,7 @@ function MediaThumb({ post }) {
   )
 }
 
-function MediaGrid({ posts, page, totalPages, onPageChange }) {
+function MediaGrid({ posts, hasMore, loadingMore, onLoadMore }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
@@ -86,19 +85,27 @@ function MediaGrid({ posts, page, totalPages, onPageChange }) {
           <MediaThumb key={post.id} post={post} />
         ))}
       </div>
-      <Pagination page={page} totalPages={totalPages} onChange={onPageChange} />
+      <LoadMoreButton hasMore={hasMore} loading={loadingMore} onClick={onLoadMore} />
     </div>
   )
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function PostList({ posts = [], page, totalPages, onPageChange, loading, error, ignoreTypeFilter = false }) {
+export default function PostList({
+  posts = [],
+  loading,
+  error,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
+  ignoreTypeFilter = false,
+}) {
   const { activeTypes } = useSelector((state) => state.feed)
   const { t } = useTranslation()
 
   if (loading) return <Spinner centered />
-  if (error)   return <ErrorState message={error} onRetry={() => onPageChange(page)} />
+  if (error)   return <ErrorState message={error} />
   if (!posts.length) return <EmptyState message={t('post.empty')} />
 
   const visible = (!ignoreTypeFilter && activeTypes.length > 0)
@@ -110,17 +117,22 @@ export default function PostList({ posts = [], page, totalPages, onPageChange, l
   const isMediaGrid = !ignoreTypeFilter && activeTypes.length === 1 && activeTypes[0] === 'Media'
 
   if (isMediaGrid) {
-    return <MediaGrid posts={visible} page={page} totalPages={totalPages} onPageChange={onPageChange} />
+    return (
+      <MediaGrid
+        posts={visible}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={onLoadMore}
+      />
+    )
   }
 
   return (
-    <div role="feed" aria-busy={loading} className="flex flex-col">
+    <div role="feed" className="flex flex-col">
       {visible.map((post) => (
         <PostCard key={post.id} post={post} />
       ))}
-      <div className="pt-6">
-        <Pagination page={page} totalPages={totalPages} onChange={onPageChange} />
-      </div>
+      <LoadMoreButton hasMore={hasMore} loading={loadingMore} onClick={onLoadMore} />
     </div>
   )
 }
