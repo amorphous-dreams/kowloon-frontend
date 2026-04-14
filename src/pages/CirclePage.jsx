@@ -171,6 +171,7 @@ export default function CirclePage() {
   const [error, setError]     = useState(null)
   const [removingId, setRemovingId] = useState(null)
   const [sharing, setSharing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Edit mode state
   const [editing, setEditing]         = useState(false)
@@ -281,6 +282,18 @@ export default function CirclePage() {
       setSaveError(err.message || 'Failed to save changes.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!window.confirm(t('circle.confirmDelete', { defaultValue: 'Delete this circle? This cannot be undone.' }))) return
+    setDeleting(true)
+    try {
+      await client.activities.deleteCircle({ circleId: circle.id })
+      navigate('/circles', { replace: true })
+    } catch (err) {
+      setError(err.message || 'Failed to delete circle.')
+      setDeleting(false)
     }
   }
 
@@ -461,8 +474,12 @@ export default function CirclePage() {
                     >
                       <Pencil size={12} /> {t('common.edit')}
                     </button>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 border border-error/40 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error transition-colors">
-                      <Trash2 size={12} /> {t('common.delete')}
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-error/40 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Trash2 size={12} /> {deleting ? t('common.deleting', { defaultValue: 'Deleting…' }) : t('common.delete')}
                     </button>
                   </>
                 )}

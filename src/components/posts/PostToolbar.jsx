@@ -81,7 +81,6 @@ function ShareButton({ post, t, user }) {
       </button>
       {sharing && (
         <PostComposer
-          circles={[]}
           defaultOpen
           initialValues={initialValues}
           onClose={() => setSharing(false)}

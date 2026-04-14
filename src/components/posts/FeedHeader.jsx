@@ -144,7 +144,8 @@ function TypeFilter({ activeTypes, defaultTypes }) {
 
 // ── FeedHeader ─────────────────────────────────────────────────────────────
 
-export default function FeedHeader({ circles = [], currentCircle }) {
+export default function FeedHeader({ currentCircle }) {
+  const { items: circles } = useSelector((state) => state.myCircles)
   const dispatch = useDispatch()
   const { activeTypes, defaultTypes, pinnedCircleIds } = useSelector((state) => state.feed)
 

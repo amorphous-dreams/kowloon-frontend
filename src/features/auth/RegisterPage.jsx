@@ -39,12 +39,7 @@ export default function RegisterPage() {
 
   useEffect(() => { dispatch(clearError()) }, [dispatch])
   useEffect(() => {
-    if (sessionChecked && user) {
-      const dest = user.following
-        ? `/circles/${encodeURIComponent(user.following)}/posts`
-        : '/'
-      navigate(dest, { replace: true })
-    }
+    if (sessionChecked && user) navigate('/', { replace: true })
   }, [sessionChecked, user, navigate])
 
   const isLoading    = status === 'loading'

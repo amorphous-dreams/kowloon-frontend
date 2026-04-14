@@ -77,8 +77,8 @@ export default function EditPostPage() {
   const client = useClient()
   const { t } = useTranslation()
   const { user, sessionChecked } = useSelector((state) => state.auth)
+  const { items: myCircles } = useSelector((state) => state.myCircles)
 
-  const [circles, setCircles] = useState([])
   const [loading, setLoading]   = useState(true)
   const [loadError, setLoadError] = useState(null)
 
@@ -122,12 +122,6 @@ export default function EditPostPage() {
 
   useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    if (!sessionChecked || !user || !client) return
-    client.feeds.getUserCircles({ userId: user.id })
-      .then((res) => setCircles(res?.orderedItems ?? []))
-      .catch(() => setCircles([]))
-  }, [sessionChecked, user, client])
 
   const wordCount   = postType === 'Note' ? countWords(content) : 0
   const charCount   = postType === 'Note' ? content.length : 0
@@ -318,7 +312,7 @@ export default function EditPostPage() {
         {/* Footer */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t-2 border-base-300">
           <CircleSelector
-            circles={circles}
+            circles={myCircles}
             value={audience}
             onChange={setAudience}
             showAudience
