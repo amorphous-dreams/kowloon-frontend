@@ -214,7 +214,7 @@ export default function ProfilePage() {
           urls,
           pronouns,
         },
-        prefs: { defaultPostTypes: defaultTypes },
+        prefs: { defaultPostView: defaultTypes },
       })
       // Update Redux store so header/avatar refresh immediately
       const profilePatch = { name: displayName, description: bio, icon: iconUrl, urls, pronouns }

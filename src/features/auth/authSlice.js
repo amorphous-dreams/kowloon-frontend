@@ -104,7 +104,13 @@ const authSlice = createSlice({
     // Merge updated profile/prefs into the auth user without a full re-login
     patchUser(state, action) {
       if (state.user) {
-        state.user = { ...state.user, ...action.payload }
+        const patch = action.payload
+        state.user = {
+          ...state.user,
+          ...patch,
+          ...(patch.profile ? { profile: { ...state.user.profile, ...patch.profile } } : {}),
+          ...(patch.prefs   ? { prefs:   { ...state.user.prefs,   ...patch.prefs   } } : {}),
+        }
       }
     },
     // Dev-only: toggle mock user without hitting the server
