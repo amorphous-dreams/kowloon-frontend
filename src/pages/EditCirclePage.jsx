@@ -1,15 +1,18 @@
 // EditCirclePage — edit circle settings and membership. Owner only.
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import { useClient } from '../hooks/useClient'
 import CircleForm from '../components/circles/CircleForm'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
+import { fetchMyCircles } from '../features/circles/myCirclesSlice'
 
 export default function EditCirclePage() {
   const { id } = useParams()
   const client = useClient()
   const navigate = useNavigate()
+  const dispatch = useDispatch()
 
   const [circle, setCircle] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -71,6 +74,7 @@ export default function EditCirclePage() {
         await client.activities.removeFromCircle({ circleId: id, memberId })
       }
 
+      dispatch(fetchMyCircles())
       navigate(`/circles/${encodeURIComponent(id)}`)
     } catch (err) {
       setSubmitError(err.message || 'Failed to save changes.')

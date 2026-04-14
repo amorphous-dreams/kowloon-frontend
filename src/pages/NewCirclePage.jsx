@@ -4,12 +4,15 @@
 
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import { useClient } from '../hooks/useClient'
 import CircleForm from '../components/circles/CircleForm'
+import { fetchMyCircles } from '../features/circles/myCirclesSlice'
 
 export default function NewCirclePage() {
   const client = useClient()
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const { state: routeState } = useLocation()
 
   const [submitting, setSubmitting] = useState(false)
@@ -49,6 +52,7 @@ export default function NewCirclePage() {
         await client.activities.addToCircle({ circleId, members })
       }
 
+      dispatch(fetchMyCircles())
       navigate(`/circles/${encodeURIComponent(circleId)}`)
     } catch (err) {
       setError(err.message || 'Failed to create circle.')

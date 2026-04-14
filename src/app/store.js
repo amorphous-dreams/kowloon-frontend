@@ -3,6 +3,7 @@ import authReducer, { restoreSessionAsync } from '../features/auth/authSlice'
 import feedReducer from './feedSlice'
 import serverReducer, { fetchServerInfoAsync } from './serverSlice'
 import themeReducer, { fetchThemesAsync, setActiveTheme } from '../features/theme/themeSlice'
+import myCirclesReducer from '../features/circles/myCirclesSlice'
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     feed: feedReducer,
     server: serverReducer,
     theme: themeReducer,
+    myCircles: myCirclesReducer,
   },
 })
 

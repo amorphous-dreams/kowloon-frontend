@@ -5,13 +5,14 @@ import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDispatch } from 'react-redux'
-import { UserPlus, UserCheck, Share2, Pencil, ExternalLink } from 'lucide-react'
+import { Share2, Pencil, ExternalLink } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
+import AddToCircleButton from '../components/circles/AddToCircleButton'
 import { toggleType, clearTypes } from '../app/feedSlice'
 
 const hexMask = {
@@ -108,6 +109,7 @@ export default function UserPage() {
   const [bookmarks, setBookmarks] = useState([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
+  // follow state kept for legacy API compat but UI now uses AddToCircleButton
   const [isFollowing, setIsFollowing] = useState(false)
 
   const containerRef = useRef(null)
@@ -247,9 +249,7 @@ export default function UserPage() {
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
             {isLoggedIn && !isOwnProfile && (
-              <button onClick={handleFollow} className={`flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest transition-colors ${isFollowing ? 'bg-primary text-primary-content hover:bg-primary/80' : 'border border-base-300 text-base-content/60 hover:border-primary hover:text-primary'}`}>
-                {isFollowing ? <><UserCheck size={12} /> {t('user.following', { defaultValue: 'Following' })}</> : <><UserPlus size={12} /> {t('user.follow', { defaultValue: 'Follow' })}</>}
-              </button>
+              <AddToCircleButton user={user} />
             )}
             <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
               <Share2 size={12} /> {t('common.share', { defaultValue: 'Share' })}
