@@ -6,8 +6,8 @@
 // They are saved back to the server via saveDefaultTypesAsync / savePinnedCirclesAsync.
 //
 // Expected user profile shape (from server):
-//   user.preferences.defaultPostTypes  — string[]  e.g. ['Note', 'Article']
-//   user.preferences.pinnedCircleIds   — string[]  e.g. ['circle:abc@domain']
+//   user.prefs.defaultPostView   — string[]  e.g. ['Note', 'Article']
+//   user.prefs.pinnedCircleIds   — string[]  e.g. ['circle:abc@domain']
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { getClient } from '../lib/client'
@@ -18,15 +18,10 @@ import { loginAsync, registerAsync, logoutAsync, restoreSessionAsync } from '../
 export const saveDefaultTypesAsync = createAsyncThunk(
   'feed/saveDefaultTypes',
   async (types, { getState, rejectWithValue }) => {
-    const { serverUrl, user } = getState().auth
+    const { serverUrl } = getState().auth
     try {
       const client = getClient(serverUrl)
-      await client.activities.updateProfile({
-        preferences: {
-          ...user?.preferences,
-          defaultPostTypes: types,
-        },
-      })
+      await client.activities.updateProfile({ prefs: { defaultPostView: types } })
       return types
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to save default types')
@@ -37,15 +32,10 @@ export const saveDefaultTypesAsync = createAsyncThunk(
 export const savePinnedCirclesAsync = createAsyncThunk(
   'feed/savePinnedCircles',
   async (pinnedCircleIds, { getState, rejectWithValue }) => {
-    const { serverUrl, user } = getState().auth
+    const { serverUrl } = getState().auth
     try {
       const client = getClient(serverUrl)
-      await client.activities.updateProfile({
-        preferences: {
-          ...user?.preferences,
-          pinnedCircleIds,
-        },
-      })
+      await client.activities.updateProfile({ prefs: { pinnedCircleIds } })
       return pinnedCircleIds
     } catch (err) {
       return rejectWithValue(err.message || 'Failed to save pinned circles')
@@ -56,9 +46,9 @@ export const savePinnedCirclesAsync = createAsyncThunk(
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function loadPrefsFromUser(state, user) {
-  const prefs = user?.preferences ?? {}
-  state.defaultTypes    = prefs.defaultPostTypes ?? []
-  state.activeTypes     = prefs.defaultPostTypes ?? []
+  const prefs = user?.prefs ?? {}
+  state.defaultTypes    = prefs.defaultPostView  ?? []
+  state.activeTypes     = prefs.defaultPostView  ?? []
   state.pinnedCircleIds = prefs.pinnedCircleIds  ?? []
 }
 
