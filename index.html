@@ -10,6 +10,9 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kowloon</title>
+    <!-- Runtime config injected by the Docker container entrypoint.
+         Falls back to an empty object; client.js uses window.location.origin. -->
+    <script src="/config.js"></script>
   </head>
   <body>
     <div id="root"></div>

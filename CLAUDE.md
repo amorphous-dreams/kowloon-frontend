@@ -6,7 +6,7 @@
 - Redux Toolkit for state management
 - Tailwind CSS v4 + DaisyUI v5 (CSS-only config, no `tailwind.config.js`)
 - TipTap for rich text editing (WYSIWYG → Markdown via `tiptap-markdown`)
-- `@kowloon/client` from `../kowloon-client` (local install)
+- `@kowloon/client` from `../client` (local install)
 
 ## Design — Read This First
 
@@ -48,7 +48,7 @@ Both layouts use a 12-column grid: Sidebar (3) | Main content (6) | RightSidebar
 
 ## Related Projects
 
-- Server: `/home/jzellis/Projects/kowloon` (backend, `kwln.org:3000`)
-- Client lib: `/home/jzellis/Projects/kowloon-client`
-- Joplin notes API: `http://localhost:41184` — token in `../kowloon/.env` as `JOPLIN_TOKEN`
+- Server: `/home/jzellis/Projects/kowloon/server` (backend, `kwln.org:3000`)
+- Client lib: `/home/jzellis/Projects/kowloon/client`
+- Joplin notes API: `http://localhost:41184` — token in `../server/.env` as `JOPLIN_TOKEN`
 - Screens/Pages Joplin note ID: `b453497de1ff4d56af451de3d2c02252`
