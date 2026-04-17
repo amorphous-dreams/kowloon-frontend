@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { registerAsync, clearError } from './authSlice'
 
-const FIXED_SERVER = import.meta.env.VITE_SERVER_URL || ''
+const FIXED_SERVER = import.meta.env.VITE_SERVER_URL || window.KOWLOON_CONFIG?.apiUrl || window.location.origin
 
 function Field({ label, hint, children }) {
   return (
