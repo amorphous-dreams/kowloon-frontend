@@ -29,9 +29,9 @@ export default function ServerInfo() {
 
       {/* Description */}
       {server.description && (
-        <p className="font-reading text-sm text-base-content/80 leading-relaxed pl-[52px]">
-          {server.description}
-        </p>
+        <div className="font-reading text-sm text-base-content/80 leading-relaxed pl-[52px]"
+          dangerouslySetInnerHTML={{ __html: server.description }}
+        />
       )}
     </div>
   )

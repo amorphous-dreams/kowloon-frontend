@@ -14,7 +14,7 @@ import { toggleType, clearTypes } from '../app/feedSlice'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
-function TypeFilter() {
+function TypeFilter({ onRefresh }) {
   const dispatch = useDispatch()
   const { activeTypes } = useSelector((state) => state.feed)
   const { t } = useTranslation()
@@ -38,7 +38,7 @@ function TypeFilter() {
             key={type}
             onClick={() => dispatch(toggleType(type))}
             title={t(`postTypes.${type}`, { defaultValue: type })}
-            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
+            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
               active
                 ? 'bg-primary text-primary-content'
                 : 'bg-base-200 text-base-content/60 hover:bg-base-300'
@@ -49,6 +49,14 @@ function TypeFilter() {
           </button>
         )
       })}
+      <button
+        onClick={onRefresh}
+        title={t('feed.refresh', { defaultValue: 'Refresh' })}
+        className="ml-auto px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+        aria-label={t('feed.refresh', { defaultValue: 'Refresh' })}
+      >
+        ↻
+      </button>
     </div>
   )
 }
@@ -65,6 +73,7 @@ export default function CirclePostsPage() {
 
   const [circle, setCircle]     = useState(null)
   const [notFound, setNotFound] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Load circle metadata
   useEffect(() => {
@@ -84,7 +93,7 @@ export default function CirclePostsPage() {
     const items = res?.orderedItems ?? []
     const nc = res?.nextCursor ?? null
     return { items, nextCursor: nc, hasMore: nc !== null }
-  }, [client, circleId, activeTypes]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [client, circleId, activeTypes, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ready = sessionChecked && !notFound && !!client
   const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
@@ -126,11 +135,11 @@ export default function CirclePostsPage() {
         </h1>
       </div>
 
-      <TypeFilter />
+      <TypeFilter onRefresh={() => setRefreshKey((k) => k + 1)} />
 
       {user && (
         <PostComposer
-          onPostCreated={() => {}}
+          onPostCreated={() => setRefreshKey((k) => k + 1)}
           initialValues={{ to: circleId }}
           prompt={t('composer.promptCircle', { name: circle?.name ?? '\u2026', defaultValue: `Write a post to ${circle?.name ?? '\u2026'}\u2026` })}
         />

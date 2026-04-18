@@ -133,7 +133,7 @@ export default function CircleSelector({
       else setFocusedIndex(index - 1)
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      if (opt.id === '__create__') { setOpen(false); navigate('/circles/new') }
+      if (opt.id === '__create__') { setOpen(false); onCreateCircle ? onCreateCircle() : navigate('/circles/new') }
       else handleSelect(opt.id)
     } else if (e.key === 'Escape') {
       setOpen(false)
@@ -296,7 +296,7 @@ export default function CircleSelector({
                     ref={(el) => { optionRefs.current[i] = el }}
                     type="button"
                     tabIndex={-1}
-                    onClick={() => { setOpen(false); navigate('/circles/new') }}
+                    onClick={() => { setOpen(false); onCreateCircle ? onCreateCircle() : navigate('/circles/new') }}
                     onKeyDown={(e) => handleOptionKeyDown(e, i)}
                     className="w-full px-4 py-2.5 text-left font-ui text-xs uppercase tracking-widest text-primary hover:bg-base-200 transition-colors"
                   >

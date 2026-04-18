@@ -1,23 +1,38 @@
-// Home — public face of the server. Always shows the @public post feed.
-// Authenticated users can also compose here.
+// Home — public face of the server for anon users; personal circle feed for logged-in users.
+// Anon: shows public posts with type filter.
+// Auth: shows circle feed (default: Following), circle selector, type filter, composer.
 
-import { useState, useCallback } from 'react'
-import { useSelector } from 'react-redux'
+import { useState, useCallback, useEffect } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { useClient } from '../hooks/useClient'
 import { useFeed } from '../hooks/useFeed'
+import { setCircle } from '../app/feedSlice'
+import { fetchMyCircles } from '../features/circles/myCirclesSlice'
 import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
+import CircleSelector from '../components/circles/CircleSelector'
+import NewCircleModal from '../components/circles/NewCircleModal'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
-function TypeFilter({ activeType, onChange }) {
+// ── Shared type filter + refresh bar ─────────────────────────────────────────
+
+function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
   const { t } = useTranslation()
   return (
     <div className="flex items-center gap-0 border-b border-base-300 pb-3 mb-2">
+      {prefix && (
+        <div className="flex items-center gap-2 px-3 py-2 border-r border-base-300 shrink-0">
+          <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">
+            {t('feed.show', { defaultValue: 'Show' })}
+          </span>
+          {prefix}
+        </div>
+      )}
       <button
-        onClick={() => onChange(null)}
+        onClick={() => onTypeChange(null)}
         className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
           !activeType
             ? 'bg-primary text-primary-content'
@@ -29,9 +44,9 @@ function TypeFilter({ activeType, onChange }) {
       {POST_TYPES.map((type) => (
         <button
           key={type}
-          onClick={() => onChange(activeType === type ? null : type)}
+          onClick={() => onTypeChange(activeType === type ? null : type)}
           title={t(`postTypes.${type}`, { defaultValue: type })}
-          className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
+          className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
             activeType === type
               ? 'bg-primary text-primary-content'
               : 'bg-base-200 text-base-content/60 hover:bg-base-300'
@@ -43,18 +58,53 @@ function TypeFilter({ activeType, onChange }) {
           </span>
         </button>
       ))}
+      <button
+        onClick={onRefresh}
+        title={t('feed.refresh', { defaultValue: 'Refresh' })}
+        className="ml-auto px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+        aria-label={t('feed.refresh', { defaultValue: 'Refresh' })}
+      >
+        ↻
+      </button>
     </div>
   )
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function HomePage() {
+  const dispatch = useDispatch()
   const { user, sessionChecked } = useSelector((state) => state.auth)
+  const { circleId } = useSelector((state) => state.feed)
+  const { items: myCircles, status: circlesStatus } = useSelector((state) => state.myCircles)
   const client = useClient()
   const { t } = useTranslation()
 
   const [activeType, setActiveType] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [showCreateCircle, setShowCreateCircle] = useState(false)
 
-  const fetchPosts = useCallback(async (cursor) => {
+  const followingId = user?.following ?? null
+
+  // Set default circle to Following when user logs in
+  useEffect(() => {
+    if (user && !circleId && followingId) {
+      dispatch(setCircle(followingId))
+    }
+  }, [user, circleId, followingId, dispatch])
+
+  // Load circles once when logged in
+  useEffect(() => {
+    if (user && circlesStatus === 'idle') {
+      dispatch(fetchMyCircles())
+    }
+  }, [user, circlesStatus, dispatch])
+
+  const activeCircleId = circleId ?? followingId
+
+  // ── Fetch function — switches between public feed (anon) and circle feed (auth) ──
+
+  const fetchPublic = useCallback(async (cursor) => {
     const page = cursor ?? 1
     const res = await client.feeds.getServerPosts({ type: activeType ?? undefined, page })
     const items = (res?.orderedItems ?? []).map((p) => ({
@@ -66,24 +116,84 @@ export default function HomePage() {
     const fetchedPage = res?.page ?? page
     const hasMore = fetchedPage * itemsPerPage < totalItems
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
-  }, [client, activeType]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [client, activeType, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
-    sessionChecked ? fetchPosts : null
-  )
+  const fetchCircle = useCallback(async (cursor) => {
+    const res = await client.feeds.getCirclePosts({
+      circleId: activeCircleId,
+      types: activeType ? [activeType] : undefined,
+      since: cursor ?? undefined,
+    })
+    const items = res?.orderedItems ?? []
+    const nc = res?.nextCursor ?? null
+    return { items, nextCursor: nc, hasMore: nc !== null }
+  }, [client, activeCircleId, activeType, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fetchFn = !sessionChecked
+    ? null
+    : user
+      ? (activeCircleId ? fetchCircle : null)
+      : fetchPublic
+
+  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(fetchFn)
 
   if (!sessionChecked) return null
 
+  const handleRefresh = () => setRefreshKey((k) => k + 1)
+
+  // ── Logged-in view ────────────────────────────────────────────────────────
+
+  if (user) {
+    return (
+      <div className="flex flex-col">
+        <PostComposer
+          onPostCreated={handleRefresh}
+          initialValues={{ to: activeCircleId ?? 'public' }}
+          prompt={t('composer.prompt')}
+        />
+        <FilterBar
+          activeType={activeType}
+          onTypeChange={setActiveType}
+          onRefresh={handleRefresh}
+          prefix={
+            <CircleSelector
+              circles={myCircles}
+              value={activeCircleId ?? ''}
+              onChange={(id) => {
+                dispatch(setCircle(id))
+                setRefreshKey((k) => k + 1)
+              }}
+              allowCreate
+              onCreateCircle={() => setShowCreateCircle(true)}
+            />
+          }
+        />
+        {showCreateCircle && (
+          <NewCircleModal
+            onClose={() => setShowCreateCircle(false)}
+            onCreated={(id) => {
+              dispatch(setCircle(id))
+              setRefreshKey((k) => k + 1)
+            }}
+          />
+        )}
+        <PostList
+          posts={items}
+          loading={loading}
+          error={error}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={loadMore}
+        />
+      </div>
+    )
+  }
+
+  // ── Public (anon) view ────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col">
-      {user && (
-        <PostComposer
-          onPostCreated={() => {}}
-          initialValues={{ to: 'public' }}
-          prompt={t('composer.promptPublic', { defaultValue: 'Write a public post\u2026' })}
-        />
-      )}
-      <TypeFilter activeType={activeType} onChange={setActiveType} />
+      <FilterBar activeType={activeType} onTypeChange={setActiveType} onRefresh={handleRefresh} />
       <PostList
         posts={items}
         loading={loading}

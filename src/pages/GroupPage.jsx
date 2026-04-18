@@ -36,7 +36,7 @@ const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
 // ── TypeFilter ────────────────────────────────────────────────────────────────
 
-function TypeFilter() {
+function TypeFilter({ onRefresh }) {
   const dispatch = useDispatch()
   const { activeTypes } = useSelector((state) => state.feed)
   const { t } = useTranslation()
@@ -60,7 +60,7 @@ function TypeFilter() {
             key={type}
             onClick={() => dispatch(toggleType(type))}
             title={t(`postTypes.${type}`, { defaultValue: type })}
-            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
+            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
               active
                 ? 'bg-primary text-primary-content'
                 : 'bg-base-200 text-base-content/60 hover:bg-base-300'
@@ -73,6 +73,14 @@ function TypeFilter() {
           </button>
         )
       })}
+      <button
+        onClick={onRefresh}
+        title={t('feed.refresh', { defaultValue: 'Refresh' })}
+        className="ml-auto px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+        aria-label={t('feed.refresh', { defaultValue: 'Refresh' })}
+      >
+        ↻
+      </button>
     </div>
   )
 }
@@ -94,6 +102,7 @@ export default function GroupPage() {
   const [joined, setJoined]   = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showAllMembers, setShowAllMembers] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const containerRef = useRef(null)
   const [shadowProgress, setShadowProgress] = useState(0)
@@ -151,7 +160,7 @@ export default function GroupPage() {
     const fetchedPage = res?.page ?? page
     const hasMore = fetchedPage * itemsPerPage < totalItems
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
-  }, [client, id, activeTypes])
+  }, [client, id, activeTypes, refreshKey])
 
   const { items: posts, hasMore, loading: postsLoading, loadingMore, error: postsError, loadMore } = useFeed(
     client && group ? fetchPosts : null
@@ -360,7 +369,7 @@ export default function GroupPage() {
       {/* Composer — members only, no audience picker */}
       {(isMember || isOwner) && isLoggedIn && (
         <PostComposer
-          onPostCreated={() => {}}
+          onPostCreated={() => setRefreshKey((k) => k + 1)}
           initialValues={{ to: `group:${id}` }}
           prompt={t('composer.promptGroup', { name: group?.name ?? '\u2026', defaultValue: `Write a post to ${group?.name ?? '\u2026'}\u2026` })}
         />
@@ -368,7 +377,7 @@ export default function GroupPage() {
 
       {/* Posts */}
       <div className="flex flex-col gap-4">
-        <TypeFilter />
+        <TypeFilter onRefresh={() => setRefreshKey((k) => k + 1)} />
         <PostList
           posts={posts}
           loading={postsLoading}
