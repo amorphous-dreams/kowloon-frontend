@@ -9,20 +9,42 @@ function isReadonly(setting) {
   return setting?.canEdit === '@private' || setting?.ui?.type === 'redacted'
 }
 
+function toEditString(uiType, v) {
+  if (uiType === 'json') return v != null ? JSON.stringify(v, null, 2) : ''
+  return String(v ?? '')
+}
+
 function SettingRow({ setting, onSaved }) {
   const client = useClient()
+  const uiType = setting.ui?.type ?? 'text'
+  const readonly = isReadonly(setting)
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(String(setting.value ?? ''))
+  const [value, setValue] = useState(() => toEditString(uiType, setting.value))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const readonly = isReadonly(setting)
 
-  const handleSave = async () => {
+  const handleSave = async (override) => {
     setSaving(true)
     setError(null)
+    let coerced
     try {
-      await client.admin.updateSetting({ settingId: setting.name, value })
-      onSaved(setting.name, value)
+      if (override !== undefined) {
+        coerced = override
+      } else if (uiType === 'json') {
+        coerced = JSON.parse(value)
+      } else if (uiType === 'number') {
+        coerced = Number(value)
+      } else {
+        coerced = value
+      }
+    } catch {
+      setError('Invalid JSON')
+      setSaving(false)
+      return
+    }
+    try {
+      await client.admin.updateSetting({ settingId: setting.name, value: coerced })
+      onSaved(setting.name, coerced)
       setEditing(false)
     } catch (err) {
       setError(err?.message || 'Save failed')
@@ -32,19 +54,71 @@ function SettingRow({ setting, onSaved }) {
   }
 
   const handleCancel = () => {
-    setValue(String(setting.value ?? ''))
+    setValue(toEditString(uiType, setting.value))
     setEditing(false)
     setError(null)
+  }
+
+  if (uiType === 'boolean') {
+    const checked = Boolean(setting.value)
+    return (
+      <tr className="border-b border-base-300 hover:bg-base-200">
+        <td className="py-3 pr-4 align-middle">
+          <p className="font-ui text-sm font-medium">{setting.name}</p>
+          {setting.description && (
+            <p className="font-ui text-xs text-base-content/40 mt-0.5">{setting.description}</p>
+          )}
+        </td>
+        <td className="py-3 pr-4 align-middle" colSpan={2}>
+          <label className="flex items-center gap-3 cursor-pointer w-fit">
+            <input type="checkbox" checked={checked} disabled={readonly || saving}
+              className="cursor-pointer"
+              onChange={() => handleSave(!checked)} />
+            <span className={`font-ui text-xs uppercase tracking-widest ${checked ? 'text-success' : 'text-base-content/40'}`}>
+              {checked ? 'Enabled' : 'Disabled'}
+            </span>
+          </label>
+          {error && <p className="font-ui text-xs text-error mt-1">{error}</p>}
+        </td>
+      </tr>
+    )
   }
 
   const displayValue = () => {
     const v = setting.value
     if (v === null || v === undefined) return <span className="text-base-content/30">null</span>
-    if (typeof v === 'boolean') return <span className={v ? 'text-success' : 'text-error'}>{String(v)}</span>
-    if (typeof v === 'object') return <span className="font-mono text-xs text-base-content/60">[object]</span>
+    if (typeof v === 'object') {
+      const str = JSON.stringify(v)
+      return <span className="font-mono text-xs text-base-content/60 break-all">{str.length > 80 ? str.slice(0, 80) + '…' : str}</span>
+    }
     const str = String(v)
     if (str === '[redacted]') return <span className="text-base-content/30 italic">redacted</span>
     return <span className="font-mono text-xs break-all">{str.length > 80 ? str.slice(0, 80) + '…' : str}</span>
+  }
+
+  const renderInput = () => {
+    if (uiType === 'json' || uiType === 'textarea') {
+      return (
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          rows={uiType === 'json' ? 8 : 4}
+          className="border-2 border-primary bg-base-100 px-2 py-1 font-mono text-xs outline-none w-full resize-y"
+          autoFocus
+        />
+      )
+    }
+    const inputType = ['email', 'url', 'number'].includes(uiType) ? uiType : 'text'
+    return (
+      <input
+        type={inputType}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="border-2 border-primary bg-base-100 px-2 py-1 font-ui text-sm outline-none w-full"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel() }}
+      />
+    )
   }
 
   return (
@@ -55,24 +129,19 @@ function SettingRow({ setting, onSaved }) {
           <p className="font-ui text-xs text-base-content/40 mt-0.5">{setting.description}</p>
         )}
       </td>
-      <td className="py-3 pr-4 align-middle font-ui text-sm">
+      <td className={`py-3 pr-4 align-middle font-ui text-sm ${!editing && !readonly ? 'cursor-pointer' : ''}`}
+        onClick={!editing && !readonly ? () => setEditing(true) : undefined}>
         {editing ? (
           <div className="flex flex-col gap-1">
-            <input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="border-2 border-primary bg-base-100 px-2 py-1 font-ui text-sm outline-none w-full"
-              autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel() }}
-            />
+            {renderInput()}
             {error && <p className="font-ui text-xs text-error">{error}</p>}
           </div>
         ) : displayValue()}
       </td>
-      <td className="py-3 align-middle text-right">
+      <td className="py-3 align-top text-right">
         {editing ? (
           <div className="flex gap-1 justify-end">
-            <button onClick={handleSave} disabled={saving}
+            <button onClick={() => handleSave()} disabled={saving}
               className="p-1 text-success hover:text-success/80 transition-colors disabled:opacity-30" title="Save">
               <Check size={14} />
             </button>

@@ -1,17 +1,21 @@
 // AdminDashboardPage — server stats overview.
 
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
 
-function StatCard({ label, value, sub }) {
-  return (
-    <div className="border-2 border-base-300 p-5">
+function StatCard({ label, value, sub, to }) {
+  const inner = (
+    <>
       <p className="font-display text-4xl tracking-wide leading-none">{value ?? '—'}</p>
       <p className="font-ui text-xs uppercase tracking-widest text-base-content/50 mt-1">{label}</p>
       {sub && <p className="font-ui text-xs text-base-content/40 mt-0.5">{sub}</p>}
-    </div>
+    </>
   )
+  return to
+    ? <Link to={to} className="border-2 border-base-300 p-5 block hover:border-primary hover:bg-base-200 transition-colors">{inner}</Link>
+    : <div className="border-2 border-base-300 p-5">{inner}</div>
 }
 
 function SectionTitle({ children }) {
@@ -79,16 +83,16 @@ export default function AdminDashboardPage() {
 
       <SectionTitle>Content</SectionTitle>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard label="Users"    value={c.users} />
-        <StatCard label="Posts"    value={c.posts} />
-        <StatCard label="Replies"  value={c.replies} />
-        <StatCard label="Groups"   value={c.groups} />
-        <StatCard label="Circles"  value={c.circles} />
-        <StatCard label="Pages"    value={c.pages} />
-        <StatCard label="Reacts"   value={c.reacts} />
-        <StatCard label="Open Flags"    value={c.openFlags}    sub="moderation queue" />
-        <StatCard label="Active Invites" value={c.activeInvites} />
-        <StatCard label="Activities" value={c.activities} />
+        <StatCard label="Users"          value={c.users}        to="/admin/users" />
+        <StatCard label="Posts"          value={c.posts}        to="/admin/posts" />
+        <StatCard label="Replies"        value={c.replies} />
+        <StatCard label="Groups"         value={c.groups}       to="/admin/groups" />
+        <StatCard label="Circles"        value={c.circles} />
+        <StatCard label="Pages"          value={c.pages} />
+        <StatCard label="Reacts"         value={c.reacts} />
+        <StatCard label="Open Flags"     value={c.openFlags}    sub="moderation queue" to="/admin/moderation" />
+        <StatCard label="Active Invites" value={c.activeInvites} to="/admin/invites" />
+        <StatCard label="Activities"     value={c.activities} />
       </div>
 
       <SectionTitle>Server</SectionTitle>
