@@ -161,6 +161,7 @@
 
   "post": {
     "empty": "No posts yet.",
+    "emptyCircle": "Nothing from your circle members yet. Posts will appear here as they come in.",
     "emptyFiltered": "No posts of the selected types.",
     "reply": "Reply",
     "replies": "Reply",

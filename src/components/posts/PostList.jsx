@@ -100,13 +100,14 @@ export default function PostList({
   loadingMore = false,
   onLoadMore,
   ignoreTypeFilter = false,
+  emptyMessage,
 }) {
   const { activeTypes } = useSelector((state) => state.feed)
   const { t } = useTranslation()
 
   if (loading) return <Spinner centered />
   if (error)   return <ErrorState message={error} />
-  if (!posts.length) return <EmptyState message={t('post.empty')} />
+  if (!posts.length) return <EmptyState message={emptyMessage ?? t('post.empty')} />
 
   const visible = (!ignoreTypeFilter && activeTypes.length > 0)
     ? posts.filter((p) => activeTypes.includes(p.type))

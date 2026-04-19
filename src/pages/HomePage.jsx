@@ -184,6 +184,7 @@ export default function HomePage() {
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
+          emptyMessage={activeCircleId ? t('post.emptyCircle') : undefined}
         />
       </div>
     )
