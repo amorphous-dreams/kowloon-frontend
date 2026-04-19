@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import { useFeed } from '../hooks/useFeed'
 import PostList from '../components/posts/PostList'
+import RssFeedLink from '../components/ui/RssFeedLink'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import ErrorState from '../components/ui/ErrorState'
 
@@ -56,7 +57,9 @@ export default function GroupPostsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-
+      {group?.to === '@public' && (
+        <RssFeedLink href={`/groups/${encodeURIComponent(id)}/posts?rss`} title={`${group.name ?? id} — Posts`} />
+      )}
       {/* Back link + heading */}
       <div className="flex flex-col gap-1 pb-4 border-b-2 border-base-300">
         <Link

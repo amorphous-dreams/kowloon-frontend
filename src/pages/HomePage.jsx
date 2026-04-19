@@ -14,6 +14,7 @@ import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import CircleSelector from '../components/circles/CircleSelector'
 import NewCircleModal from '../components/circles/NewCircleModal'
+import RssFeedLink from '../components/ui/RssFeedLink'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
@@ -194,6 +195,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col">
+      <RssFeedLink href="/posts?rss" title="Public Posts" />
       <FilterBar activeType={activeType} onTypeChange={setActiveType} onRefresh={handleRefresh} />
       <PostList
         posts={items}

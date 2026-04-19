@@ -8,6 +8,7 @@ import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import { useFeed } from '../hooks/useFeed'
 import PostList from '../components/posts/PostList'
+import RssFeedLink from '../components/ui/RssFeedLink'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
@@ -112,7 +113,7 @@ export default function UserPostsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-
+      <RssFeedLink href={`/users/${encodeURIComponent(id)}/posts?rss`} title={`${displayName} — Posts`} />
       <div className="flex flex-col gap-1 pb-4 border-b-2 border-base-300">
         <Link
           to={`/users/${encodeURIComponent(id)}`}
