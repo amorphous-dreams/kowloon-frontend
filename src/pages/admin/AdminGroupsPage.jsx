@@ -1,10 +1,10 @@
-// AdminGroupsPage — list, soft-delete, and restore groups.
-
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, RotateCcw, ExternalLink } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
+import { useBatchSelect } from '../../hooks/useBatchSelect'
 import Spinner from '../../components/ui/Spinner'
+import BatchActionBar from '../../components/admin/BatchActionBar'
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -19,7 +19,8 @@ export default function AdminGroupsPage() {
   const [filter, setFilter] = useState('active')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [pending, setPending] = useState(null)
+  const [pending, setPending] = useState(false)
+  const { selected, toggle, selectAll, clear, isSelected, allSelected, someSelected, count } = useBatchSelect(groups)
 
   const load = useCallback(async () => {
     if (!client) return
@@ -38,24 +39,50 @@ export default function AdminGroupsPage() {
   }, [client, filter, page])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { clear() }, [filter, page])
 
   const handleDelete = async (groupId) => {
-    if (!confirm('Soft-delete this group?')) return
-    setPending(groupId)
+    setPending(true)
     try {
       await client.admin.deleteGroup({ groupId })
       setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, deletedAt: new Date().toISOString() } : g))
     } catch {}
-    setPending(null)
+    setPending(false)
   }
 
   const handleRestore = async (groupId) => {
-    setPending(groupId)
+    setPending(true)
     try {
       await client.admin.restoreGroup({ groupId })
       setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, deletedAt: null } : g))
     } catch {}
-    setPending(null)
+    setPending(false)
+  }
+
+  const handleBatchSoftDelete = async () => {
+    if (!confirm(`Soft-delete ${count} group(s)?`)) return
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.deleteGroup({ groupId: id })))
+    clear()
+    await load()
+    setPending(false)
+  }
+
+  const handleBatchHardDelete = async () => {
+    if (!confirm(`Permanently delete ${count} group(s)? This cannot be undone.`)) return
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.deleteGroup({ groupId: id, fullDelete: true })))
+    clear()
+    await load()
+    setPending(false)
+  }
+
+  const handleBatchRestore = async () => {
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.restoreGroup({ groupId: id })))
+    clear()
+    await load()
+    setPending(false)
   }
 
   if (denied) return (
@@ -73,7 +100,7 @@ export default function AdminGroupsPage() {
         <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">{total} total</span>
       </div>
 
-      <div className="flex gap-0 mb-6">
+      <div className="flex gap-0 mb-4">
         {FILTERS.map(([val, label]) => (
           <button key={val} onClick={() => { setFilter(val); setPage(1) }}
             className={`px-4 py-2 font-ui text-xs uppercase tracking-widest border-r border-base-300 last:border-r-0 transition-colors ${
@@ -84,11 +111,19 @@ export default function AdminGroupsPage() {
         ))}
       </div>
 
+      <BatchActionBar count={count} filter={filter} busy={pending}
+        onSoftDelete={handleBatchSoftDelete} onHardDelete={handleBatchHardDelete}
+        onRestore={handleBatchRestore} onClear={clear} />
+
       {loading ? <Spinner centered /> : (
         <>
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-base-300">
+                <th className="pb-2 pr-3 w-6">
+                  <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }}
+                    onChange={() => allSelected ? clear() : selectAll()} className="cursor-pointer" />
+                </th>
                 {['Name', 'Creator', 'Members', 'Created', 'Status', ''].map((h) => (
                   <th key={h} className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left pb-2 pr-4 last:pr-0">{h}</th>
                 ))}
@@ -96,7 +131,10 @@ export default function AdminGroupsPage() {
             </thead>
             <tbody>
               {groups.map((g) => (
-                <tr key={g.id} className={`border-b border-base-300 hover:bg-base-200 ${g.deletedAt ? 'opacity-50' : ''}`}>
+                <tr key={g.id} className={`border-b border-base-300 hover:bg-base-200 ${g.deletedAt ? 'opacity-50' : ''} ${isSelected(g.id) ? 'bg-secondary/10' : ''}`}>
+                  <td className="py-3 pr-3">
+                    <input type="checkbox" checked={isSelected(g.id)} onChange={() => toggle(g.id)} className="cursor-pointer" />
+                  </td>
                   <td className="py-3 pr-4">
                     <Link to={`/groups/${encodeURIComponent(g.id)}`} className="font-ui text-sm hover:text-primary transition-colors">
                       {g.name ?? g.id}
@@ -116,12 +154,12 @@ export default function AdminGroupsPage() {
                       <ExternalLink size={13} />
                     </Link>
                     {g.deletedAt ? (
-                      <button onClick={() => handleRestore(g.id)} disabled={pending === g.id}
+                      <button onClick={() => handleRestore(g.id)} disabled={pending}
                         className="p-1 text-base-content/40 hover:text-success transition-colors disabled:opacity-30" title="Restore">
                         <RotateCcw size={14} />
                       </button>
                     ) : (
-                      <button onClick={() => handleDelete(g.id)} disabled={pending === g.id}
+                      <button onClick={() => handleDelete(g.id)} disabled={pending}
                         className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Delete">
                         <Trash2 size={14} />
                       </button>
@@ -130,7 +168,7 @@ export default function AdminGroupsPage() {
                 </tr>
               ))}
               {groups.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No groups found</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No groups found</td></tr>
               )}
             </tbody>
           </table>

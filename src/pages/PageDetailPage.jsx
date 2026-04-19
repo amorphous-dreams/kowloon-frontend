@@ -64,6 +64,19 @@ export default function PageDetailPage() {
 
   const author = page.actor
 
+  // Resolve image to a displayable URL regardless of whether it's stored as a
+  // file ID ("file:xxx@domain") or a domain-absolute URL (".../files/file:xxx").
+  // This handles both new records (file IDs) and old records (absolute URLs that
+  // may point to the wrong domain in dev).
+  const imageSrc = (() => {
+    const img = page.image
+    if (!img) return null
+    if (img.startsWith('file:')) return client?.files?.serveUrl(img) ?? null
+    const m = img.match(/\/files\/(file:[^?#]+)/)
+    if (m) return client?.files?.serveUrl(decodeURIComponent(m[1])) ?? img
+    return img
+  })()
+
   return (
     <article className="flex flex-col gap-8">
 
@@ -75,20 +88,20 @@ export default function PageDetailPage() {
         {t('pages.allPages', { defaultValue: 'All Pages' })}
       </Link>
 
-      {/* Featured image */}
-      {page.image && (
-        <img
-          src={page.image}
-          alt={page.title}
-          className="w-full max-h-72 object-cover"
-        />
-      )}
-
       {/* Header */}
       <header className="flex flex-col gap-3 border-b-2 border-base-content pb-6">
         <h1 className="font-display text-5xl tracking-wide leading-none">
           {page.title}
         </h1>
+
+        {/* Featured image — between title and summary/body */}
+        {imageSrc && (
+          <img
+            src={imageSrc}
+            alt={page.title}
+            className="w-full max-h-72 object-cover"
+          />
+        )}
 
         {page.summary && (
           <p className="font-reading text-lg text-base-content/70 leading-relaxed">

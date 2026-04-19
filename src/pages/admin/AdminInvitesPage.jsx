@@ -1,7 +1,7 @@
 // AdminInvitesPage — create, list, and deactivate invites.
 
 import { useState, useEffect, useCallback } from 'react'
-import { Trash2, Plus, Copy, Check } from 'lucide-react'
+import { Trash2, Plus, Copy, Check, QrCode, Download, X } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
 
@@ -95,6 +95,61 @@ function CreateForm({ onCreated, onCancel }) {
   )
 }
 
+function QRModal({ invite, onClose }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleSave = () => {
+    const a = document.createElement('a')
+    a.href = invite.qrCode
+    a.download = `invite-${invite.code}.png`
+    a.click()
+  }
+
+  const handleCopyImage = async () => {
+    try {
+      const res = await fetch(invite.qrCode)
+      const blob = await res.blob()
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Fallback: copy the URL instead
+      await navigator.clipboard.writeText(invite.url ?? invite.code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-base-content/40" onClick={onClose}>
+      <div className="bg-base-100 border-2 border-base-content p-6 flex flex-col gap-4 w-80" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-baseline justify-between">
+          <h2 className="font-display text-2xl tracking-wide">Invite QR</h2>
+          <button onClick={onClose} className="p-1 text-base-content/40 hover:text-base-content transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <img src={invite.qrCode} alt="Invite QR code" className="w-full" />
+
+        <p className="font-mono text-xs text-base-content/50 break-all">{invite.url ?? invite.code}</p>
+
+        <div className="flex gap-2">
+          <button onClick={handleSave}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest">
+            <Download size={13} /> Save
+          </button>
+          <button onClick={handleCopyImage}
+            className="flex items-center gap-2 px-4 py-2 border-2 border-base-300 font-ui text-xs uppercase tracking-widest hover:bg-base-200 transition-colors">
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
@@ -117,6 +172,7 @@ export default function AdminInvitesPage() {
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState('active')
   const [pending, setPending] = useState(null)
+  const [qrInvite, setQrInvite] = useState(null)
 
   const load = useCallback(async () => {
     if (!client) return
@@ -159,6 +215,8 @@ export default function AdminInvitesPage() {
 
   return (
     <div>
+      {qrInvite && <QRModal invite={qrInvite} onClose={() => setQrInvite(null)} />}
+
       <div className="flex items-baseline justify-between border-b-2 border-base-300 pb-4 mb-6">
         <h1 className="font-display text-5xl tracking-wide">Invites</h1>
         <button onClick={() => setShowForm((v) => !v)}
@@ -214,7 +272,13 @@ export default function AdminInvitesPage() {
                     {inv.active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
-                <td className="py-3 text-right">
+                <td className="py-3 text-right whitespace-nowrap">
+                  {inv.qrCode && (
+                    <button onClick={() => setQrInvite(inv)}
+                      className="p-1 text-base-content/30 hover:text-base-content transition-colors mr-1" title="Show QR code">
+                      <QrCode size={14} />
+                    </button>
+                  )}
                   {inv.active && (
                     <button onClick={() => handleDeactivate(inv.id)} disabled={pending === inv.id}
                       className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Deactivate">

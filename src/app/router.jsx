@@ -43,6 +43,7 @@ import AdminInvitesPage    from '../pages/admin/AdminInvitesPage'
 import AdminModerationPage from '../pages/admin/AdminModerationPage'
 import AdminSettingsPage   from '../pages/admin/AdminSettingsPage'
 import AdminThemesPage     from '../pages/admin/AdminThemesPage'
+import AdminPagesPage      from '../pages/admin/AdminPagesPage'
 
 const router = createBrowserRouter([
   // Auth pages — standalone, no layout
@@ -100,6 +101,7 @@ const router = createBrowserRouter([
       { path: '/admin/moderation', element: <AdminModerationPage /> },
       { path: '/admin/themes',     element: <AdminThemesPage /> },
       { path: '/admin/settings',   element: <AdminSettingsPage /> },
+      { path: '/admin/pages',      element: <AdminPagesPage /> },
     ],
   },
 ])

@@ -1,14 +1,21 @@
-// AdminPostsPage — list, soft-delete, and restore posts.
-
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, RotateCcw, ExternalLink } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
+import { useBatchSelect } from '../../hooks/useBatchSelect'
 import Spinner from '../../components/ui/Spinner'
+import BatchActionBar from '../../components/admin/BatchActionBar'
 
 function fmtDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function stripHtml(html) {
+  if (!html) return ''
+  const txt = document.createElement('textarea')
+  txt.innerHTML = html.replace(/<[^>]+>/g, ' ')
+  return txt.value.replace(/\s+/g, ' ').trim()
 }
 
 const TYPE_COLORS = {
@@ -27,7 +34,8 @@ export default function AdminPostsPage() {
   const [filter, setFilter] = useState('active')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [pending, setPending] = useState(null)
+  const [pending, setPending] = useState(false)
+  const { selected, toggle, selectAll, clear, isSelected, allSelected, someSelected, count } = useBatchSelect(posts)
 
   const load = useCallback(async () => {
     if (!client) return
@@ -46,24 +54,50 @@ export default function AdminPostsPage() {
   }, [client, filter, page])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { clear() }, [filter, page])
 
   const handleDelete = async (postId) => {
-    if (!confirm('Soft-delete this post?')) return
-    setPending(postId)
+    setPending(true)
     try {
       await client.admin.deletePost({ postId })
       setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, deletedAt: new Date().toISOString() } : p))
     } catch {}
-    setPending(null)
+    setPending(false)
   }
 
   const handleRestore = async (postId) => {
-    setPending(postId)
+    setPending(true)
     try {
       await client.admin.restorePost({ postId })
       setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, deletedAt: null } : p))
     } catch {}
-    setPending(null)
+    setPending(false)
+  }
+
+  const handleBatchSoftDelete = async () => {
+    if (!confirm(`Soft-delete ${count} post(s)?`)) return
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.deletePost({ postId: id })))
+    clear()
+    await load()
+    setPending(false)
+  }
+
+  const handleBatchHardDelete = async () => {
+    if (!confirm(`Permanently delete ${count} post(s)? This cannot be undone.`)) return
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.deletePost({ postId: id, fullDelete: true })))
+    clear()
+    await load()
+    setPending(false)
+  }
+
+  const handleBatchRestore = async () => {
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.restorePost({ postId: id })))
+    clear()
+    await load()
+    setPending(false)
   }
 
   if (denied) return (
@@ -81,7 +115,7 @@ export default function AdminPostsPage() {
         <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">{total} total</span>
       </div>
 
-      <div className="flex gap-0 mb-6">
+      <div className="flex gap-0 mb-4">
         {FILTERS.map(([val, label]) => (
           <button key={val} onClick={() => { setFilter(val); setPage(1) }}
             className={`px-4 py-2 font-ui text-xs uppercase tracking-widest border-r border-base-300 last:border-r-0 transition-colors ${
@@ -92,11 +126,19 @@ export default function AdminPostsPage() {
         ))}
       </div>
 
+      <BatchActionBar count={count} filter={filter} busy={pending}
+        onSoftDelete={handleBatchSoftDelete} onHardDelete={handleBatchHardDelete}
+        onRestore={handleBatchRestore} onClear={clear} />
+
       {loading ? <Spinner centered /> : (
         <>
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-base-300">
+                <th className="pb-2 pr-3 w-6">
+                  <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }}
+                    onChange={() => allSelected ? clear() : selectAll()} className="cursor-pointer" />
+                </th>
                 {['Type', 'Title / Content', 'Author', 'Date', 'Visibility', ''].map((h) => (
                   <th key={h} className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left pb-2 pr-4 last:pr-0">{h}</th>
                 ))}
@@ -104,7 +146,10 @@ export default function AdminPostsPage() {
             </thead>
             <tbody>
               {posts.map((p) => (
-                <tr key={p.id} className={`border-b border-base-300 hover:bg-base-200 ${p.deletedAt ? 'opacity-50' : ''}`}>
+                <tr key={p.id} className={`border-b border-base-300 hover:bg-base-200 ${p.deletedAt ? 'opacity-50' : ''} ${isSelected(p.id) ? 'bg-secondary/10' : ''}`}>
+                  <td className="py-3 pr-3">
+                    <input type="checkbox" checked={isSelected(p.id)} onChange={() => toggle(p.id)} className="cursor-pointer" />
+                  </td>
                   <td className="py-3 pr-4">
                     <span className={`font-ui text-xs uppercase tracking-widest px-2 py-0.5 ${TYPE_COLORS[p.type] ?? 'bg-base-200 text-base-content/60'}`}>
                       {p.type ?? '?'}
@@ -113,7 +158,7 @@ export default function AdminPostsPage() {
                   <td className="py-3 pr-4 max-w-xs">
                     <Link to={`/posts/${encodeURIComponent(p.id)}`} className="hover:text-primary transition-colors">
                       <span className="font-ui text-sm line-clamp-1">
-                        {p.title ?? p.name ?? p.summary ?? p.body?.replace(/<[^>]+>/g, '').slice(0, 60) ?? p.id}
+                        {p.title ?? p.name ?? p.summary ?? stripHtml(p.body).slice(0, 60) ?? p.id}
                       </span>
                     </Link>
                   </td>
@@ -127,12 +172,12 @@ export default function AdminPostsPage() {
                       <ExternalLink size={13} />
                     </Link>
                     {p.deletedAt ? (
-                      <button onClick={() => handleRestore(p.id)} disabled={pending === p.id}
+                      <button onClick={() => handleRestore(p.id)} disabled={pending}
                         className="p-1 text-base-content/40 hover:text-success transition-colors disabled:opacity-30" title="Restore">
                         <RotateCcw size={14} />
                       </button>
                     ) : (
-                      <button onClick={() => handleDelete(p.id)} disabled={pending === p.id}
+                      <button onClick={() => handleDelete(p.id)} disabled={pending}
                         className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Delete">
                         <Trash2 size={14} />
                       </button>
@@ -141,7 +186,7 @@ export default function AdminPostsPage() {
                 </tr>
               ))}
               {posts.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No posts found</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No posts found</td></tr>
               )}
             </tbody>
           </table>

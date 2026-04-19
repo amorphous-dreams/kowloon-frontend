@@ -1,10 +1,10 @@
-// AdminUsersPage — list, soft-delete, and restore users.
-
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2, RotateCcw } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
+import { useBatchSelect } from '../../hooks/useBatchSelect'
 import Spinner from '../../components/ui/Spinner'
+import BatchActionBar from '../../components/admin/BatchActionBar'
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -16,17 +16,18 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [filter, setFilter] = useState('active') // active | deleted | all
+  const [filter, setFilter] = useState('active')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [pending, setPending] = useState(null)
+  const [pending, setPending] = useState(false)
+  const { selected, toggle, selectAll, clear, isSelected, allSelected, someSelected, count } = useBatchSelect(users)
 
   const load = useCallback(async () => {
     if (!client) return
     setLoading(true)
     try {
       const params = { page }
-      if (filter === 'deleted') params.deleted = 'true'
+      if (filter === 'deleted') params.showDeleted = true
       else if (filter === 'all') params.deleted = 'include'
       const res = await client.admin.getUsers(params)
       setUsers(res?.orderedItems ?? [])
@@ -39,30 +40,54 @@ export default function AdminUsersPage() {
   }, [client, filter, page])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { clear() }, [filter, page])
 
   const handleDelete = async (userId) => {
-    if (!confirm('Soft-delete this user?')) return
-    setPending(userId)
+    setPending(true)
     try {
       await client.admin.deleteUser({ userId })
       setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, deletedAt: new Date().toISOString(), active: false } : u))
     } catch {}
-    setPending(null)
+    setPending(false)
   }
 
   const handleRestore = async (userId) => {
-    setPending(userId)
+    setPending(true)
     try {
       await client.admin.restoreUser({ userId })
       setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, deletedAt: null, active: true } : u))
     } catch {}
-    setPending(null)
+    setPending(false)
+  }
+
+  const handleBatchSoftDelete = async () => {
+    if (!confirm(`Soft-delete ${count} user(s)?`)) return
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.deleteUser({ userId: id })))
+    clear()
+    await load()
+    setPending(false)
+  }
+
+  const handleBatchHardDelete = async () => {
+    if (!confirm(`Permanently delete ${count} user(s)? This cannot be undone.`)) return
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.deleteUser({ userId: id, fullDelete: true })))
+    clear()
+    await load()
+    setPending(false)
+  }
+
+  const handleBatchRestore = async () => {
+    setPending(true)
+    await Promise.allSettled([...selected].map((id) => client.admin.restoreUser({ userId: id })))
+    clear()
+    await load()
+    setPending(false)
   }
 
   if (denied) return (
-    <div className="py-16 text-center">
-      <p className="font-display text-3xl tracking-wide">Access Denied</p>
-    </div>
+    <div className="py-16 text-center"><p className="font-display text-3xl tracking-wide">Access Denied</p></div>
   )
 
   const FILTERS = [['active', 'Active'], ['deleted', 'Deleted'], ['all', 'All']]
@@ -76,25 +101,30 @@ export default function AdminUsersPage() {
         <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">{total} total</span>
       </div>
 
-      <div className="flex gap-0 mb-6">
+      <div className="flex gap-0 mb-4">
         {FILTERS.map(([val, label]) => (
-          <button
-            key={val}
-            onClick={() => { setFilter(val); setPage(1) }}
+          <button key={val} onClick={() => { setFilter(val); setPage(1) }}
             className={`px-4 py-2 font-ui text-xs uppercase tracking-widest border-r border-base-300 last:border-r-0 transition-colors ${
               filter === val ? 'bg-secondary text-secondary-content' : 'bg-base-200 text-base-content/60 hover:bg-base-300'
-            }`}
-          >
+            }`}>
             {label}
           </button>
         ))}
       </div>
+
+      <BatchActionBar count={count} filter={filter} busy={pending}
+        onSoftDelete={handleBatchSoftDelete} onHardDelete={handleBatchHardDelete}
+        onRestore={handleBatchRestore} onClear={clear} />
 
       {loading ? <Spinner centered /> : (
         <>
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-base-300">
+                <th className="pb-2 pr-3 w-6">
+                  <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected }}
+                    onChange={() => allSelected ? clear() : selectAll()} className="cursor-pointer" />
+                </th>
                 {['Username', 'Display Name', 'ID', 'Joined', 'Status', ''].map((h) => (
                   <th key={h} className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left pb-2 pr-4 last:pr-0">{h}</th>
                 ))}
@@ -102,7 +132,10 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className={`border-b border-base-300 hover:bg-base-200 ${u.deletedAt ? 'opacity-50' : ''}`}>
+                <tr key={u.id} className={`border-b border-base-300 hover:bg-base-200 ${u.deletedAt ? 'opacity-50' : ''} ${isSelected(u.id) ? 'bg-secondary/10' : ''}`}>
+                  <td className="py-3 pr-3">
+                    <input type="checkbox" checked={isSelected(u.id)} onChange={() => toggle(u.id)} className="cursor-pointer" />
+                  </td>
                   <td className="py-3 pr-4 font-ui text-sm">
                     <Link to={`/users/${encodeURIComponent(u.id)}`} className="hover:text-primary transition-colors">
                       @{u.username}
@@ -118,21 +151,13 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="py-3 text-right">
                     {u.deletedAt ? (
-                      <button
-                        onClick={() => handleRestore(u.id)}
-                        disabled={pending === u.id}
-                        className="p-1 text-base-content/40 hover:text-success transition-colors disabled:opacity-30"
-                        title="Restore"
-                      >
+                      <button onClick={() => handleRestore(u.id)} disabled={pending}
+                        className="p-1 text-base-content/40 hover:text-success transition-colors disabled:opacity-30" title="Restore">
                         <RotateCcw size={14} />
                       </button>
                     ) : (
-                      <button
-                        onClick={() => handleDelete(u.id)}
-                        disabled={pending === u.id}
-                        className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30"
-                        title="Delete"
-                      >
+                      <button onClick={() => handleDelete(u.id)} disabled={pending}
+                        className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Delete">
                         <Trash2 size={14} />
                       </button>
                     )}
@@ -140,7 +165,7 @@ export default function AdminUsersPage() {
                 </tr>
               ))}
               {users.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No users found</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No users found</td></tr>
               )}
             </tbody>
           </table>
