@@ -104,15 +104,15 @@ export default function EditPostPage() {
       const res = await client.feeds.getPost({ postId: id })
       const post = res?.item ?? res
       setPostType(post.type ?? 'Note')
-      setTitle(post.name ?? '')
-      setContent(post.source ?? '')
+      setTitle(post.title ?? '')
+      setContent(post.source?.content ?? '')
       setHref(post.href ?? '')
-      setStartDate(post.startTime ?? '')
-      setEndDate(post.endTime ?? '')
+      setStartDate(post.startTime ? String(post.startTime).slice(0, 16) : '')
+      setEndDate(post.endTime ? String(post.endTime).slice(0, 16) : '')
       setLocation(post.location?.name ?? '')
-      setGeo(post.location?.lat ? { lat: post.location.lat, lon: post.location.lon } : null)
-      setTags((post.tag ?? []).map((t) => t.name?.replace(/^#/, '').toLowerCase()).filter(Boolean))
-      setAudience(post.to ?? post.visibility ?? '@public')
+      setGeo(post.location?.lat != null ? { lat: post.location.lat, lon: post.location.lon } : null)
+      setTags(Array.isArray(post.tags) ? post.tags : [])
+      setAudience(post.to ?? '@public')
     } catch (err) {
       setLoadError(err.message || 'Failed to load post.')
     } finally {
@@ -170,13 +170,12 @@ export default function EditPostPage() {
     try {
       await client.activities.updatePost(id, {
         type: postType,
-        name: title || undefined,
-        source: content || undefined,
-        mediaType: 'text/markdown',
+        title: title || undefined,
+        content: content || undefined,
         href: href || undefined,
         startTime: startDate || undefined,
         endTime: endDate || undefined,
-        tag: tags.length ? tags.map((t) => ({ type: 'Hashtag', name: `#${t}` })) : undefined,
+        tags: tags.length ? tags : undefined,
         location: location ? { type: 'Place', name: location, ...(geo ?? {}) } : undefined,
         to: audience,
       })
