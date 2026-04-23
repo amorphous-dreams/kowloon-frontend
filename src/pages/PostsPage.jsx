@@ -26,7 +26,7 @@ export default function PostsPage() {
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
   }, [client, activeType])
 
-  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+  const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(
     client ? fetchPosts : null
   )
 
@@ -64,7 +64,7 @@ export default function PostsPage() {
       {error && !loading ? (
         <ErrorState message={error} />
       ) : (
-        <PostList
+        <PostList onDeleted={removeItem}
           posts={items}
           loading={loading}
           error={null}

@@ -1,6 +1,6 @@
 // PostPage — single post view with full content, actions, and replies.
 
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -163,6 +163,7 @@ function ReplyComposer({ postId, canReply, onSubmitted }) {
 
 export default function PostPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const client = useClient()
   const { t } = useTranslation()
 
@@ -210,7 +211,7 @@ export default function PostPage() {
         <ArrowLeft size={13} /> {t('common.back', { defaultValue: 'Back' })}
       </Link>
 
-      <PostCard post={post} />
+      <PostCard post={post} onDeleted={() => navigate(-1)} />
 
       <div className="flex flex-col gap-0" id="replies">
         <div className="flex items-center justify-between border-b-2 border-base-300 pb-4 mb-2">

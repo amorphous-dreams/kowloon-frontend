@@ -67,5 +67,9 @@ export function useFeed(fetchFn) {
     }
   }, [nextCursor, hasMore, loadingMore])
 
-  return { items, hasMore, loading, loadingMore, error, loadMore }
+  const removeItem = useCallback((id) => {
+    setItems((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  return { items, hasMore, loading, loadingMore, error, loadMore, removeItem }
 }

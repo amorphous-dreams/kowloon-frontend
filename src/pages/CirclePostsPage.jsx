@@ -96,7 +96,7 @@ export default function CirclePostsPage() {
   }, [client, circleId, activeTypes, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ready = sessionChecked && !notFound && !!client
-  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+  const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(
     ready ? fetchPosts : null
   )
 
@@ -145,7 +145,7 @@ export default function CirclePostsPage() {
         />
       )}
 
-      <PostList
+      <PostList onDeleted={removeItem}
         posts={items}
         loading={loading}
         error={error}

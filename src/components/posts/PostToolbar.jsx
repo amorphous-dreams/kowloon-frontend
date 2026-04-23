@@ -94,7 +94,7 @@ function ShareButton({ post, t, user }) {
 
 // ── OwnerActions ─────────────────────────────────────────────────────────────
 
-function OwnerActions({ post, t }) {
+function OwnerActions({ post, t, onDeleted }) {
   const client = useClient()
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
@@ -106,7 +106,11 @@ function OwnerActions({ post, t }) {
     setDeleting(true)
     try {
       await client.activities.deletePost({ postId: post.id })
-      navigate('/')
+      if (onDeleted) {
+        onDeleted(post.id)
+      } else {
+        navigate(-1)
+      }
     } catch {
       setDeleting(false)
     }
@@ -138,7 +142,7 @@ function OwnerActions({ post, t }) {
 
 // ── PostToolbar ──────────────────────────────────────────────────────────────
 
-export default function PostToolbar({ post }) {
+export default function PostToolbar({ post, onDeleted }) {
   const { user } = useSelector((state) => state.auth)
   const { t } = useTranslation()
   const [bookmarking, setBookmarking] = useState(false)
@@ -193,7 +197,7 @@ export default function PostToolbar({ post }) {
       {/* Right side: Share + owner actions */}
       <div className="flex items-center gap-3 ml-auto">
         <ShareButton post={post} t={t} user={user} />
-        {isOwner && <OwnerActions post={post} t={t} />}
+        {isOwner && <OwnerActions post={post} t={t} onDeleted={onDeleted} />}
       </div>
     </div>
   )

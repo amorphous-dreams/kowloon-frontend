@@ -17,7 +17,7 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, onDeleted }) {
   if (post?.type === 'Event') return <EventCard post={post} />
 
   const typeColor = POST_TYPES[post?.type]?.color
@@ -35,7 +35,7 @@ export default function PostCard({ post }) {
       <PostBody post={post} />
       <div className="flex items-center gap-3 pt-2 border-t border-base-300">
         <PostTypeTag type={post?.type} />
-        <PostToolbar post={post} />
+        <PostToolbar post={post} onDeleted={onDeleted} />
       </div>
     </article>
   )

@@ -47,7 +47,7 @@ export default function GroupPostsPage() {
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
   }, [client, id, activeType])
 
-  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+  const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(
     client ? fetchPosts : null
   )
 
@@ -95,7 +95,7 @@ export default function GroupPostsPage() {
       {error && !loading ? (
         <ErrorState message={error} onRetry={() => {}} />
       ) : (
-        <PostList
+        <PostList onDeleted={removeItem}
           posts={items}
           loading={loading}
           error={null}

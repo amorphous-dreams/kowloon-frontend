@@ -162,7 +162,7 @@ export default function GroupPage() {
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
   }, [client, id, activeTypes, refreshKey])
 
-  const { items: posts, hasMore, loading: postsLoading, loadingMore, error: postsError, loadMore } = useFeed(
+  const { items: posts, hasMore, loading: postsLoading, loadingMore, error: postsError, loadMore, removeItem } = useFeed(
     client && group ? fetchPosts : null
   )
 
@@ -378,7 +378,7 @@ export default function GroupPage() {
       {/* Posts */}
       <div className="flex flex-col gap-4">
         <TypeFilter onRefresh={() => setRefreshKey((k) => k + 1)} />
-        <PostList
+        <PostList onDeleted={removeItem}
           posts={posts}
           loading={postsLoading}
           error={postsError}

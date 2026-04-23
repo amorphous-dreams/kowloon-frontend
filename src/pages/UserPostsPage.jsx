@@ -102,7 +102,7 @@ export default function UserPostsPage() {
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
   }, [client, id, activeTypes, user])
 
-  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(
+  const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(
     client ? fetchPosts : null
   )
 
@@ -128,7 +128,7 @@ export default function UserPostsPage() {
 
       <TypeFilter />
 
-      <PostList
+      <PostList onDeleted={removeItem}
         posts={items}
         loading={loading}
         error={error}

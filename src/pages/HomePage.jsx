@@ -136,7 +136,7 @@ export default function HomePage() {
       ? (activeCircleId ? fetchCircle : null)
       : fetchPublic
 
-  const { items, hasMore, loading, loadingMore, error, loadMore } = useFeed(fetchFn)
+  const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(fetchFn)
 
   if (!sessionChecked) return null
 
@@ -178,7 +178,7 @@ export default function HomePage() {
             }}
           />
         )}
-        <PostList
+        <PostList onDeleted={removeItem}
           posts={items}
           loading={loading}
           error={error}
@@ -197,7 +197,7 @@ export default function HomePage() {
     <div className="flex flex-col">
       <RssFeedLink href="/posts?rss" title="Public Posts" />
       <FilterBar activeType={activeType} onTypeChange={setActiveType} onRefresh={handleRefresh} />
-      <PostList
+      <PostList onDeleted={removeItem}
         posts={items}
         loading={loading}
         error={error}

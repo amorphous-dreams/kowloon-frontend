@@ -141,7 +141,10 @@ export default function UserPage() {
         name: raw?.name ?? raw?.preferredUsername ?? raw?.username,
         profile: {
           description: raw?.summary ?? raw?.profile?.description,
-          icon: raw?.icon ?? raw?.profile?.icon,
+          icon: (() => {
+            const rawIcon = raw?.icon ?? raw?.profile?.icon
+            return typeof rawIcon === 'string' ? rawIcon : (rawIcon?.url ?? null)
+          })(),
           pronouns: raw?.profile?.pronouns,
           urls: raw?.profile?.urls ?? (raw?.url ? [raw.url] : []),
         },
@@ -203,7 +206,7 @@ export default function UserPage() {
   if (error)   return <ErrorState message={error} onRetry={load} />
   if (!user)   return null
 
-  const isOwnProfile = authUser && authUser.id === user.id
+  const isOwnProfile = authUser && (authUser.id === user.id || authUser.username === user.username)
   const isLoggedIn   = !!authUser
 
   return (
@@ -218,7 +221,7 @@ export default function UserPage() {
         }}
       >
         <div className="flex items-start gap-4">
-          <img src={user.profile?.icon} alt={user.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
+          <img src={isOwnProfile ? (authUser.profile?.icon ?? user.profile?.icon) : user.profile?.icon} alt={user.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} onError={(e) => { e.currentTarget.style.display = 'none' }} />
           <div className="flex flex-col gap-2 min-w-0 pt-1 flex-1">
             <h1 className="font-display text-4xl leading-none tracking-wide">{user.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -313,7 +316,7 @@ export default function UserPage() {
       <div className="flex flex-col gap-4">
         <h2 className="font-display text-2xl tracking-wide">{t('user.posts', { defaultValue: 'Posts' })}</h2>
         <TypeFilter />
-        <PostList posts={posts} />
+        <PostList posts={posts} onDeleted={(id) => setPosts((prev) => prev.filter((p) => p.id !== id))} />
       </div>
 
     </div>

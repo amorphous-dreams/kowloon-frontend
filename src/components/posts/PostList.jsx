@@ -99,6 +99,7 @@ export default function PostList({
   hasMore = false,
   loadingMore = false,
   onLoadMore,
+  onDeleted,
   ignoreTypeFilter = false,
   emptyMessage,
 }) {
@@ -131,7 +132,7 @@ export default function PostList({
   return (
     <div role="feed" className="flex flex-col">
       {visible.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard key={post.id} post={post} onDeleted={onDeleted} />
       ))}
       <LoadMoreButton hasMore={hasMore} loading={loadingMore} onClick={onLoadMore} />
     </div>
