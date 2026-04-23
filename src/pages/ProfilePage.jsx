@@ -174,7 +174,11 @@ export default function ProfilePage() {
         contentType: file.type,
         to: '@public',
       })
-      if (res?.file?.url) setIconUrl(res.file.url)
+      if (res?.file?.id) {
+        setIconUrl(client.files.serveUrl(res.file.id))
+      } else if (res?.file?.url) {
+        setIconUrl(res.file.url)
+      }
     } catch {
       // Preview stays; save will use previous iconUrl if upload failed
     }
