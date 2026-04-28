@@ -9,9 +9,6 @@ import PostMeta from './PostMeta'
 import PostToolbar from './PostToolbar'
 import PostTypeTag from '../ui/PostTypeTag'
 import { POST_TYPES } from '../../lib/postTypes'
-import { marked } from 'marked'
-
-marked.use({ breaks: true, gfm: true })
 
 const EVENT_COLOR = POST_TYPES['Event']?.color ?? '#cc272e'
 
@@ -61,8 +58,7 @@ export default function EventCard({ post }) {
   const { t } = useTranslation()
   const timeRange = formatTimeRange(post?.startTime, post?.endTime)
   const locationName = post?.location?.name ?? null
-  const raw  = post?.source ?? post?.content ?? ''
-  const html = marked.parse(raw)
+  const body = post?.body ?? ''
 
   return (
     <article className="flex flex-col gap-3 py-5 border-b border-base-300 mb-8">
@@ -101,10 +97,10 @@ export default function EventCard({ post }) {
       </div>
 
       {/* Body (description) if present */}
-      {raw && (
+      {body && (
         <div
           className="font-reading text-base-content/80 leading-relaxed prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: body }}
         />
       )}
 
