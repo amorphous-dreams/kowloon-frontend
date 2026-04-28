@@ -5,7 +5,7 @@ import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { MapPin, X, Upload, GripVertical } from 'lucide-react'
+import { X, Upload, GripVertical } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -16,6 +16,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useClient } from '../hooks/useClient'
 import PostTypeSelector from '../components/posts/PostTypeSelector'
 import RichTextEditor from '../components/posts/RichTextEditor'
+import LocationField from '../components/posts/LocationField'
 import CircleSelector from '../components/circles/CircleSelector'
 
 const NOTE_MAX_WORDS = 500
@@ -137,6 +138,7 @@ export default function NewPostPage() {
   const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
   const { items: myCircles } = useSelector((state) => state.myCircles)
+  const geocodingUrl = useSelector((state) => state.server.settings?.geocodingUrl)
   const client = useClient()
   const { t } = useTranslation()
 
@@ -245,17 +247,18 @@ export default function NewPostPage() {
   }
 
   const handleGeolocate = () => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setLocation('Location unavailable')
+      return
+    }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         const { latitude: lat, longitude: lon } = coords
         setGeo({ lat, lon })
+        const reverseUrl = `${(geocodingUrl || 'https://nominatim.openstreetmap.org').replace(/\/$/, '')}/reverse?format=json&lat=${lat}&lon=${lon}`
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`,
-            { headers: { 'Accept-Language': 'en', 'User-Agent': 'kowloon-frontend/1.0' } }
-          )
+          const res = await fetch(reverseUrl, { headers: { 'Accept-Language': 'en', 'User-Agent': 'kowloon-frontend/1.0' } })
           const data = await res.json()
           const place = data.address
           const parts = [
@@ -270,7 +273,11 @@ export default function NewPostPage() {
           setLocating(false)
         }
       },
-      () => setLocating(false),
+      (err) => {
+        setLocating(false)
+        if (err.code === err.PERMISSION_DENIED) setLocation('Location access denied')
+        else setLocation('Location unavailable')
+      },
       { timeout: 8000 }
     )
   }
@@ -493,26 +500,16 @@ export default function NewPostPage() {
 
         {/* Location */}
         <Field label={t('composer.locationLabel', { defaultValue: 'Location (optional)' })}>
-          <div className="relative">
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => { setLocation(e.target.value); if (!e.target.value) setGeo(null) }}
-              placeholder={t('composer.location', { defaultValue: 'Location…' })}
-              className="w-full px-4 py-3 pr-24 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-ui text-sm tracking-wide text-base-content placeholder:text-base-content/30 transition-colors"
-            />
-            <button
-              type="button"
-              onClick={handleGeolocate}
-              disabled={locating}
-              className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 font-ui text-xs uppercase tracking-widest transition-colors ${
-                geo ? 'text-primary' : locating ? 'text-base-content/20 cursor-wait' : 'text-base-content/30 hover:text-base-content'
-              }`}
-            >
-              <MapPin size={11} />
-              {locating ? t('common.loading', { defaultValue: 'Loading…' }) : t('common.gps', { defaultValue: 'GPS' })}
-            </button>
-          </div>
+          <LocationField
+            value={location}
+            onChange={setLocation}
+            geo={geo}
+            onGeoSelect={setGeo}
+            locating={locating}
+            onGeolocate={handleGeolocate}
+            geocodingUrl={geocodingUrl}
+            variant="page"
+          />
         </Field>
 
         {/* Footer: audience + actions */}

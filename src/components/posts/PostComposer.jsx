@@ -15,6 +15,7 @@ import UserAvatar from '../ui/UserAvatar'
 import PostTypeSelector from './PostTypeSelector'
 import RichTextEditor from './RichTextEditor'
 import CircleSelector from '../circles/CircleSelector'
+import LocationField from './LocationField'
 import AudioPlayer from '../ui/AudioPlayer'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPhotoFilm, faGripVertical } from '@fortawesome/free-solid-svg-icons'
@@ -232,6 +233,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
 export default function PostComposer({ onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt }) {
   const { user } = useSelector((state) => state.auth)
   const { items: myCircles } = useSelector((state) => state.myCircles)
+  const geocodingUrl = useSelector((state) => state.server.settings?.geocodingUrl)
   const client = useClient()
   const { t } = useTranslation()
 
@@ -350,7 +352,10 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   }
 
   const handleGeolocate = () => {
-    if (!navigator.geolocation) return
+    if (!navigator.geolocation) {
+      setLocation('Location unavailable')
+      return
+    }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
@@ -363,7 +368,6 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           )
           const data = await res.json()
           const place = data.address
-          // Build a concise human-readable name: "City, State, Country" or similar
           const parts = [
             place.city || place.town || place.village || place.county,
             place.state,
@@ -376,7 +380,11 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           setLocating(false)
         }
       },
-      () => setLocating(false),
+      (err) => {
+        setLocating(false)
+        if (err.code === err.PERMISSION_DENIED) setLocation('Location access denied')
+        else setLocation('Location unavailable')
+      },
       { timeout: 8000 }
     )
   }
@@ -732,16 +740,15 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                   optional
                 />
               </div>
-              <div className="flex items-center border-b-2 border-base-300 bg-base-100">
-                <input type="text" aria-label={t('composer.locationLabel')} placeholder={t('composer.location')} value={location}
-                  onChange={(e) => { setLocation(e.target.value); if (!e.target.value) setGeo(null) }}
-                  className="flex-1 px-4 py-2 bg-transparent font-ui text-xs uppercase tracking-widest text-base-content placeholder:text-base-content/30 outline-none" />
-                {!location && <span className="text-base-content/30 text-xs italic font-reading shrink-0" aria-hidden="true">{t('common.optional')}</span>}
-                <button type="button" onClick={handleGeolocate} disabled={locating} aria-label={t('a11y.gps')}
-                  className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors shrink-0 ${geo ? 'text-primary' : locating ? 'text-base-content/20 cursor-wait' : 'text-base-content/30 hover:text-base-content'}`}>
-                  <span aria-hidden="true">{locating ? '…' : t('common.gps')}</span>
-                </button>
-              </div>
+              <LocationField
+                value={location}
+                onChange={setLocation}
+                geo={geo}
+                onGeoSelect={setGeo}
+                locating={locating}
+                onGeolocate={handleGeolocate}
+                geocodingUrl={geocodingUrl}
+              />
             </>
           )}
 
@@ -760,16 +767,16 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
 
           {/* Location — all types except Event */}
           {postType !== 'Event' && (
-            <div className="flex items-center border-t-2 border-base-300 bg-base-100">
-              <input type="text" placeholder={t('composer.location')} aria-label={t('composer.locationLabel')} value={location}
-                onChange={(e) => { setLocation(e.target.value); if (!e.target.value) setGeo(null) }}
-                className="flex-1 px-4 py-2 bg-transparent font-ui text-xs uppercase tracking-widest text-base-content placeholder:text-base-content/30 outline-none" />
-              {!location && <span className="text-base-content/30 text-xs italic font-reading shrink-0" aria-hidden="true">{t('common.optional')}</span>}
-              <button type="button" onClick={handleGeolocate} disabled={locating} aria-label={t('a11y.gps')}
-                className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors shrink-0 ${geo ? 'text-primary' : locating ? 'text-base-content/20 cursor-wait' : 'text-base-content/30 hover:text-base-content'}`}>
-                <span aria-hidden="true">{locating ? '…' : t('common.gps')}</span>
-              </button>
-            </div>
+            <LocationField
+              value={location}
+              onChange={setLocation}
+              geo={geo}
+              onGeoSelect={setGeo}
+              locating={locating}
+              onGeolocate={handleGeolocate}
+              geocodingUrl={geocodingUrl}
+              borderTop
+            />
           )}
 
         </div>
