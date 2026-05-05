@@ -5,18 +5,22 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import FocusTrap from 'focus-trap-react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Upload } from 'lucide-react'
+import MediaIcon from '../../assets/icons/post-media.svg?react'
+import PostTypeIcon from '../ui/PostTypeIcon'
 import { useClient } from '../../hooks/useClient'
 import UserAvatar from '../ui/UserAvatar'
 import PostTypeSelector from './PostTypeSelector'
+import { POST_TYPES } from '../../lib/postTypes'
 import RichTextEditor from './RichTextEditor'
 import CircleSelector from '../circles/CircleSelector'
 import LocationField from './LocationField'
 import AudioPlayer from '../ui/AudioPlayer'
+import { ChevronDown, Plus } from 'lucide-react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faPhotoFilm, faGripVertical } from '@fortawesome/free-solid-svg-icons'
 import {
@@ -80,23 +84,38 @@ function TagsInput({ tags, onChange }) {
 
 // ── DateTimeField ──────────────────────────────────────────────────────────
 
-function DateTimeField({ value, onChange, placeholder, ariaLabel, optional = false, borderRight = false }) {
+const pad = (n) => String(n).padStart(2, '0')
+
+function addOneHourToTime(time) {
+  if (!time) return ''
+  const [h, m] = time.split(':').map(Number)
+  return `${pad((h + 1) % 24)}:${pad(m)}`
+}
+
+function splitDateTime(val) {
+  if (!val) return ['', '']
+  const [date, time] = val.split('T')
+  return [date || '', (time || '').slice(0, 5)]
+}
+
+function DateTimeField({ dateValue, timeValue, onDateChange, onTimeChange, placeholder, ariaLabel, optional = false, borderRight = false }) {
   const { t } = useTranslation()
   const [active, setActive] = useState(false)
-  const inputRef = useRef(null)
+  const dateRef = useRef(null)
+
+  const hasValue = dateValue || timeValue
+  const borderClass = borderRight ? 'border-r-2 border-base-300' : ''
 
   const handleActivate = () => {
     setActive(true)
-    setTimeout(() => inputRef.current?.showPicker?.(), 0)
+    setTimeout(() => dateRef.current?.showPicker?.(), 0)
   }
 
   const handleBlur = () => {
-    if (!value) setActive(false)
+    if (!dateValue && !timeValue) setActive(false)
   }
 
-  const borderClass = borderRight ? 'border-r-2 border-base-300' : ''
-
-  if (!value && !active) {
+  if (!hasValue && !active) {
     return (
       <button
         type="button"
@@ -111,16 +130,26 @@ function DateTimeField({ value, onChange, placeholder, ariaLabel, optional = fal
   }
 
   return (
-    <input
-      ref={inputRef}
-      type="datetime-local"
-      value={value}
-      onChange={onChange}
-      onBlur={handleBlur}
-      autoFocus={!value}
-      aria-label={ariaLabel}
-      className={`flex-1 px-4 py-2.5 bg-base-100 font-ui text-sm text-base-content outline-none ${borderClass}`}
-    />
+    <div className={`flex-1 flex items-center bg-base-100 ${borderClass}`}>
+      <input
+        ref={dateRef}
+        type="date"
+        value={dateValue}
+        onChange={(e) => onDateChange(e.target.value)}
+        onBlur={handleBlur}
+        autoFocus={!hasValue}
+        aria-label={`${ariaLabel} date`}
+        className="flex-1 px-4 py-2.5 font-ui text-sm text-base-content bg-transparent outline-none"
+      />
+      <input
+        type="time"
+        value={timeValue}
+        onChange={(e) => onTimeChange(e.target.value)}
+        onBlur={handleBlur}
+        aria-label={`${ariaLabel} time`}
+        className="px-4 py-2.5 font-ui text-sm text-base-content bg-transparent outline-none border-l border-base-300"
+      />
+    </div>
   )
 }
 
@@ -172,7 +201,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
   const { t } = useTranslation()
   const isAudio = att.file.type.startsWith('audio/')
   return (
-    <div className={`flex gap-3 items-start py-2.5 border-b border-base-300 bg-base-100 ${isAudio ? 'flex-col' : ''} ${uploadError ? 'bg-error/5' : ''}`}>
+    <div className={`flex gap-3 items-start py-4 border-b border-base-300 bg-base-100 ${isAudio ? 'flex-col' : ''} ${uploadError ? 'bg-error/5' : ''}`}>
       {/* Drag handle */}
       <button
         type="button"
@@ -184,7 +213,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
         <FontAwesomeIcon icon={faGripVertical} />
       </button>
       {!isAudio && <AttachmentPreview att={att} />}
-      <div className="flex flex-col gap-1 flex-1 min-w-0">
+      <div className="flex flex-col gap-2.5 flex-1 min-w-0">
         {isAudio && <AttachmentPreview att={att} />}
         <input
           type="text"
@@ -192,7 +221,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
           onChange={(e) => onUpdate(index, 'title', e.target.value)}
           placeholder={t('composer.attachmentTitle')}
           aria-label={t('composer.attachmentTitleLabel')}
-          className="bg-transparent font-ui text-xs uppercase tracking-widest text-base-content placeholder:text-base-content/30 outline-none border-b border-base-300 pb-0.5"
+          className="bg-transparent font-ui text-sm uppercase tracking-widest text-base-content placeholder:text-base-content/30 outline-none border-b border-base-300 pb-1"
         />
         <input
           type="text"
@@ -200,10 +229,10 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
           onChange={(e) => onUpdate(index, 'alt', e.target.value)}
           placeholder={t('composer.attachmentAlt')}
           aria-label={t('composer.attachmentAltLabel')}
-          className="bg-transparent font-reading text-xs text-base-content/70 placeholder:text-base-content/30 outline-none"
+          className="bg-transparent font-reading text-sm text-base-content/80 placeholder:text-base-content/40 outline-none"
         />
       </div>
-      <div className="flex flex-col gap-1 items-end shrink-0 pt-0.5">
+      <div className="flex flex-col gap-2 items-end shrink-0 pt-0.5 pr-4">
         {uploadError && (
           <span className="font-ui text-xs uppercase tracking-widest text-error">{uploadError}</span>
         )}
@@ -238,12 +267,16 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const { t } = useTranslation()
 
   const [expanded, setExpanded]       = useState(defaultOpen)
-  const [postType, setPostType]       = useState(initialValues.type     ?? 'Note')
+  const [postType, setPostType]       = useState(initialValues.type ?? user?.prefs?.defaultPostType ?? 'Note')
   const [content, setContent]         = useState(initialValues.content  ?? '')
   const [title, setTitle]             = useState(initialValues.title    ?? '')
   const [href, setHref]               = useState(initialValues.href     ?? '')
-  const [startDate, setStartDate]     = useState(initialValues.startDate ?? '')
-  const [endDate, setEndDate]         = useState(initialValues.endDate  ?? '')
+  const [startDatePart, setStartDatePart] = useState(() => splitDateTime(initialValues.startDate)[0])
+  const [startTimePart, setStartTimePart] = useState(() => splitDateTime(initialValues.startDate)[1])
+  const [endDatePart,   setEndDatePart]   = useState(() => splitDateTime(initialValues.endDate)[0])
+  const [endTimePart,   setEndTimePart]   = useState(() => splitDateTime(initialValues.endDate)[1])
+  const startDate = startDatePart ? `${startDatePart}${startTimePart ? 'T' + startTimePart : ''}` : ''
+  const endDate   = endDatePart   ? `${endDatePart}${endTimePart   ? 'T' + endTimePart   : ''}` : ''
   const [tags, setTags]               = useState(initialValues.tags     ?? [])
   const [location, setLocation]       = useState(initialValues.location ?? '')
   const [attachments, setAttachments] = useState([])   // [{ file, title, alt, previewUrl }]
@@ -262,11 +295,14 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const [fetchingMeta, setFetchingMeta] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false)
+
   const composerRef      = useRef(null)
   const fileInputRef     = useRef(null)
   const artImageInputRef = useRef(null)
   const hrefInputRef     = useRef(null)
   const triggerRef       = useRef(null)
+  const typeDropdownRef  = useRef(null)
 
   const wordCount = postType === 'Note' ? countWords(content) : 0
   const charCount = postType === 'Note' ? content.length : 0
@@ -297,6 +333,9 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     function handleClick(e) {
       if (composerRef.current && !composerRef.current.contains(e.target)) {
         if (!content && !title && !href) setExpanded(false)
+      }
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target)) {
+        setTypeDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -333,8 +372,10 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     setContent('')
     setTitle('')
     setHref('')
-    setStartDate('')
-    setEndDate('')
+    setStartDatePart('')
+    setStartTimePart('')
+    setEndDatePart('')
+    setEndTimePart('')
     setTags([])
     setLocation('')
     setGeo(null)
@@ -465,8 +506,8 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
       let uploadedAttachments
       let uploadedFeaturedImage = featuredImage || undefined
 
-      // Upload Article featured image if a file was selected
-      if (postType === 'Article' && artFeaturedFile) {
+      // Upload Article/Event featured image if a file was selected
+      if ((postType === 'Article' || postType === 'Event') && artFeaturedFile) {
         const res = await client.files.upload({
           file: artFeaturedFile,
           filename: artFeaturedFile.name,
@@ -538,50 +579,114 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
 
   if (!user) return null
 
-  // ── Collapsed ─────────────────────────────────────────────────────────────
-  // In onClose (share) mode, never show the collapsed trigger — just unmount via onClose
-  if (!expanded && onClose) return null
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <>
+      {/* Split button trigger — hidden in onClose (share) mode */}
+      {!onClose && !expanded && (
+        <div className="flex justify-center mb-8">
+          <div ref={typeDropdownRef} className="relative inline-flex">
+            {/* Shared border frame wrapping both halves */}
+            <div className="inline-flex border-2 border-base-content hover:border-primary transition-colors group">
+            {/* Left: Create New */}
+            <button
+              ref={triggerRef}
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-base-100 text-base-content group-hover:text-primary font-ui text-xs font-bold uppercase tracking-widest transition-colors"
+            >
+              <Plus size={13} />
+              Create New
+            </button>
 
-  if (!expanded) {
-    return (
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-base-100 border-2 border-base-300 hover:border-primary focus-visible:outline-none focus-visible:border-primary cursor-text transition-colors mb-8 group text-left"
-        aria-label={t('composer.prompt')}
-      >
-        <UserAvatar user={user} size="sm" />
-        <span className="font-reading text-base-content/40 dark:text-base-content/65 group-hover:text-base-content/70 dark:group-hover:text-base-content/85 transition-colors select-none" aria-hidden="true">
-          {prompt ?? t('composer.prompt')}
-        </span>
-      </button>
-    )
-  }
+            {/* Thin internal separator */}
+            <div className="w-px bg-base-300 self-stretch" />
 
-  // ── Modal ─────────────────────────────────────────────────────────────────
-  return createPortal(
-    <FocusTrap focusTrapOptions={{ escapeDeactivates: false }}>
-    <div
-      className="fixed inset-x-0 top-0 z-50 flex flex-col items-center justify-end lg:justify-center p-4 lg:p-8"
-      style={{ bottom: `${keyboardHeight}px` }}
-    >
+            {/* Right: Type selector */}
+            <button
+              type="button"
+              onClick={() => setTypeDropdownOpen((v) => !v)}
+              className="flex items-center gap-2 px-4 py-3 bg-base-100 text-base-content font-ui text-xs font-bold uppercase tracking-widest transition-colors"
+              aria-haspopup="listbox"
+              aria-expanded={typeDropdownOpen}
+            >
+              <PostTypeIcon type={postType} size="sm" />
+              <span style={{ color: POST_TYPES[postType]?.color ?? 'inherit' }}>{postType}</span>
+              <ChevronDown size={11} className="opacity-50 ml-0.5" />
+            </button>
+            </div>{/* end shared border frame */}
 
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60" onClick={handleCancel} />
+            {/* Type dropdown — left-aligned to the full button group */}
+            {typeDropdownOpen && (
+              <div
+                role="listbox"
+                className="absolute top-full left-0 mt-0.5 bg-base-100 border-2 border-base-300 z-[200] min-w-full shadow-lg"
+              >
+                {Object.keys(POST_TYPES).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    role="option"
+                    aria-selected={type === postType}
+                    onClick={() => {
+                      setPostType(type)
+                      setTypeDropdownOpen(false)
+                      setExpanded(true)
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 font-ui text-xs uppercase tracking-widest hover:bg-base-200 transition-colors text-left ${type === postType ? 'bg-base-200' : ''}`}
+                  >
+                    <PostTypeIcon type={type} size="sm" />
+                    <span style={{ color: POST_TYPES[type]?.color }}>{type}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal portal */}
+      {createPortal(
+        <AnimatePresence>
+          {expanded && (
+            <FocusTrap focusTrapOptions={{ escapeDeactivates: false }}>
+            <div
+              className="fixed inset-x-0 top-0 z-50 flex flex-col items-center justify-start pt-[10px] px-4 pb-4 lg:px-8 lg:pb-8"
+              style={{ bottom: `${keyboardHeight}px` }}
+            >
+
+              {/* Backdrop */}
+              <motion.div
+                className="absolute inset-0 bg-black/60"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.43 }}
+                onClick={handleCancel}
+              />
 
       {/* Panel — overflow-hidden so content can never escape; flex body fills available space */}
-      <div
+      <motion.div
         role="dialog"
         aria-modal="true"
         aria-label={t('composer.prompt')}
-        className="relative flex flex-col w-full lg:max-w-2xl bg-base-100 border-4 border-primary overflow-hidden"
+        className="relative flex flex-col w-full lg:max-w-2xl bg-base-100 overflow-hidden"
         style={{ maxHeight: 'calc(100% - 2rem)' }}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 14 }}
+        transition={{ duration: 0.47, ease: [0.25, 0.1, 0.25, 1] }}
       >
 
-        {/* Top bar */}
-        <div className="flex items-center justify-between border-b-2 border-base-300 bg-base-200 shrink-0">
-          <PostTypeSelector value={postType} onChange={handleTypeChange} />
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b-2 border-base-300 bg-base-200 shrink-0">
+          <h2 className="flex items-center gap-2 font-display text-xl tracking-wide">
+            <PostTypeIcon type={postType} size="sm" />
+            {t('composer.createNew', { defaultValue: 'Create New' })}{' '}
+            <span style={{ color: POST_TYPES[postType]?.color }}>
+              {t(`postTypes.${postType}`, { defaultValue: postType })}
+            </span>
+          </h2>
           <button
             onClick={handleCancel}
             aria-label={t('composer.close')}
@@ -591,6 +696,11 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           </button>
         </div>
 
+        {/* Type selector */}
+        <div className="border-b-2 border-base-300 bg-base-200 shrink-0">
+          <PostTypeSelector value={postType} onChange={handleTypeChange} />
+        </div>
+
         {/* Scrollable body — min-h-0 is required for flex children to shrink correctly */}
         <div className="flex flex-col flex-1 min-h-0 overflow-y-auto">
 
@@ -598,16 +708,14 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           {postType === 'Media' && (
             <div className="border-b-2 border-base-300">
               {attachments.length === 0 ? (
-                <div className="flex items-center justify-center py-8 bg-base-200">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-3 px-6 py-3 bg-primary text-primary-content font-ui text-sm uppercase tracking-widest hover:opacity-90 transition-opacity"
-                  >
-                    <FontAwesomeIcon icon={faPhotoFilm} className="text-lg" />
-                    {t('composer.addMedia')}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-3 py-8 bg-base-200 hover:bg-base-300 transition-colors font-ui text-sm uppercase tracking-widest text-base-content/60 hover:text-base-content cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faPhotoFilm} className="text-lg" />
+                  {t('composer.addMedia')}
+                </button>
               ) : (
                 <>
                   <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleAttachmentDragEnd}>
@@ -692,8 +800,8 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
             />
           )}
 
-          {/* Article featured image */}
-          {postType === 'Article' && (
+          {/* Article / Event featured image */}
+          {(postType === 'Article' || postType === 'Event') && (
             <div className="border-b-2 border-base-300">
               {artFeaturedPreview ? (
                 <div className="relative">
@@ -713,7 +821,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                   onClick={() => artImageInputRef.current?.click()}
                   className="w-full flex items-center gap-2 px-4 py-2.5 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content hover:bg-base-200 transition-colors"
                 >
-                  <Upload size={12} />
+                  <MediaIcon className="w-3 h-3" />
                   {t('composer.addFeaturedImage', { defaultValue: 'Add featured image' })}
                 </button>
               )}
@@ -726,15 +834,32 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
             <>
               <div className="flex border-b-2 border-base-300">
                 <DateTimeField
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  dateValue={startDatePart}
+                  timeValue={startTimePart}
+                  onDateChange={(date) => {
+                    setStartDatePart(date)
+                    setEndDatePart(date)
+                    if (date && !startTimePart) {
+                      const now = new Date()
+                      const h = now.getMinutes() > 0 ? (now.getHours() + 1) % 24 : now.getHours()
+                      const rounded = `${pad(h)}:00`
+                      setStartTimePart(rounded)
+                      setEndTimePart(addOneHourToTime(rounded))
+                    }
+                  }}
+                  onTimeChange={(time) => {
+                    setStartTimePart(time)
+                    if (time) setEndTimePart(addOneHourToTime(time))
+                  }}
                   placeholder={t('composer.startDate')}
                   ariaLabel={t('composer.startDateLabel')}
                   borderRight
                 />
                 <DateTimeField
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  dateValue={endDatePart}
+                  timeValue={endTimePart}
+                  onDateChange={setEndDatePart}
+                  onTimeChange={setEndTimePart}
                   placeholder={t('composer.endDate')}
                   ariaLabel={t('composer.endDateLabel')}
                   optional
@@ -758,6 +883,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
             content={content}
             onChange={setContent}
             maxWords={postType === 'Note' ? NOTE_MAX_WORDS : undefined}
+            postType={postType}
             autoFocus
             editorClassName="min-h-[40vh]"
           />
@@ -802,9 +928,13 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           </div>
         </div>
 
-      </div>
+      </motion.div>
     </div>
-    </FocusTrap>,
-    document.body
+    </FocusTrap>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
   )
 }

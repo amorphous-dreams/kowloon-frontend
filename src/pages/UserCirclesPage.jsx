@@ -154,14 +154,27 @@ export default function UserCirclesPage() {
         >
           <ArrowLeft size={13} /> {displayName}
         </Link>
-        <h1 className="font-display text-4xl leading-none tracking-wide">
-          {t('circle.circles', { defaultValue: 'Circles' })}
-        </h1>
-        {isOwner && totalItems > 0 && !loading && (
-          <p className="font-ui text-sm uppercase tracking-widest text-base-content/50 mt-1">
-            {totalItems.toLocaleString()} {t('circles.total', { defaultValue: 'circles' })}
-          </p>
-        )}
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <h1 className="font-display text-4xl leading-none tracking-wide">
+              {t('circle.circles', { defaultValue: 'Circles' })}
+            </h1>
+            {isOwner && totalItems > 0 && !loading && (
+              <p className="font-ui text-sm uppercase tracking-widest text-base-content/50 mt-1">
+                {totalItems.toLocaleString()} {t('circles.total', { defaultValue: 'circles' })}
+              </p>
+            )}
+          </div>
+          {isOwner && (
+            <Link
+              to="/circles/new"
+              state={{ to: '@public' }}
+              className="px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors shrink-0"
+            >
+              {t('circle.create', { defaultValue: 'Create Circle' })}
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Content */}

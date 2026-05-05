@@ -25,7 +25,7 @@ export default function PostTypeSelector({ value, onChange }) {
             style={active ? { borderBottom: `3px solid ${config.color}` } : {}}
           >
             <PostTypeIcon type={type} size="sm" />
-            {active && <span>{t(`postTypes.${type}`, { defaultValue: config.label })}</span>}
+            <span>{t(`postTypes.${type}`, { defaultValue: config.label })}</span>
           </button>
         )
       })}

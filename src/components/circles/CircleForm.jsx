@@ -61,42 +61,36 @@ function AddMemberRow({ onAdd, existingIds }) {
   const client = useClient()
   const { t } = useTranslation()
   const [input, setInput] = useState('')
-  const [preview, setPreview] = useState(null)
+  const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleLookup = async () => {
+  const handleSearch = async () => {
     const val = input.trim()
     if (!val) return
     setLoading(true)
     setError(null)
-    setPreview(null)
+    setResults([])
     try {
-      const res = await client.feeds.getUser({ userId: val })
-      const raw = res?.item ?? res
-      if (!raw?.id) throw new Error('User not found')
-      const member = {
-        id: raw.id,
-        name: raw.name ?? raw.profile?.name ?? raw.preferredUsername ?? raw.username,
-        icon: raw.icon ?? raw.profile?.icon ?? null,
-      }
-      if (existingIds.has(member.id)) {
-        setError('Already in member list')
-        return
-      }
-      setPreview(member)
+      const res = await client.feeds.http.get('/users/search', { params: { q: val } })
+      const items = res?.orderedItems ?? []
+      if (items.length === 0) setError('No users found')
+      setResults(items)
     } catch (err) {
-      setError(err.message || 'User not found')
+      setError(err.message || 'Search failed')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleAdd = () => {
-    if (!preview) return
-    onAdd(preview)
+  const handleAdd = (user) => {
+    if (existingIds.has(user.id)) {
+      setError('Already in member list')
+      return
+    }
+    onAdd({ id: user.id, name: user.name, icon: user.icon })
     setInput('')
-    setPreview(null)
+    setResults([])
     setError(null)
   }
 
@@ -106,41 +100,46 @@ function AddMemberRow({ onAdd, existingIds }) {
         <input
           type="text"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setPreview(null); setError(null) }}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleLookup())}
-          placeholder={t('circle.addMemberPlaceholder', { defaultValue: '@user@domain' })}
+          onChange={(e) => { setInput(e.target.value); setResults([]); setError(null) }}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+          placeholder={t('circle.addMemberPlaceholder', { defaultValue: 'Search by name or @handle' })}
           className="flex-1 bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary"
         />
         <button
           type="button"
-          onClick={handleLookup}
+          onClick={handleSearch}
           disabled={!input.trim() || loading}
           className="px-4 py-2 bg-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:bg-base-content/20 transition-colors disabled:opacity-40"
         >
-          {loading ? <Loader size={14} className="animate-spin" /> : t('circle.lookup', { defaultValue: 'Look up' })}
+          {loading ? <Loader size={14} className="animate-spin" /> : t('circle.lookup', { defaultValue: 'Search' })}
         </button>
       </div>
 
       {error && <p className="font-ui text-xs text-error">{error}</p>}
 
-      {preview && (
-        <div className="flex items-center gap-3 px-3 py-2 bg-base-200 border border-base-300">
-          {preview.icon
-            ? <img src={preview.icon} alt={preview.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
-            : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
-          }
-          <div className="flex flex-col gap-0 flex-1 min-w-0">
-            <span className="font-ui text-sm font-bold">{preview.name}</span>
-            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50">{preview.id}</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors"
-          >
-            <UserPlus size={11} />
-            {t('circle.addMember', { defaultValue: 'Add' })}
-          </button>
+      {results.length > 0 && (
+        <div className="flex flex-col border border-base-300">
+          {results.map((user) => (
+            <div key={user.id} className="flex items-center gap-3 px-3 py-2 bg-base-200 border-b border-base-300 last:border-b-0">
+              {user.icon
+                ? <img src={user.icon} alt={user.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
+                : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
+              }
+              <div className="flex flex-col gap-0 flex-1 min-w-0">
+                <span className="font-ui text-sm font-bold">{user.name}</span>
+                <span className="font-ui text-xs tracking-widest text-base-content/50">{user.id}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleAdd(user)}
+                disabled={existingIds.has(user.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
+              >
+                <UserPlus size={11} />
+                {t('circle.addMember', { defaultValue: 'Add' })}
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

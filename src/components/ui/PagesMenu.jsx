@@ -1,5 +1,5 @@
 // PagesMenu — hierarchical server pages navigation tree.
-// Self-fetches from GET /pages and groups by parentFolder.
+// Self-fetches from GET /pages and groups by parentId.
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -20,10 +20,10 @@ export default function PagesMenu() {
       .then((res) => {
         const items = res?.orderedItems ?? res?.items ?? []
         // Build two-level tree: top-level pages + their children
-        const top = items.filter((p) => !p.parentFolder)
+        const top = items.filter((p) => !p.parentId)
         const tree = top.map((p) => ({
           ...p,
-          children: items.filter((c) => c.parentFolder === p.id),
+          children: items.filter((c) => c.parentId === p.id),
         }))
         setPages(tree)
       })

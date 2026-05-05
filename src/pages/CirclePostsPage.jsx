@@ -88,7 +88,7 @@ export default function CirclePostsPage() {
     const res = await client.feeds.getCirclePosts({
       circleId,
       types: activeTypes.length ? activeTypes : undefined,
-      since: cursor ?? undefined,
+      before: cursor ?? undefined,
     })
     const items = res?.orderedItems ?? []
     const nc = res?.nextCursor ?? null
@@ -152,6 +152,7 @@ export default function CirclePostsPage() {
         hasMore={hasMore}
         loadingMore={loadingMore}
         onLoadMore={loadMore}
+        lastSeenAt={circle?.lastSeenAt}
       />
     </div>
   )

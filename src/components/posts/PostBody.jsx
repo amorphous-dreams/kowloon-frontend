@@ -89,10 +89,12 @@ function Attachments({ attachments = [], featuredImage = null }) {
   )
 }
 
-export default function PostBody({ post }) {
+export default function PostBody({ post, showFull = false }) {
   // body = pre-rendered HTML from server; fall back to rendering raw markdown for local/mock data
   const rawSource = post?.source?.content ?? (typeof post?.source === 'string' ? post.source : null) ?? post?.content ?? ''
-  const html = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
+  const fullHtml = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
+  const isTruncated = !showFull && !!post?.summary
+  const html = isTruncated ? post.summary : fullHtml
   const title = post?.title ?? post?.name
   const isLink   = post?.type === 'Link'
   const isMedia  = post?.type === 'Media'
@@ -132,9 +134,20 @@ export default function PostBody({ post }) {
       )}
 
       <div
-        className="prose prose-sm max-w-none text-[13.5px] [&_p]:leading-[1.45] [&_p]:font-[450] [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
+        className="prose prose-lg max-w-none [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
         dangerouslySetInnerHTML={{ __html: html }}
       />
+
+      {isTruncated && postUrl && (
+        <div className="flex justify-end mt-4">
+          <Link
+            to={postUrl}
+            className="font-reading italic text-base-content/50 hover:text-primary transition-colors"
+          >
+            Continue Reading&hellip;
+          </Link>
+        </div>
+      )}
 
       {remainingAttachments.length > 0 && (
         <Attachments attachments={remainingAttachments} featuredImage={heroSrc} />

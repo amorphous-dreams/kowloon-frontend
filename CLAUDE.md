@@ -13,7 +13,7 @@
 This UI is inspired by **1950s midcentury print design and Blue Note Records album covers**. It should feel like a beautiful magazine, not an app. Every component should reflect this:
 - Strong typographic hierarchy, generous whitespace
 - No excessive rounding, shadows, or "app" chrome
-- Bold display type (Bebas Neue), clean UI type (IBM Plex Sans), beautiful reading type (Source Serif 4)
+- Bold display type (Inter), clean UI type (IBM Plex Sans), beautiful reading type (Source Serif 4)
 - Color palette: warm cream base, medium navy header, dark plum accent — see `src/index.css`
 
 Use `font-display`, `font-ui`, `font-reading` Tailwind utilities for typography.

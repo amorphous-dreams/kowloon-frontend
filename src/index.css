@@ -107,9 +107,16 @@ textarea:focus-visible {
 /* ─── Font Utilities ─────────────────────────────────────────────────────── */
 
 @theme {
-  --font-display: "Bebas Neue", "Barlow Condensed", sans-serif;
+  --font-display: "Inter", sans-serif;
   --font-ui: "IBM Plex Sans", system-ui, sans-serif;
-  --font-reading: "IBM Plex Sans", system-ui, sans-serif;
+  --font-reading: "Inter", sans-serif;
+}
+
+@layer base {
+  .font-display {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
 }
 
 /* ─── Base Typography ─────────────────────────────────────────────────────── */
@@ -128,16 +135,19 @@ textarea:focus-visible {
   h4,
   h5,
   h6 {
-    font-family: "Bebas Neue", "Barlow Condensed", sans-serif;
-    letter-spacing: 0.03em;
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
     line-height: 1;
   }
 
   /* Long-form content */
   article,
-  .prose {
-    font-family: "IBM Plex Sans", system-ui, sans-serif;
-    font-size: 1.125rem;
+  .prose,
+  .font-reading {
+    font-family: "Inter", sans-serif;
+    font-weight: 400;
+    font-size: 1.25rem;
     line-height: 1.5;
     font-optical-sizing: auto;
   }
@@ -167,6 +177,8 @@ textarea:focus-visible {
 
   /* Prose — markdown rendered content in post cards */
   .prose p {
+    font-size: 1.125rem;
+    line-height: 1.55;
     margin-bottom: 1.125em;
   }
   .prose p:last-child {
@@ -212,7 +224,7 @@ textarea:focus-visible {
     position: absolute;
     left: 0;
     top: -0.15em;
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 4rem;
     line-height: 1;
     color: var(--color-base-content);
@@ -237,7 +249,7 @@ textarea:focus-visible {
   .prose h1,
   .prose h2,
   .prose h3 {
-    font-family: "Bebas Neue", sans-serif;
+    font-family: "Inter", sans-serif;
     letter-spacing: 0.03em;
     line-height: 1;
     margin: 3em 0 1em;

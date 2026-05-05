@@ -211,7 +211,7 @@ export default function PostPage() {
         <ArrowLeft size={13} /> {t('common.back', { defaultValue: 'Back' })}
       </Link>
 
-      <PostCard post={post} onDeleted={() => navigate(-1)} />
+      <PostCard post={post} onDeleted={() => navigate(-1)} showFull />
 
       <div className="flex flex-col gap-0" id="replies">
         <div className="flex items-center justify-between border-b-2 border-base-300 pb-4 mb-2">

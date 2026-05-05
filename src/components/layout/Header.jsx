@@ -48,10 +48,10 @@ export function Header() {
     client.feeds.http.get('/pages', { params: { limit: 50 } })
       .then((res) => {
         const items = res?.orderedItems ?? res?.items ?? []
-        const top = items.filter((p) => !p.parentFolder)
+        const top = items.filter((p) => !p.parentId)
         const tree = top.map((p) => ({
           ...p,
-          children: items.filter((c) => c.parentFolder === p.id),
+          children: items.filter((c) => c.parentId === p.id),
         }))
         setPages(tree)
       })
@@ -180,6 +180,11 @@ export function Header() {
                 <li>
                   <Link to="/profile" className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors">
                     {t('nav.profile')}
+                  </Link>
+                </li>
+                <li>
+                  <Link to={`/users/${encodeURIComponent(userHandle)}/circles`} className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors">
+                    {t('nav.myCircles', { defaultValue: 'My Circles' })}
                   </Link>
                 </li>
                 <li>

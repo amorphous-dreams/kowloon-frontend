@@ -4,7 +4,6 @@
 
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { MapPin } from 'lucide-react'
 import PostMeta from './PostMeta'
 import PostToolbar from './PostToolbar'
 import PostTypeTag from '../ui/PostTypeTag'
@@ -15,18 +14,9 @@ const EVENT_COLOR = POST_TYPES['Event']?.color ?? '#cc272e'
 const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
 const DAYS   = ['SUN','MON','TUE','WED','THU','FRI','SAT']
 
-function formatTimeRange(start, end) {
+function formatStartTime(start) {
   if (!start) return null
-  const s = new Date(start)
-  const opts = { hour: 'numeric', minute: '2-digit', hour12: true }
-  const startStr = s.toLocaleTimeString([], opts)
-  if (!end) return startStr
-  const e = new Date(end)
-  const endStr = e.toLocaleTimeString([], opts)
-  // Same day — show just times
-  if (s.toDateString() === e.toDateString()) return `${startStr} – ${endStr}`
-  // Multi-day — show end date too
-  return `${startStr} – ${MONTHS[e.getMonth()]} ${e.getDate()}, ${endStr}`
+  return new Date(start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
 function CalendarBlock({ date }) {
@@ -54,36 +44,39 @@ function CalendarBlock({ date }) {
   )
 }
 
-export default function EventCard({ post }) {
+export default function EventCard({ post, showFull = false }) {
   const { t } = useTranslation()
-  const timeRange = formatTimeRange(post?.startTime, post?.endTime)
+  const startTime    = formatStartTime(post?.startTime)
   const locationName = post?.location?.name ?? null
-  const body = post?.body ?? ''
+  const isTruncated  = !showFull && !!post?.summary
+  const body  = isTruncated ? post.summary : (post?.body ?? '')
+  const image = post?.featuredImage ?? null
+  const postUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
+
+  const subheader = [startTime, locationName].filter(Boolean).join(' | ')
 
   return (
     <article className="flex flex-col gap-3 py-5 border-b border-base-300 mb-8">
 
-      {/* Top row: calendar block + title + time */}
+      {/* Featured image */}
+      {image && (
+        <img src={image} alt="" className="w-full max-h-64 object-cover" />
+      )}
+
+      {/* Top row: calendar block + title + subheader */}
       <div className="flex gap-4 items-start">
         <CalendarBlock date={post?.startTime} />
 
         <div className="flex flex-col gap-1 min-w-0 flex-1">
-          {timeRange && (
-            <p className="font-ui text-xs uppercase tracking-widest text-base-content/50">{timeRange}</p>
-          )}
           <Link
             to={`/posts/${encodeURIComponent(post?.id)}`}
             className="font-display text-4xl leading-tight tracking-wide text-base-content hover:text-primary transition-colors"
           >
-            {post?.name ?? t('post.untitledEvent')}
+            {post?.title ?? t('post.untitledEvent')}
           </Link>
 
-          {/* Location — prominent, right below title */}
-          {locationName && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <MapPin size={13} className="shrink-0" style={{ color: EVENT_COLOR }} />
-              <span className="font-ui text-sm tracking-wide text-base-content/70">{locationName}</span>
-            </div>
+          {subheader && (
+            <p className="font-ui text-sm tracking-wide font-bold text-base-content">{subheader}</p>
           )}
         </div>
       </div>
@@ -98,10 +91,22 @@ export default function EventCard({ post }) {
 
       {/* Body (description) if present */}
       {body && (
-        <div
-          className="font-reading text-base-content/80 leading-relaxed prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: body }}
-        />
+        <>
+          <div
+            className="font-reading text-base-content/80 leading-relaxed prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: body }}
+          />
+          {isTruncated && postUrl && (
+            <div className="flex justify-end mt-4">
+              <Link
+                to={postUrl}
+                className="font-reading italic text-base-content/50 hover:text-primary transition-colors"
+              >
+                Continue Reading&hellip;
+              </Link>
+            </div>
+          )}
+        </>
       )}
 
       {/* Footer */}

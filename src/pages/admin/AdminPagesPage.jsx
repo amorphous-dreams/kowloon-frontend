@@ -17,7 +17,7 @@ const VISIBILITY_OPTIONS = [
   { value: '@server', label: 'Server only' },
 ]
 
-function PageForm({ initial, onSave, onCancel }) {
+function PageForm({ initial, allPages = [], onSave, onCancel }) {
   const client = useClient()
   const [type, setType] = useState(initial?.type ?? 'Page')
   const [title, setTitle] = useState(initial?.title ?? '')
@@ -26,12 +26,18 @@ function PageForm({ initial, onSave, onCancel }) {
   const [content, setContent] = useState(initial?.source?.content ?? '')
   const [to, setTo] = useState(initial?.to ?? '@public')
   const [order, setOrder] = useState(initial?.order ?? 0)
-  const [imageFile, setImageFile] = useState(null)       // selected File object
-  const [imagePreview, setImagePreview] = useState(initial?.image ?? null)  // URL for preview
+  const [parentId, setParentId] = useState(initial?.parentId ?? '')
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(initial?.image ?? null)
   const [removeImage, setRemoveImage] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const imageInputRef = useRef(null)
+
+  // Pages eligible as parents: exclude self, exclude deleted
+  const parentOptions = allPages.filter(
+    (p) => p.id !== initial?.id && !p.deletedAt
+  )
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
@@ -75,6 +81,7 @@ function PageForm({ initial, onSave, onCancel }) {
         source: content ? { content, mediaType: 'text/markdown' } : undefined,
         to,
         order: Number(order),
+        parentId: parentId || null,
         ...(imageValue !== undefined || removeImage ? { image: imageValue } : {}),
       }
       let res
@@ -156,6 +163,18 @@ function PageForm({ initial, onSave, onCancel }) {
           <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
         </div>
 
+        <div className="flex flex-col gap-1">
+          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Parent Page</label>
+          <select value={parentId} onChange={(e) => setParentId(e.target.value)}
+            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none">
+            <option value="">— None (top-level) —</option>
+            {parentOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.type === 'Folder' ? `[Folder] ${p.title}` : p.title}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex flex-col gap-1">
           <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Visibility</label>
           <select value={to} onChange={(e) => setTo(e.target.value)}
@@ -286,10 +305,10 @@ export default function AdminPagesPage() {
       </div>
 
       {showForm && !editing && (
-        <PageForm onSave={handleSaved} onCancel={() => setShowForm(false)} />
+        <PageForm allPages={pages} onSave={handleSaved} onCancel={() => setShowForm(false)} />
       )}
       {editing && (
-        <PageForm initial={editing} onSave={handleSaved} onCancel={() => setEditing(null)} />
+        <PageForm initial={editing} allPages={pages} onSave={handleSaved} onCancel={() => setEditing(null)} />
       )}
 
       <div className="flex gap-0 mb-4">
@@ -335,6 +354,12 @@ export default function AdminPagesPage() {
                     className="font-ui text-sm hover:text-primary transition-colors text-left truncate block max-w-xs">
                     {p.title}
                   </button>
+                  {p.parentId && (() => {
+                    const parent = pages.find((q) => q.id === p.parentId)
+                    return parent
+                      ? <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/35">↳ {parent.title}</span>
+                      : null
+                  })()}
                 </td>
                 <td className="py-3 pr-4 font-mono text-xs text-base-content/50 max-w-32 truncate">{p.slug ?? '—'}</td>
                 <td className="py-3 pr-4 font-ui text-xs text-base-content/40 uppercase tracking-widest">{p.to ?? '—'}</td>

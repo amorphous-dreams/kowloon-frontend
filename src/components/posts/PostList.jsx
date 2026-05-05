@@ -90,6 +90,20 @@ function MediaGrid({ posts, hasMore, loadingMore, onLoadMore }) {
   )
 }
 
+// ── Older posts divider ───────────────────────────────────────────────────────
+
+function OlderPostsDivider() {
+  return (
+    <div className="flex items-center gap-4 py-8">
+      <div className="flex-1 h-px bg-base-300" />
+      <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/35 shrink-0">
+        Older Posts
+      </span>
+      <div className="flex-1 h-px bg-base-300" />
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function PostList({
@@ -102,6 +116,7 @@ export default function PostList({
   onDeleted,
   ignoreTypeFilter = false,
   emptyMessage,
+  lastSeenAt = null,
 }) {
   const { activeTypes } = useSelector((state) => state.feed)
   const { t } = useTranslation()
@@ -129,11 +144,22 @@ export default function PostList({
     )
   }
 
+  // Insert "Older Posts" divider at the new/seen boundary
+  const seenBoundary = lastSeenAt ? new Date(lastSeenAt) : null
+  let dividerPlaced = false
+  const elements = []
+  for (const post of visible) {
+    const postDate = new Date(post.publishedAt ?? post.createdAt ?? 0)
+    if (!dividerPlaced && seenBoundary && postDate <= seenBoundary) {
+      elements.push(<OlderPostsDivider key="__older_divider__" />)
+      dividerPlaced = true
+    }
+    elements.push(<PostCard key={post.id} post={post} onDeleted={onDeleted} />)
+  }
+
   return (
     <div role="feed" className="flex flex-col">
-      {visible.map((post) => (
-        <PostCard key={post.id} post={post} onDeleted={onDeleted} />
-      ))}
+      {elements}
       <LoadMoreButton hasMore={hasMore} loading={loadingMore} onClick={onLoadMore} />
     </div>
   )

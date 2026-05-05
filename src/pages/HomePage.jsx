@@ -102,6 +102,8 @@ export default function HomePage() {
   }, [user, circlesStatus, dispatch])
 
   const activeCircleId = circleId ?? followingId
+  const activeCircle = myCircles.find((c) => c.id === activeCircleId)
+  const lastSeenAt = activeCircle?.lastSeenAt ?? null
 
   // ── Fetch function — switches between public feed (anon) and circle feed (auth) ──
 
@@ -123,7 +125,7 @@ export default function HomePage() {
     const res = await client.feeds.getCirclePosts({
       circleId: activeCircleId,
       types: activeType ? [activeType] : undefined,
-      since: cursor ?? undefined,
+      before: cursor ?? undefined,
     })
     const items = res?.orderedItems ?? []
     const nc = res?.nextCursor ?? null
@@ -186,6 +188,7 @@ export default function HomePage() {
           loadingMore={loadingMore}
           onLoadMore={loadMore}
           emptyMessage={activeCircleId ? t('post.emptyCircle') : undefined}
+          lastSeenAt={lastSeenAt}
         />
       </div>
     )
