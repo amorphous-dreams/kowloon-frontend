@@ -248,9 +248,10 @@ export function Header() {
               {/* Server info */}
               {server.description && (
                 <li className="px-4 py-4 border-t border-base-300 dark:border-white/10">
-                  <p className="font-reading text-sm text-base-content/75 dark:text-white/95 leading-relaxed">
-                    {server.description}
-                  </p>
+                  <div
+                    className="font-reading text-sm text-base-content/75 dark:text-white/95 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: server.description }}
+                  />
                 </li>
               )}
 
