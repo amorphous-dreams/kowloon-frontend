@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faComment, faBookmark, faShareNodes } from '@fortawesome/free-solid-svg-icons'
+import { faComment, faBookmark, faShareNodes, faPen, faTrash } from '@fortawesome/free-solid-svg-icons'
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
 import BookmarkComposer from '../bookmarks/BookmarkComposer'
@@ -124,24 +124,25 @@ function OwnerActions({ post, t, onDeleted }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4">
       {editUrl && (
         <Link
           to={editUrl}
-          className="font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+          title={t('common.edit', { defaultValue: 'Edit' })}
+          aria-label={t('common.edit', { defaultValue: 'Edit' })}
+          className="text-base text-base-content/50 hover:text-base-content transition-colors"
         >
-          {t('common.edit', { defaultValue: 'Edit' })}
+          <FontAwesomeIcon icon={faPen} />
         </Link>
       )}
       <button
         onClick={handleDelete}
         disabled={deleting}
-        className="font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-error transition-colors disabled:opacity-30"
+        title={t('common.delete', { defaultValue: 'Delete' })}
+        aria-label={t('common.delete', { defaultValue: 'Delete' })}
+        className="text-base text-base-content/50 hover:text-error transition-colors disabled:opacity-30"
       >
-        {deleting
-          ? t('common.deleting', { defaultValue: 'Deleting…' })
-          : t('common.delete', { defaultValue: 'Delete' })
-        }
+        <FontAwesomeIcon icon={faTrash} />
       </button>
     </div>
   )
@@ -171,7 +172,7 @@ export default function PostToolbar({ post, onDeleted }) {
       {/* Right cluster: timestamp, then actions, separated by ~2rem */}
       <div className="flex items-center ml-auto">
         <Timestamp date={post?.published} to={timestampTo} />
-        <div className="flex items-center gap-4 ml-8">
+        <div className="flex items-center gap-4 ml-4 sm:ml-8">
         {/* Reply */}
         {post?.id && (
           <Link

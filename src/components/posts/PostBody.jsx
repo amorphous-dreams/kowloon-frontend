@@ -2,8 +2,9 @@
 // Handles type-specific rendering: linked titles for Link posts, media attachments for Media posts.
 // Props: post object
 
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Link2 } from 'lucide-react'
+import { Link2, Play, Music, FileText, X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react'
 import { marked } from 'marked'
 import AudioPlayer from '../ui/AudioPlayer'
 
@@ -39,57 +40,261 @@ function LinkTitle({ post }) {
 }
 
 
-function Attachments({ attachments = [], featuredImage = null }) {
+// True for media types where a fullscreen lightbox makes sense.
+function isLightboxable(a) {
+  const mt = a?.mediaType ?? ''
+  return mt.startsWith('image/') || mt.startsWith('video/') || mt.startsWith('audio/')
+}
+
+function ExpandButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Expand"
+      className="absolute top-2 right-2 z-10 p-2 bg-black/60 hover:bg-black/80 text-white rounded transition-colors"
+    >
+      <Maximize2 size={16} />
+    </button>
+  )
+}
+
+function renderMediaItem(a, { large = false, onOpen = null } = {}) {
+  const mt = a?.mediaType ?? ''
+  if (mt.startsWith('image/')) {
+    return (
+      <img
+        src={a.url}
+        alt={a.name ?? ''}
+        onClick={onOpen ?? undefined}
+        className={`${large ? 'w-full object-contain max-h-[28rem] bg-black' : 'w-full object-cover max-h-96'}${onOpen ? ' cursor-zoom-in' : ''}`}
+      />
+    )
+  }
+  // Video and audio render their own controls, so the lightbox trigger lives
+  // in a corner button to avoid hijacking play/pause taps.
+  if (mt.startsWith('audio/')) {
+    return (
+      <div className="relative">
+        {onOpen && <ExpandButton onClick={onOpen} />}
+        <AudioPlayer src={a.url} className="w-full aspect-video" />
+      </div>
+    )
+  }
+  if (mt.startsWith('video/')) {
+    return (
+      <div className="relative">
+        {onOpen && <ExpandButton onClick={onOpen} />}
+        <video controls className="w-full max-h-[28rem] object-contain bg-black">
+          <source src={a.url} type={mt} />
+        </video>
+      </div>
+    )
+  }
+  return (
+    <a
+      href={a.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-ui text-xs uppercase tracking-widest text-primary hover:opacity-80"
+    >
+      {a.name ?? a.url}
+    </a>
+  )
+}
+
+function Lightbox({ items, index, onClose, onNavigate }) {
+  const item = items[index]
+  const mt = item?.mediaType ?? ''
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft' && items.length > 1) onNavigate(-1)
+      else if (e.key === 'ArrowRight' && items.length > 1) onNavigate(1)
+    }
+    document.addEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
+  }, [onClose, onNavigate, items.length])
+
+  if (!item) return null
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+    >
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClose() }}
+        aria-label="Close"
+        className="absolute top-4 right-4 text-white/80 hover:text-white p-2"
+      >
+        <X size={28} />
+      </button>
+
+      {items.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onNavigate(-1) }}
+            aria-label="Previous"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-2"
+          >
+            <ChevronLeft size={36} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onNavigate(1) }}
+            aria-label="Next"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white p-2"
+          >
+            <ChevronRight size={36} />
+          </button>
+        </>
+      )}
+
+      <div onClick={(e) => e.stopPropagation()} className="max-w-[95vw] max-h-[95vh] flex items-center justify-center">
+        {mt.startsWith('image/') && (
+          <img src={item.url} alt={item.name ?? ''} className="max-w-[95vw] max-h-[95vh] object-contain" />
+        )}
+        {mt.startsWith('video/') && (
+          <video controls autoPlay className="max-w-[95vw] max-h-[95vh] object-contain bg-black">
+            <source src={item.url} type={mt} />
+          </video>
+        )}
+        {mt.startsWith('audio/') && (
+          <div className="w-[min(95vw,40rem)]">
+            <AudioPlayer src={item.url} className="w-full aspect-video" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function MediaThumb({ attachment, active, onClick }) {
+  const mt = attachment?.mediaType ?? ''
+  const isImage = mt.startsWith('image/')
+  const isVideo = mt.startsWith('video/')
+  const isAudio = mt.startsWith('audio/')
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={attachment.name ?? 'Media'}
+      className={`relative shrink-0 w-20 h-20 overflow-hidden bg-base-300 transition-opacity ${
+        active ? 'ring-2 ring-primary opacity-100' : 'opacity-60 hover:opacity-100'
+      }`}
+    >
+      {isImage && <img src={attachment.url} alt={attachment.name ?? ''} className="w-full h-full object-cover" />}
+      {isVideo && (
+        <>
+          <video src={attachment.url} muted preload="metadata" className="w-full h-full object-cover" />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <Play size={20} className="text-white" />
+          </span>
+        </>
+      )}
+      {isAudio && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <Music size={22} className="text-base-content/70" />
+        </span>
+      )}
+      {!isImage && !isVideo && !isAudio && (
+        <span className="absolute inset-0 flex items-center justify-center">
+          <FileText size={22} className="text-base-content/70" />
+        </span>
+      )}
+    </button>
+  )
+}
+
+function MediaGallery({ attachments }) {
+  const [activeIdx, setActiveIdx] = useState(0)
+  const [lightboxIdx, setLightboxIdx] = useState(null)
+  if (!attachments?.length) return null
+  const safeActive = Math.min(activeIdx, attachments.length - 1)
+  const active = attachments[safeActive]
+
+  // Lightbox cycles through only the items that make sense to enlarge.
+  const lightboxItems = attachments.filter(isLightboxable)
+
+  const openLightbox = () => {
+    if (!isLightboxable(active)) return
+    const idx = lightboxItems.findIndex((a) => a.url === active.url)
+    setLightboxIdx(idx >= 0 ? idx : 0)
+  }
+  const navigate = (delta) => {
+    setLightboxIdx((i) => (i + delta + lightboxItems.length) % lightboxItems.length)
+  }
+
+  return (
+    <div className="flex flex-col gap-3 mt-3">
+      <div>
+        {renderMediaItem(active, { large: true, onOpen: isLightboxable(active) ? openLightbox : null })}
+      </div>
+      {attachments.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {attachments.map((a, i) => (
+            <MediaThumb key={i} attachment={a} active={i === safeActive} onClick={() => setActiveIdx(i)} />
+          ))}
+        </div>
+      )}
+      {lightboxIdx !== null && (
+        <Lightbox
+          items={lightboxItems}
+          index={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onNavigate={navigate}
+        />
+      )}
+    </div>
+  )
+}
+
+function Attachments({ attachments = [] }) {
+  const [lightboxIdx, setLightboxIdx] = useState(null)
   if (!attachments.length) return null
+
+  const lightboxItems = attachments.filter(isLightboxable)
+  const openLightbox = (a) => {
+    const idx = lightboxItems.findIndex((x) => x.url === a.url)
+    setLightboxIdx(idx >= 0 ? idx : 0)
+  }
+  const navigate = (delta) => {
+    setLightboxIdx((i) => (i + delta + lightboxItems.length) % lightboxItems.length)
+  }
+
   return (
     <div className="flex flex-col gap-2 mt-3">
-      {attachments.map((a, i) => {
-        const mt = a.mediaType ?? ''
-        if (mt.startsWith('image/')) {
-          return (
-            <img
-              key={i}
-              src={a.url}
-              alt={a.name ?? ''}
-              className="w-full object-cover max-h-96"
-            />
-          )
-        }
-        if (mt.startsWith('audio/')) {
-          return (
-            <AudioPlayer
-              key={i}
-              src={a.url}
-              image={featuredImage}
-              className="w-full aspect-video"
-            />
-          )
-        }
-        if (mt.startsWith('video/')) {
-          return (
-            <video key={i} controls className="w-full max-h-96 object-contain bg-black">
-              <source src={a.url} type={mt} />
-            </video>
-          )
-        }
-        // Generic file attachment
-        return (
-          <a
-            key={i}
-            href={a.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-ui text-xs uppercase tracking-widest text-primary hover:opacity-80"
-          >
-            {a.name ?? a.url}
-          </a>
-        )
-      })}
+      {attachments.map((a, i) => (
+        <div key={i}>
+          {renderMediaItem(a, { onOpen: isLightboxable(a) ? () => openLightbox(a) : null })}
+        </div>
+      ))}
+      {lightboxIdx !== null && (
+        <Lightbox
+          items={lightboxItems}
+          index={lightboxIdx}
+          onClose={() => setLightboxIdx(null)}
+          onNavigate={navigate}
+        />
+      )}
     </div>
   )
 }
 
 export default function PostBody({ post, showFull = false }) {
+  const [heroLightbox, setHeroLightbox] = useState(false)
   // body = pre-rendered HTML from server; fall back to rendering raw markdown for local/mock data
   const rawSource = post?.source?.content ?? (typeof post?.source === 'string' ? post.source : null) ?? post?.content ?? ''
   const fullHtml = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
@@ -101,15 +306,12 @@ export default function PostBody({ post, showFull = false }) {
   const postUrl  = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
   const titleLinksToPost = ['Article', 'Media'].includes(post?.type)
 
-  // Hero image: use featuredImage for all types; for Media fall back to first image attachment
-  const heroSrc = post?.featuredImage
-    ?? (isMedia ? post?.attachments?.find((a) => a?.mediaType?.startsWith('image/'))?.url : null)
-    ?? (isLink ? post?.image : null)
-
-  // For Media posts, skip the attachment already shown as the hero
-  const remainingAttachments = isMedia && heroSrc
-    ? (post?.attachments ?? []).filter((a) => a?.url !== heroSrc)
-    : (post?.attachments ?? [])
+  // Hero image: featuredImage for non-Media types only. Media posts have no
+  // separate "cover" — the attachments themselves are the content (rendered
+  // below as a gallery).
+  const heroSrc = !isMedia
+    ? (post?.featuredImage ?? (isLink ? post?.image : null))
+    : null
 
   return (
     <div className="font-reading text-base-content leading-relaxed">
@@ -124,14 +326,28 @@ export default function PostBody({ post, showFull = false }) {
             </h1>
       )}
 
-      {/* Hero image — after title, before body */}
+      {/* Hero image — after title, before body (non-Media types) */}
       {heroSrc && (
-        <img
-          src={heroSrc}
-          alt={title ?? ''}
-          className={`w-full object-cover mb-6 ${isLink ? 'max-h-64' : 'max-h-[28rem]'}`}
-        />
+        <>
+          <img
+            src={heroSrc}
+            alt={title ?? ''}
+            onClick={() => setHeroLightbox(true)}
+            className={`w-full object-cover mb-6 cursor-zoom-in ${isLink ? 'max-h-64' : 'max-h-[28rem]'}`}
+          />
+          {heroLightbox && (
+            <Lightbox
+              items={[{ url: heroSrc, mediaType: 'image/', name: title }]}
+              index={0}
+              onClose={() => setHeroLightbox(false)}
+              onNavigate={() => {}}
+            />
+          )}
+        </>
       )}
+
+      {/* Media: gallery (main viewer + thumb strip) */}
+      {isMedia && <MediaGallery attachments={post?.attachments ?? []} />}
 
       <div
         className="prose prose-lg max-w-none [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
@@ -149,8 +365,8 @@ export default function PostBody({ post, showFull = false }) {
         </div>
       )}
 
-      {remainingAttachments.length > 0 && (
-        <Attachments attachments={remainingAttachments} featuredImage={heroSrc} />
+      {!isMedia && (post?.attachments?.length ?? 0) > 0 && (
+        <Attachments attachments={post.attachments} />
       )}
     </div>
   )

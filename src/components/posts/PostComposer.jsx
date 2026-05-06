@@ -197,7 +197,7 @@ function SortableAttachmentRow(props) {
   )
 }
 
-function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatured, dragHandleProps = {}, uploadError }) {
+function AttachmentRow({ att, index, onUpdate, onRemove, dragHandleProps = {}, uploadError }) {
   const { t } = useTranslation()
   const isAudio = att.file.type.startsWith('audio/')
   return (
@@ -243,15 +243,6 @@ function AttachmentRow({ att, index, onUpdate, onRemove, isFeatured, onSetFeatur
         >
           {t('composer.attachmentRemove')}
         </button>
-        <button
-          type="button"
-          onClick={() => onSetFeatured(index)}
-          className={`font-ui text-xs uppercase tracking-widest transition-colors ${
-            isFeatured ? 'text-primary' : 'text-base-content/30 hover:text-base-content'
-          }`}
-        >
-          {isFeatured ? t('composer.attachmentFeatured') : t('composer.attachmentSetFeatured')}
-        </button>
       </div>
     </div>
   )
@@ -280,7 +271,6 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const [tags, setTags]               = useState(initialValues.tags     ?? [])
   const [location, setLocation]       = useState(initialValues.location ?? '')
   const [attachments, setAttachments] = useState([])   // [{ file, title, alt, previewUrl }]
-  const [featuredIdx, setFeaturedIdx] = useState(0)
   const [featuredImage, setFeaturedImage] = useState(initialValues.featuredImage ?? null) // URL or file ID from link/article preview
   const [artFeaturedFile, setArtFeaturedFile]       = useState(null)    // File for Article featured image
   const [artFeaturedPreview, setArtFeaturedPreview] = useState(null)    // object URL preview
@@ -482,20 +472,13 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
       const newIndex = prev.findIndex((a) => a.previewUrl === over.id)
       return arrayMove(prev, oldIndex, newIndex)
     })
-    setFeaturedIdx((prev) => {
-      const oldIndex = attachments.findIndex((a) => a.previewUrl === active.id)
-      const newIndex = attachments.findIndex((a) => a.previewUrl === over.id)
-      return arrayMove(attachments, oldIndex, newIndex).indexOf(attachments[prev])
-    })
   }
 
   const removeAttachment = (i) => {
     setAttachments((prev) => {
       URL.revokeObjectURL(prev[i].previewUrl)
-      const next = prev.filter((_, idx) => idx !== i)
-      return next
+      return prev.filter((_, idx) => idx !== i)
     })
-    setFeaturedIdx((prev) => (prev >= i && prev > 0 ? prev - 1 : prev))
   }
 
   const handleSubmit = async () => {
@@ -546,10 +529,6 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           title: attachments[i].title || undefined,
           alt: attachments[i].alt || undefined,
         }))
-        // Use the featured attachment as the post's featured image
-        if (results[featuredIdx]?.value?.file?.id) {
-          uploadedFeaturedImage = results[featuredIdx].value.file.id
-        }
       }
 
       await client.activities.createPost({
@@ -723,7 +702,6 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                       {attachments.map((att, i) => (
                         <SortableAttachmentRow key={att.previewUrl} att={att} index={i}
                           onUpdate={updateAttachment} onRemove={removeAttachment}
-                          isFeatured={i === featuredIdx} onSetFeatured={setFeaturedIdx}
                           uploadErrors={uploadErrors} />
                       ))}
                     </SortableContext>
