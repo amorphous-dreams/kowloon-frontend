@@ -5,7 +5,9 @@
 //   mode: 'create' | 'edit'
 //   submitting: bool
 //   error: string | null
-//   cancelHref: string
+//   cancelHref: string                — used when rendered as a page (Link target)
+//   onCancel: () => void              — used when embedded (e.g. inside a modal); takes precedence over cancelHref
+//   embedded: bool                    — suppresses the form's own sticky title (host shell provides one)
 
 import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
@@ -119,27 +121,43 @@ function AddMemberRow({ onAdd, existingIds }) {
 
       {results.length > 0 && (
         <div className="flex flex-col border border-base-300">
-          {results.map((user) => (
-            <div key={user.id} className="flex items-center gap-3 px-3 py-2 bg-base-200 border-b border-base-300 last:border-b-0">
-              {user.icon
-                ? <img src={user.icon} alt={user.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
-                : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
-              }
-              <div className="flex flex-col gap-0 flex-1 min-w-0">
-                <span className="font-ui text-sm font-bold">{user.name}</span>
-                <span className="font-ui text-xs tracking-widest text-base-content/50">{user.id}</span>
+          {results.map((user) => {
+            const alreadyAdded = existingIds.has(user.id)
+            return (
+              <div key={user.id} className="flex items-center gap-3 bg-base-200 border-b border-base-300 last:border-b-0 hover:bg-base-300/40 transition-colors">
+                {/* Whole row clickable — name/icon/id all add the user */}
+                <button
+                  type="button"
+                  onClick={() => handleAdd(user)}
+                  disabled={alreadyAdded}
+                  className="flex items-center gap-3 px-3 py-2 flex-1 min-w-0 text-left disabled:cursor-default"
+                  title={alreadyAdded
+                    ? t('circle.alreadyAdded', { defaultValue: 'Already in member list' })
+                    : t('circle.addMember', { defaultValue: 'Add' })
+                  }
+                >
+                  {user.icon
+                    ? <img src={user.icon} alt={user.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
+                    : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
+                  }
+                  <div className="flex flex-col gap-0 flex-1 min-w-0">
+                    <span className="font-ui text-sm font-bold truncate">{user.name}</span>
+                    <span className="font-ui text-xs tracking-widest text-base-content/50 truncate">{user.id}</span>
+                  </div>
+                </button>
+                {/* Explicit Add affordance — same handler as the row */}
+                <button
+                  type="button"
+                  onClick={() => handleAdd(user)}
+                  disabled={alreadyAdded}
+                  className="flex items-center gap-1.5 mr-3 px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
+                >
+                  <UserPlus size={11} />
+                  {t('circle.addMember', { defaultValue: 'Add' })}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleAdd(user)}
-                disabled={existingIds.has(user.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
-              >
-                <UserPlus size={11} />
-                {t('circle.addMember', { defaultValue: 'Add' })}
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -160,6 +178,8 @@ export default function CircleForm({
   submitting = false,
   error = null,
   cancelHref = '/circles',
+  onCancel = null,
+  embedded = false,
 }) {
   const { t } = useTranslation()
 
@@ -192,41 +212,28 @@ export default function CircleForm({
   const isCreate = mode === 'create'
   const isCopy = isCreate && !!initialValues.name
 
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-8 pb-12">
+  const submitLabel = mode === 'edit'
+    ? t('common.saveChanges', { defaultValue: 'Save Changes' })
+    : isCopy
+      ? t('circle.createCopy', { defaultValue: 'Create Copy' })
+      : t('circle.create', { defaultValue: 'Create Circle' })
 
-      {/* Header */}
-      <div className="sticky top-0 bg-base-100 z-10 flex items-center justify-between pt-6 pb-5 border-b-2 border-base-300">
-        <h1 className="font-display text-4xl leading-none tracking-wide">
-          {mode === 'edit'
-            ? t('circle.editTitle', { defaultValue: 'Edit Circle' })
-            : isCopy
-              ? t('circle.copyTitle', { defaultValue: 'Copy Circle' })
-              : t('circle.newTitle', { defaultValue: 'New Circle' })
-          }
-        </h1>
-        <div className="flex items-center gap-2">
-          <Link
-            to={cancelHref}
-            className="px-4 py-2 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
-          >
-            {t('common.cancel', { defaultValue: 'Cancel' })}
-          </Link>
-          <button
-            type="submit"
-            disabled={!name.trim() || submitting}
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
-          >
-            {submitting && <Loader size={12} className="animate-spin" />}
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8 pb-6">
+
+      {/* Title (hidden when embedded — host shell provides its own) */}
+      {!embedded && (
+        <div className="pt-6 pb-5 border-b-2 border-base-300">
+          <h1 className="font-display text-4xl leading-none tracking-wide">
             {mode === 'edit'
-              ? t('common.saveChanges', { defaultValue: 'Save Changes' })
+              ? t('circle.editTitle', { defaultValue: 'Edit Circle' })
               : isCopy
-                ? t('circle.createCopy', { defaultValue: 'Create Copy' })
-                : t('circle.create', { defaultValue: 'Create Circle' })
+                ? t('circle.copyTitle', { defaultValue: 'Copy Circle' })
+                : t('circle.newTitle', { defaultValue: 'New Circle' })
             }
-          </button>
+          </h1>
         </div>
-      </div>
+      )}
 
       {error && (
         <p className="font-ui text-sm text-error border border-error/30 px-4 py-3">{error}</p>
@@ -322,6 +329,34 @@ export default function CircleForm({
             ))}
           </div>
         )}
+      </div>
+
+      {/* Action buttons — at the bottom, conventional submit-form layout */}
+      <div className="flex items-center justify-end gap-2 pt-5 border-t-2 border-base-300">
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+          >
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </button>
+        ) : (
+          <Link
+            to={cancelHref}
+            className="px-4 py-2 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+          >
+            {t('common.cancel', { defaultValue: 'Cancel' })}
+          </Link>
+        )}
+        <button
+          type="submit"
+          disabled={!name.trim() || submitting}
+          className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors disabled:opacity-40"
+        >
+          {submitting && <Loader size={12} className="animate-spin" />}
+          {submitLabel}
+        </button>
       </div>
 
     </form>

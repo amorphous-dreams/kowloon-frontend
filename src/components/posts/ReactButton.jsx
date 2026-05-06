@@ -3,6 +3,8 @@
 // Shows a small popup of emoji options; clicking one fires a React activity.
 
 import { useState, useEffect, useRef } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faFaceSmile } from '@fortawesome/free-solid-svg-icons'
 import { useClient } from '../../hooks/useClient'
 
 // Module-level cache so we only fetch once per session
@@ -90,9 +92,17 @@ export default function ReactButton({ post, t }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={pending}
-        className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors disabled:opacity-30"
+        title={t('post.react')}
+        aria-label={t('post.react')}
+        className="inline-flex items-center gap-1.5 text-base text-base-content/50 hover:text-base-content transition-colors disabled:opacity-30"
       >
-        {localPreview && <span className="mr-1">{localPreview}</span>}{t('post.react')}{localCount > 0 ? ` (${localCount})` : ''}
+        {localPreview
+          ? <span className="text-sm leading-none">{localPreview}</span>
+          : <FontAwesomeIcon icon={faFaceSmile} />
+        }
+        {localCount > 0 && (
+          <span className="font-ui text-xs tracking-wider">{localCount}</span>
+        )}
       </button>
 
       {open && (

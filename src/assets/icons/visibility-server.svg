@@ -1,0 +1,20 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hex frame -->
+  <path
+    fill="none"
+    stroke="currentColor"
+    stroke-width="6.75668"
+    transform="matrix(1.7760201,0,0,1.7760201,-32.924208,-82.846169)"
+    d="m 31.542594,126.76095 10e-7,-47.616389 a 2.0642639,2.0642639 120 0 1 1.032132,-1.787705 L 73.811734,53.54866 a 2.0642639,2.0642639 1.2609945e-6 0 1 2.064263,0 L 117.113,77.356858 a 2.0642639,2.0642639 60.000001 0 1 1.03214,1.787705 l -1e-5,47.616397 a 2.0642639,2.0642639 120 0 1 -1.03213,1.7877 l -41.237005,23.8082 a 2.0642639,2.0642639 1.2609945e-6 0 1 -2.064264,0 l -41.237005,-23.8082 a 2.0642639,2.0642639 60.000001 0 1 -1.032132,-1.78771 z"
+  />
+  <!-- Server stack: 3 rack units with status LEDs and vent lines -->
+  <rect x="62" y="56" width="76" height="88" fill="none" stroke="currentColor" stroke-width="6"/>
+  <line x1="62" y1="85.3" x2="138" y2="85.3" stroke="currentColor" stroke-width="4"/>
+  <line x1="62" y1="114.7" x2="138" y2="114.7" stroke="currentColor" stroke-width="4"/>
+  <circle cx="76" cy="70.5" r="3.5" fill="currentColor"/>
+  <circle cx="76" cy="100" r="3.5" fill="currentColor"/>
+  <circle cx="76" cy="129.5" r="3.5" fill="currentColor"/>
+  <line x1="92" y1="70.5" x2="126" y2="70.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  <line x1="92" y1="100" x2="126" y2="100" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+  <line x1="92" y1="129.5" x2="126" y2="129.5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+</svg>

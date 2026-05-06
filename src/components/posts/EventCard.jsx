@@ -6,7 +6,8 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import PostMeta from './PostMeta'
 import PostToolbar from './PostToolbar'
-import PostTypeTag from '../ui/PostTypeTag'
+import PostTypeIcon from '../ui/PostTypeIcon'
+import VisibilityIcon from '../ui/VisibilityIcon'
 import { POST_TYPES } from '../../lib/postTypes'
 
 const EVENT_COLOR = POST_TYPES['Event']?.color ?? '#cc272e'
@@ -56,7 +57,11 @@ export default function EventCard({ post, showFull = false }) {
   const subheader = [startTime, locationName].filter(Boolean).join(' | ')
 
   return (
-    <article className="flex flex-col gap-3 py-5 border-b border-base-300 mb-8">
+    <article
+      id={post?.id}
+      data-post-id={post?.id}
+      className="flex flex-col gap-3 py-5 border-b border-base-300 mb-8"
+    >
 
       {/* Featured image */}
       {image && (
@@ -82,12 +87,7 @@ export default function EventCard({ post, showFull = false }) {
       </div>
 
       {/* Author */}
-      <div
-        className="border-l-4 pl-3"
-        style={{ borderLeftColor: EVENT_COLOR + '66' }}
-      >
-        <PostMeta post={post} />
-      </div>
+      <PostMeta post={post} />
 
       {/* Body (description) if present */}
       {body && (
@@ -111,7 +111,8 @@ export default function EventCard({ post, showFull = false }) {
 
       {/* Footer */}
       <div className="flex items-center gap-3 pt-2 border-t border-base-300">
-        <PostTypeTag type="Event" />
+        <VisibilityIcon visibility={post?.visibility} />
+        <PostTypeIcon type="Event" size="sm" />
         <PostToolbar post={post} />
       </div>
 

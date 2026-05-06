@@ -157,6 +157,7 @@ export default function ProfilePage() {
 
   // Preferences
   const [defaultTypes, setDefaultTypes] = useState(user.preferences?.defaultPostTypes ?? [])
+  const [defaultPostType, setDefaultPostType] = useState(user.prefs?.defaultPostType ?? 'Note')
 
   // Save state
   const [saving, setSaving] = useState(false)
@@ -218,11 +219,11 @@ export default function ProfilePage() {
           urls,
           pronouns,
         },
-        prefs: { defaultPostView: defaultTypes },
+        prefs: { defaultPostView: defaultTypes, defaultPostType },
       })
       // Update Redux store so header/avatar refresh immediately
       const profilePatch = { name: displayName, description: bio, icon: iconUrl, urls, pronouns }
-      dispatch(patchUser({ profile: profilePatch }))
+      dispatch(patchUser({ profile: profilePatch, prefs: { defaultPostView: defaultTypes, defaultPostType } }))
       // Keep client's cached user in sync so actor fields stay fresh
       if (client.auth._user) {
         client.auth._user = {
@@ -369,6 +370,33 @@ export default function ProfilePage() {
 
       {/* Preferences */}
       <Section title={t('profile.preferences', { defaultValue: 'Preferences' })}>
+        <Field
+          label={t('profile.defaultPostType', { defaultValue: 'Default new-post type' })}
+          hint={t('profile.defaultPostTypeHint', { defaultValue: 'Pre-selected when you open the post composer.' })}
+        >
+          <div className="flex items-center gap-0 border border-base-300">
+            {POST_TYPES.map((type) => {
+              const active = defaultPostType === type
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setDefaultPostType(type)}
+                  title={type}
+                  className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
+                    active
+                      ? 'bg-primary text-primary-content'
+                      : 'bg-base-100 text-base-content/60 hover:bg-base-200'
+                  }`}
+                >
+                  <PostTypeIcon type={type} size="sm" />
+                  <span className="hidden sm:inline">{type}</span>
+                </button>
+              )
+            })}
+          </div>
+        </Field>
+
         <Field
           label={t('profile.defaultPostTypes', { defaultValue: 'Default post type filter' })}
           hint={t('profile.defaultPostTypesHint', { defaultValue: 'When set, your feed opens with these types pre-selected.' })}

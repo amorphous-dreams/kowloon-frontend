@@ -6,10 +6,15 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faComment, faBookmark, faShareNodes } from '@fortawesome/free-solid-svg-icons'
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
 import BookmarkComposer from '../bookmarks/BookmarkComposer'
+import Timestamp from '../ui/Timestamp'
 import { useClient } from '../../hooks/useClient'
+
+const TIMESTAMP_LINK_TYPES = ['Note', 'Link']
 
 // ── Share helpers ────────────────────────────────────────────────────────────
 
@@ -75,9 +80,11 @@ function ShareButton({ post, t, user }) {
     <>
       <button
         onClick={() => setSharing(true)}
-        className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
+        title={t('post.share')}
+        aria-label={t('post.share')}
+        className="text-base text-base-content/50 hover:text-base-content transition-colors"
       >
-        {t('post.share')}
+        <FontAwesomeIcon icon={faShareNodes} />
       </button>
       {sharing && (
         <PostComposer
@@ -155,49 +162,62 @@ export default function PostToolbar({ post, onDeleted }) {
   } : null
 
   const isOwner = user && post?.attributedTo?.id && user.id === post.attributedTo.id
+  const timestampTo = TIMESTAMP_LINK_TYPES.includes(post?.type)
+    ? (post?.id ? `/posts/${encodeURIComponent(post.id)}` : null)
+    : null
 
   return (
     <div className="flex items-center gap-4 flex-1">
-      {/* Reply */}
-      {post?.id && (
-        <Link
-          to={`/posts/${encodeURIComponent(post.id)}#replies`}
-          className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
-        >
-          {post.replyCount > 0
-            ? t('post.replyCount', { count: post.replyCount, defaultValue: `${post.replyCount} ${post.replyCount === 1 ? 'reply' : 'replies'}` })
-            : t('post.reply', { defaultValue: 'Reply' })
-          }
-        </Link>
-      )}
-
-      {/* React */}
-      {user && post?.canReact !== 'none' && (
-        <ReactButton post={post} t={t} />
-      )}
-
-      {/* Bookmark */}
-      {user && bookmarkInitial && (
-        <>
-          <button
-            onClick={() => setBookmarking(true)}
-            className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
+      {/* Right cluster: timestamp, then actions, separated by ~2rem */}
+      <div className="flex items-center ml-auto">
+        <Timestamp date={post?.published} to={timestampTo} />
+        <div className="flex items-center gap-4 ml-8">
+        {/* Reply */}
+        {post?.id && (
+          <Link
+            to={`/posts/${encodeURIComponent(post.id)}#replies`}
+            title={t('post.reply', { defaultValue: 'Reply' })}
+            aria-label={t('post.reply', { defaultValue: 'Reply' })}
+            className="inline-flex items-center gap-1.5 text-base text-base-content/50 hover:text-base-content transition-colors"
           >
-            {t('post.bookmark')}
-          </button>
-          {bookmarking && (
-            <BookmarkComposer
-              initialValues={bookmarkInitial}
-              onClose={() => setBookmarking(false)}
-            />
-          )}
-        </>
-      )}
+            <FontAwesomeIcon icon={faComment} />
+            {post.replyCount > 0 && (
+              <span className="font-ui text-xs tracking-wider">{post.replyCount}</span>
+            )}
+          </Link>
+        )}
 
-      {/* Right side: Share + owner actions */}
-      <div className="flex items-center gap-3 ml-auto">
+        {/* React */}
+        {user && post?.canReact !== 'none' && (
+          <ReactButton post={post} t={t} />
+        )}
+
+        {/* Bookmark */}
+        {user && bookmarkInitial && (
+          <>
+            <button
+              onClick={() => setBookmarking(true)}
+              title={t('post.bookmark')}
+              aria-label={t('post.bookmark')}
+              className="text-base text-base-content/50 hover:text-base-content transition-colors"
+            >
+              <FontAwesomeIcon icon={faBookmark} />
+            </button>
+            {bookmarking && (
+              <BookmarkComposer
+                initialValues={bookmarkInitial}
+                onClose={() => setBookmarking(false)}
+              />
+            )}
+          </>
+        )}
+
+        {/* Share */}
         <ShareButton post={post} t={t} user={user} />
+
+        {/* Owner actions (Edit / Delete) */}
         {isOwner && <OwnerActions post={post} t={t} onDeleted={onDeleted} />}
+        </div>
       </div>
     </div>
   )

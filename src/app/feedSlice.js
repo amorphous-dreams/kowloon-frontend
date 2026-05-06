@@ -45,6 +45,21 @@ export const savePinnedCirclesAsync = createAsyncThunk(
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+const STORAGE_KEY_CIRCLE = 'kowloon:feed:lastCircleId'
+
+function readPersistedCircleId() {
+  if (typeof localStorage === 'undefined') return null
+  try { return localStorage.getItem(STORAGE_KEY_CIRCLE) || null } catch { return null }
+}
+
+function writePersistedCircleId(id) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    if (id) localStorage.setItem(STORAGE_KEY_CIRCLE, id)
+    else    localStorage.removeItem(STORAGE_KEY_CIRCLE)
+  } catch { /* quota or private mode — fall through silently */ }
+}
+
 function loadPrefsFromUser(state, user) {
   const prefs = user?.prefs ?? {}
   state.defaultTypes    = prefs.defaultPostView  ?? []
@@ -57,6 +72,7 @@ function resetFeedState(state) {
   state.activeTypes     = []
   state.defaultTypes    = []
   state.pinnedCircleIds = []
+  writePersistedCircleId(null)
 }
 
 // ── Slice ───────────────────────────────────────────────────────────────────
@@ -64,7 +80,10 @@ function resetFeedState(state) {
 const feedSlice = createSlice({
   name: 'feed',
   initialState: {
-    circleId: null,       // currently selected circle ID (null = use default)
+    // Hydrated from localStorage so the user's last-viewed circle survives a
+    // page reload. HomePage validates against the loaded circle list and
+    // falls back to Following if the saved id is gone (deleted, other user, etc).
+    circleId: readPersistedCircleId(),
     activeTypes: [],      // current session filter — [] means show all types
     defaultTypes: [],     // user's saved default type filter (from profile)
     pinnedCircleIds: [],  // user-pinned circle IDs (from profile)
@@ -72,6 +91,7 @@ const feedSlice = createSlice({
   reducers: {
     setCircle(state, action) {
       state.circleId = action.payload
+      writePersistedCircleId(action.payload)
     },
 
     toggleType(state, action) {

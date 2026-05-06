@@ -107,7 +107,19 @@
 
   "visibility": {
     "Public": "Public",
-    "Server": "Server"
+    "Server": "Server",
+    "public": {
+      "label": "Public",
+      "tooltip": "Public — anyone, on any server, can see this post."
+    },
+    "server": {
+      "label": "Server",
+      "tooltip": "Server — only members of this server can see this post."
+    },
+    "audience": {
+      "label": "Circle",
+      "tooltip": "Circle — only people in the addressed circle can see this post."
+    }
   },
 
   "circles": {

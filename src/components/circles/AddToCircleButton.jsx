@@ -1,8 +1,8 @@
-// AddToCircleButton — popover that lets the logged-in user add a target user
-// to one of their own circles, or navigate to create a new circle with the
-// target user pre-populated.
+// AddToCircleButton — split button for adding a target user to one of the
+// viewer's circles. Left half adds to the viewer's default circle on click;
+// right half drops down a list of all circles plus "Add to New Circle".
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -17,16 +17,34 @@ const hexMask = {
   maskPosition: 'center',
 }
 
+function resolveDefaultCircle(circles, authUser) {
+  if (!circles?.length) return null
+  const prefId      = authUser?.prefs?.defaultCircleView
+  const followingId = authUser?.circles?.following
+  return (
+    (prefId      && circles.find((c) => c.id === prefId)) ||
+    (followingId && circles.find((c) => c.id === followingId)) ||
+    circles.find((c) => c.name === 'Following') ||
+    circles[0]
+  )
+}
+
 export default function AddToCircleButton({ user }) {
   const client   = useClient()
   const navigate = useNavigate()
   const { t }    = useTranslation()
   const { items: myCircles, status } = useSelector((state) => state.myCircles)
+  const authUser = useSelector((state) => state.auth.user)
 
-  const [open, setOpen]         = useState(false)
-  const [addedIds, setAddedIds] = useState(new Set())
+  const [open, setOpen]           = useState(false)
+  const [addedIds, setAddedIds]   = useState(new Set())
   const [pendingId, setPendingId] = useState(null)
   const ref = useRef(null)
+
+  const defaultCircle = useMemo(
+    () => resolveDefaultCircle(myCircles, authUser),
+    [myCircles, authUser]
+  )
 
   // Close on outside click
   useEffect(() => {
@@ -37,7 +55,7 @@ export default function AddToCircleButton({ user }) {
   }, [open])
 
   const handleAdd = async (circle) => {
-    if (addedIds.has(circle.id) || pendingId) return
+    if (!circle || addedIds.has(circle.id) || pendingId) return
     setPendingId(circle.id)
     try {
       await client.activities.addToCircle({ circleId: circle.id, memberId: user.id })
@@ -53,23 +71,50 @@ export default function AddToCircleButton({ user }) {
     })
   }
 
+  const defaultAdded   = defaultCircle && addedIds.has(defaultCircle.id)
+  const defaultPending = defaultCircle && pendingId === defaultCircle.id
+
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
-      >
-        <UserPlus size={12} />
-        {t('user.addToCircle', { defaultValue: 'Add to Circle' })}
-        <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+    <div ref={ref} className="relative inline-flex">
+      {/* Shared border frame wrapping both halves */}
+      <div className="inline-flex border border-base-300 hover:border-primary transition-colors group">
+        {/* Left: Add To <action> — adds to default circle */}
+        <button
+          type="button"
+          onClick={() => defaultCircle ? handleAdd(defaultCircle) : setOpen(true)}
+          disabled={!!defaultPending || !!defaultAdded}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-base-100 text-base-content/70 group-hover:text-primary font-ui text-xs uppercase tracking-widest transition-colors disabled:cursor-default"
+          title={defaultCircle ? t('user.addToCircleNamed', { defaultValue: 'Add to {{name}}', name: defaultCircle.name }) : t('user.addToCircle', { defaultValue: 'Add to Circle' })}
+        >
+          {defaultAdded
+            ? <Check size={12} className="text-success" />
+            : <UserPlus size={12} />
+          }
+          {t('user.addTo', { defaultValue: 'Add to' })}
+        </button>
+
+        {/* Thin internal separator */}
+        <div className="w-px bg-base-300 self-stretch" />
+
+        {/* Right: Default circle name + chevron — opens picker */}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-haspopup="true"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-base-100 text-base-content/80 font-ui text-xs uppercase tracking-widest transition-colors"
+        >
+          <span className="truncate max-w-[10rem]">
+            {defaultCircle?.name ?? t('user.circle', { defaultValue: 'Circle' })}
+          </span>
+          <ChevronDown size={10} className={`opacity-50 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 bottom-full mb-1 w-64 bg-base-100 border-2 border-primary z-50"
+          className="absolute right-0 top-full mt-1 w-64 bg-base-100 border-2 border-primary z-50"
           style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.18))' }}
         >
           {/* Header */}
@@ -78,7 +123,7 @@ export default function AddToCircleButton({ user }) {
               {t('user.addToCirclePrompt', { defaultValue: 'Add' })}
             </span>{' '}
             <span className="font-ui text-xs uppercase tracking-widest text-base-content/80 truncate">
-              {user.id}
+              {user.handle ?? user.id}
             </span>{' '}
             <span className="font-ui text-xs uppercase tracking-widest text-base-content/50">
               {t('user.addToCircleTo', { defaultValue: 'to' })}…
@@ -100,11 +145,12 @@ export default function AddToCircleButton({ user }) {
             {myCircles.map((circle) => {
               const added   = addedIds.has(circle.id)
               const pending = pendingId === circle.id
+              const isDefault = circle.id === defaultCircle?.id
               return (
                 <button
                   key={circle.id}
                   role="menuitem"
-                  onClick={() => handleAdd(circle)}
+                  onClick={() => { handleAdd(circle); setOpen(false) }}
                   disabled={added || !!pendingId}
                   className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-base-300 last:border-b-0 hover:bg-base-200 transition-colors text-left disabled:cursor-default"
                 >
@@ -120,6 +166,11 @@ export default function AddToCircleButton({ user }) {
                   )}
                   <span className={`font-ui text-xs uppercase tracking-widest flex-1 truncate ${added ? 'text-base-content/40' : 'text-base-content/80'}`}>
                     {circle.name}
+                    {isDefault && (
+                      <span className="ml-2 text-base-content/40 normal-case tracking-normal">
+                        ({t('user.default', { defaultValue: 'default' })})
+                      </span>
+                    )}
                   </span>
                   {added   && <Check size={11} className="text-success shrink-0" />}
                   {pending && <span className="font-ui text-xs text-base-content/30">…</span>}

@@ -178,6 +178,11 @@ export default function CircleSelector({
             ? <img src={circle.icon} alt="" className="w-9 h-9 object-cover shrink-0" style={hexMask} />
             : <CircleIcon type="circle" size="lg" className="shrink-0 opacity-60" />
         )}
+        {!isTitle && circle && (
+          circle.icon
+            ? <img src={circle.icon} alt="" className="w-4 h-4 object-cover shrink-0" style={hexMask} />
+            : <CircleIcon type="circle" size="sm" className="shrink-0 opacity-60" />
+        )}
         <span className={isTitle ? 'text-3xl leading-none' : ''} aria-hidden="true">{label}</span>
         <ChevronDown className={`transition-transform ${isTitle ? 'w-5 h-5 mt-0.5' : 'w-3 h-3'} ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>

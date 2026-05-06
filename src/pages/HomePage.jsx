@@ -12,9 +12,11 @@ import { fetchMyCircles } from '../features/circles/myCirclesSlice'
 import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
+import { Eye } from 'lucide-react'
 import CircleSelector from '../components/circles/CircleSelector'
 import NewCircleModal from '../components/circles/NewCircleModal'
 import RssFeedLink from '../components/ui/RssFeedLink'
+import { useTrackScrollAnchor } from '../hooks/useScrollAnchor'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
@@ -26,8 +28,12 @@ function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
     <div className="flex items-center gap-0 border-b border-base-300 pb-3 mb-2">
       {prefix && (
         <div className="flex items-center gap-2 px-3 py-2 border-r border-base-300 shrink-0">
-          <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">
-            {t('feed.show', { defaultValue: 'Show' })}
+          <span
+            title={t('feed.show', { defaultValue: 'Show' })}
+            aria-label={t('feed.show', { defaultValue: 'Show' })}
+            className="inline-flex text-base-content/40"
+          >
+            <Eye size={18} strokeWidth={1.75} />
           </span>
           {prefix}
         </div>
@@ -101,6 +107,16 @@ export default function HomePage() {
     }
   }, [user, circlesStatus, dispatch])
 
+  // Validate the persisted circleId once myCircles loads — if it points at a
+  // circle that no longer exists (deleted, or saved by a different user),
+  // fall back to Following.
+  useEffect(() => {
+    if (!user || !followingId || circlesStatus !== 'succeeded') return
+    if (!circleId) return
+    if (myCircles.some((c) => c.id === circleId)) return
+    dispatch(setCircle(followingId))
+  }, [user, circleId, followingId, circlesStatus, myCircles, dispatch])
+
   const activeCircleId = circleId ?? followingId
   const activeCircle = myCircles.find((c) => c.id === activeCircleId)
   const lastSeenAt = activeCircle?.lastSeenAt ?? null
@@ -139,6 +155,10 @@ export default function HomePage() {
       : fetchPublic
 
   const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(fetchFn)
+
+  // Persist the topmost-visible post id per circle. Storage only — no
+  // auto-restore yet; call getScrollAnchorFor(circleId) when ready.
+  useTrackScrollAnchor(activeCircleId, items.map((p) => p.id))
 
   if (!sessionChecked) return null
 

@@ -31,10 +31,19 @@ export default function UserAvatar({ user, size = 'md' }) {
     maskPosition: 'center',
   }
 
+  const displayName = user?.name ?? user?.username ?? null
+  const handle      = user?.id ?? null
+  const tooltip     = [displayName, handle].filter(Boolean).join(' — ')
+
   return (
-    <div className={`${sizes[size]} bg-primary flex items-center justify-center shrink-0`} style={mask}>
+    <div
+      className={`${sizes[size]} bg-primary flex items-center justify-center shrink-0`}
+      style={mask}
+      title={tooltip || undefined}
+      aria-label={tooltip || undefined}
+    >
       {icon && !imgError
-        ? <img src={icon} alt={user?.username} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+        ? <img src={icon} alt={tooltip || user?.username} className="w-full h-full object-cover" onError={() => setImgError(true)} />
         : <span className="font-display text-primary-content">{initial}</span>
       }
     </div>

@@ -135,8 +135,15 @@ export default function UserPage() {
 
       // Unwrap { item: {...} } envelope and normalize ActivityPub → component shape
       const raw = userRes?.item ?? userRes
+      // Prefer the Kowloon @user@domain handle; fall back to id only when it
+      // already looks like a handle (id can be the actorId URL in AP shape).
+      const looksLikeHandle = (s) => typeof s === 'string' && /^@[^@]+@[^@]+$/.test(s)
+      const handle = raw?.handle
+        ?? (looksLikeHandle(raw?.id) ? raw.id : null)
+        ?? (raw?.preferredUsername && raw?.domain ? `@${raw.preferredUsername}@${raw.domain}` : null)
       const normalized = {
-        id: raw?.id ?? raw?.actorId,
+        id: handle ?? raw?.id ?? raw?.actorId,
+        handle,
         username: raw?.preferredUsername ?? raw?.username,
         name: raw?.name ?? raw?.preferredUsername ?? raw?.username,
         profile: {
@@ -225,7 +232,7 @@ export default function UserPage() {
           <div className="flex flex-col gap-2 min-w-0 pt-1 flex-1">
             <h1 className="font-display text-4xl leading-none tracking-wide">{user.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-ui text-xs uppercase tracking-widest text-base-content/65">{user.id}</span>
+              <span className="font-ui text-xs uppercase tracking-widest text-base-content/65">{user.handle ?? user.id}</span>
               {user.profile?.pronouns && <span className="font-ui text-xs uppercase tracking-widest text-base-content/45">{user.profile.pronouns}</span>}
             </div>
             {(user.postsCount != null || user.followersCount != null) && (
