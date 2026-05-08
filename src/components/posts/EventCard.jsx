@@ -65,7 +65,7 @@ export default function EventCard({ post, showFull = false }) {
 
       {/* Featured image */}
       {image && (
-        <img src={image} alt="" className="w-full max-h-64 object-cover" />
+        <img loading="lazy" src={image} alt="" className="w-full max-h-64 object-cover" />
       )}
 
       {/* Top row: calendar block + title + subheader */}

@@ -11,10 +11,7 @@ import { faComment, faBookmark, faShareNodes, faPen, faTrash } from '@fortawesom
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
 import BookmarkComposer from '../bookmarks/BookmarkComposer'
-import Timestamp from '../ui/Timestamp'
 import { useClient } from '../../hooks/useClient'
-
-const TIMESTAMP_LINK_TYPES = ['Note', 'Link']
 
 // ── Share helpers ────────────────────────────────────────────────────────────
 
@@ -61,10 +58,27 @@ function isPublicPost(post) {
 function ShareButton({ post, t, user }) {
   const [sharing, setSharing] = useState(false)
 
-  if (!user || !isPublicPost(post)) return null
+  if (!user) return null
 
   const postUrl = post.url ?? (post.id ? `/posts/${encodeURIComponent(post.id)}` : null)
   if (!postUrl) return null
+
+  // Private/server-only posts: render the icon disabled + tooltip explaining
+  // why, so users can see the constraint instead of guessing why a button is
+  // missing.
+  if (!isPublicPost(post)) {
+    return (
+      <button
+        type="button"
+        disabled
+        title={t('post.shareDisabled', { defaultValue: "Private \u2014 can't be shared" })}
+        aria-label={t('post.shareDisabled', { defaultValue: "Private \u2014 can't be shared" })}
+        className="text-base text-base-content/20 cursor-not-allowed"
+      >
+        <FontAwesomeIcon icon={faShareNodes} />
+      </button>
+    )
+  }
 
   const initialValues = {
     type: 'Link',
@@ -163,16 +177,12 @@ export default function PostToolbar({ post, onDeleted }) {
   } : null
 
   const isOwner = user && post?.attributedTo?.id && user.id === post.attributedTo.id
-  const timestampTo = TIMESTAMP_LINK_TYPES.includes(post?.type)
-    ? (post?.id ? `/posts/${encodeURIComponent(post.id)}` : null)
-    : null
 
   return (
     <div className="flex items-center gap-4 flex-1">
-      {/* Right cluster: timestamp, then actions, separated by ~2rem */}
+      {/* Right cluster: actions */}
       <div className="flex items-center ml-auto">
-        <Timestamp date={post?.published} to={timestampTo} />
-        <div className="flex items-center gap-4 ml-4 sm:ml-8">
+        <div className="flex items-center gap-4">
         {/* Reply */}
         {post?.id && (
           <Link

@@ -16,6 +16,7 @@ import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import { toggleType, clearTypes } from '../app/feedSlice'
+import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -216,7 +217,7 @@ export default function GroupPage() {
         <div className="flex items-start gap-4">
           {/* Icon */}
           {group.icon
-            ? <img src={group.icon} alt={group.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
+            ? <img src={sizedUrl(group.icon, 200)} alt={group.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
             : <div className="w-20 h-20 bg-secondary flex items-center justify-center shrink-0" style={hexMask}>
                 <CircleIcon type="group" size="lg" className="text-secondary-content opacity-70" />
               </div>
@@ -333,9 +334,9 @@ export default function GroupPage() {
                 to={`/users/${encodeURIComponent(member.id)}`}
                 className="flex items-center gap-3 py-3 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
               >
-                <div className="w-8 h-8 shrink-0 bg-primary" style={hexMask}>
+                <div className="w-8 h-8 shrink-0 rounded-full overflow-hidden bg-primary">
                   {member.profile?.icon
-                    ? <img src={member.profile.icon} alt={member.name ?? member.displayName} className="w-full h-full object-cover" />
+                    ? <img loading="lazy" src={sizedUrl(member.profile.icon, 200)} alt={member.name ?? member.displayName} className="w-full h-full object-cover" />
                     : null
                   }
                 </div>

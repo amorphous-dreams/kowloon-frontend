@@ -12,6 +12,7 @@ import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import PostComposer from '../components/posts/PostComposer'
+import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -37,7 +38,7 @@ function MemberRow({ member, isOwner, onRemove, removing }) {
         className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
       >
         {member.icon
-          ? <img src={member.icon} alt={member.name} className="w-10 h-10 object-cover shrink-0" style={hexMask} />
+          ? <img loading="lazy" src={sizedUrl(member.icon, 200)} alt={member.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
           : <div className="w-10 h-10 bg-base-300 shrink-0 flex items-center justify-center" style={hexMask}>
               <CircleIcon type="circle" size="sm" />
             </div>
@@ -132,8 +133,8 @@ function AddMemberRow({ circleId, onAdded }) {
           {results.map((user) => (
             <div key={user.id} className="flex items-center gap-3 px-3 py-2 bg-base-200 border-b border-base-300 last:border-b-0">
               {user.icon
-                ? <img src={user.icon} alt={user.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
-                : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
+                ? <img loading="lazy" src={sizedUrl(user.icon, 200)} alt={user.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                : <div className="w-8 h-8 rounded-full bg-base-300 shrink-0" />
               }
               <div className="flex flex-col gap-0 flex-1 min-w-0">
                 <span className="font-ui text-sm font-bold">{user.name}</span>
@@ -340,7 +341,7 @@ export default function CirclePage() {
             aria-label={editing ? t('circle.changeIcon', { defaultValue: 'Change icon' }) : undefined}
           >
             {currentIcon
-              ? <img src={currentIcon} alt={circle.name} className="w-20 h-20 object-cover" style={hexMask} />
+              ? <img src={sizedUrl(currentIcon, 200)} alt={circle.name} className="w-20 h-20 object-cover" style={hexMask} />
               : <div className="w-20 h-20 bg-secondary flex items-center justify-center" style={hexMask}>
                   <CircleIcon type="circle" size="lg" className="text-secondary-content opacity-70" />
                 </div>

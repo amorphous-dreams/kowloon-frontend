@@ -38,8 +38,8 @@ function MemberChip({ member, onRemove }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-base-200 border border-base-300">
       {member.icon
-        ? <img src={member.icon} alt={display} className="w-7 h-7 object-cover shrink-0" style={hexMask} />
-        : <div className="w-7 h-7 bg-base-300 shrink-0" style={hexMask} />
+        ? <img src={member.icon} alt={display} className="w-7 h-7 rounded-full object-cover shrink-0" />
+        : <div className="w-7 h-7 rounded-full bg-base-300 shrink-0" />
       }
       <div className="flex flex-col gap-0 flex-1 min-w-0">
         <span className="font-ui text-sm font-bold leading-none truncate">{display}</span>
@@ -137,8 +137,8 @@ function AddMemberRow({ onAdd, existingIds }) {
                   }
                 >
                   {user.icon
-                    ? <img src={user.icon} alt={user.name} className="w-8 h-8 object-cover shrink-0" style={hexMask} />
-                    : <div className="w-8 h-8 bg-base-300 shrink-0" style={hexMask} />
+                    ? <img src={user.icon} alt={user.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                    : <div className="w-8 h-8 rounded-full bg-base-300 shrink-0" />
                   }
                   <div className="flex flex-col gap-0 flex-1 min-w-0">
                     <span className="font-ui text-sm font-bold truncate">{user.name}</span>

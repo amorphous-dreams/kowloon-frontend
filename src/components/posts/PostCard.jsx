@@ -4,6 +4,7 @@
 
 import PostMeta from './PostMeta'
 import PostBody from './PostBody'
+import PostReacts from './PostReacts'
 import PostToolbar from './PostToolbar'
 import PostTypeIcon from '../ui/PostTypeIcon'
 import VisibilityIcon from '../ui/VisibilityIcon'
@@ -20,6 +21,7 @@ export default function PostCard({ post, onDeleted, showFull = false }) {
     >
       <PostMeta post={post} />
       <PostBody post={post} showFull={showFull} />
+      <PostReacts post={post} />
       <div className="flex items-center gap-3 pt-2 border-t border-base-300">
         <VisibilityIcon visibility={post?.visibility} />
         <PostTypeIcon type={post?.type} size="sm" />

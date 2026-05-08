@@ -42,7 +42,6 @@ export default function ReactButton({ post, t }) {
   const [emojis, setEmojis] = useState(cachedEmojis ?? DEFAULT_EMOJIS)
   const [pending, setPending] = useState(false)
   const [localCount, setLocalCount] = useState(post?.reactCount ?? 0)
-  const [localPreview, setLocalPreview] = useState(post?.reactPreview ?? null)
   const buttonRef = useRef(null)
   const popupRef = useRef(null)
 
@@ -76,7 +75,6 @@ export default function ReactButton({ post, t }) {
       // Only update local state if a new react was actually created
       if (res?.result?.status !== 'already_reacted') {
         setLocalCount((c) => c + 1)
-        setLocalPreview((prev) => prev ?? emoji)
       }
     } catch (err) {
       console.warn('[ReactButton] react failed:', err.message)
@@ -96,10 +94,7 @@ export default function ReactButton({ post, t }) {
         aria-label={t('post.react')}
         className="inline-flex items-center gap-1.5 text-base text-base-content/50 hover:text-base-content transition-colors disabled:opacity-30"
       >
-        {localPreview
-          ? <span className="text-sm leading-none">{localPreview}</span>
-          : <FontAwesomeIcon icon={faFaceSmile} />
-        }
+        <FontAwesomeIcon icon={faFaceSmile} />
         {localCount > 0 && (
           <span className="font-ui text-xs tracking-wider">{localCount}</span>
         )}
@@ -110,7 +105,7 @@ export default function ReactButton({ post, t }) {
           ref={popupRef}
           role="menu"
           aria-label={t('post.reactPickerLabel', { defaultValue: 'Choose a reaction' })}
-          className="absolute bottom-full left-0 mb-2 flex gap-0 bg-base-100 border-2 border-primary shadow-lg z-40"
+          className="absolute bottom-full right-0 mb-2 flex gap-0 bg-base-100 border-2 border-primary shadow-lg z-40"
         >
           {emojis.map(({ emoji, name }) => (
             <button

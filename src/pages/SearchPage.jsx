@@ -11,6 +11,7 @@ import CircleIcon from '../components/ui/CircleIcon'
 import UserAvatar from '../components/ui/UserAvatar'
 import Spinner from '../components/ui/Spinner'
 import EmptyState from '../components/ui/EmptyState'
+import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -98,7 +99,7 @@ function GroupResult({ group }) {
       className="flex items-start gap-3 py-4 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
     >
       {group.icon
-        ? <img src={group.icon} alt={group.name} className="w-10 h-10 object-cover shrink-0" style={hexMask} />
+        ? <img loading="lazy" src={sizedUrl(group.icon, 200)} alt={group.name} className="w-10 h-10 object-cover shrink-0" style={hexMask} />
         : <div className="w-10 h-10 bg-secondary flex items-center justify-center shrink-0" style={hexMask}>
             <CircleIcon type="group" size="md" className="opacity-70 text-secondary-content" />
           </div>

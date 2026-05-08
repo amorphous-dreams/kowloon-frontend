@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { MessageSquare, Smile, Play, Music } from 'lucide-react'
 import { POST_TYPES } from '../../lib/postTypes'
 import stripHtml from '../../lib/stripHtml'
+import sizedUrl from '../../lib/sizedUrl'
 import PostTypeIcon from '../ui/PostTypeIcon'
 import { useClient } from '../../hooks/useClient'
 
@@ -17,7 +18,8 @@ function MediaThumb({ post }) {
   if (post.featuredImage) {
     return (
       <img
-        src={post.featuredImage}
+        loading="lazy"
+        src={sizedUrl(post.featuredImage, 200)}
         alt={post.name ?? ''}
         className="w-16 h-16 object-cover shrink-0"
       />

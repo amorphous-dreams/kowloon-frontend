@@ -10,6 +10,7 @@ import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
+import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -100,7 +101,7 @@ const MOCK_GROUPS = [
 function GroupAvatar({ group }) {
   if (group.icon) {
     return (
-      <img src={group.icon} alt={group.name} className="w-14 h-14 object-cover shrink-0" style={hexMask} />
+      <img loading="lazy" src={sizedUrl(group.icon, 200)} alt={group.name} className="w-14 h-14 object-cover shrink-0" style={hexMask} />
     )
   }
   return (

@@ -13,6 +13,7 @@ import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import AddToCircleButton from '../components/circles/AddToCircleButton'
+import sizedUrl from '../lib/sizedUrl'
 import { toggleType, clearTypes } from '../app/feedSlice'
 
 const hexMask = {
@@ -86,7 +87,7 @@ function CircleChip({ circle }) {
   return (
     <Link to={`/circles/${encodeURIComponent(circle.id)}`} className="flex items-center gap-2 px-3 py-2 border border-base-300 hover:border-primary hover:bg-base-200 transition-colors">
       {circle.icon
-        ? <img src={circle.icon} alt={circle.name} className="w-6 h-6 object-cover" style={hexMask} />
+        ? <img loading="lazy" src={sizedUrl(circle.icon, 200)} alt={circle.name} className="w-6 h-6 object-cover" style={hexMask} />
         : <CircleIcon type="circle" size="sm" />
       }
       <span className="font-ui text-xs uppercase tracking-widest text-base-content/80">{circle.name}</span>
@@ -228,7 +229,7 @@ export default function UserPage() {
         }}
       >
         <div className="flex items-start gap-4">
-          <img src={isOwnProfile ? (authUser.profile?.icon ?? user.profile?.icon) : user.profile?.icon} alt={user.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} onError={(e) => { e.currentTarget.style.display = 'none' }} />
+          <img src={sizedUrl(isOwnProfile ? (authUser.profile?.icon ?? user.profile?.icon) : user.profile?.icon, 400)} alt={user.name} className="w-20 h-20 rounded-full object-cover shrink-0" onError={(e) => { e.currentTarget.style.display = 'none' }} />
           <div className="flex flex-col gap-2 min-w-0 pt-1 flex-1">
             <h1 className="font-display text-4xl leading-none tracking-wide">{user.name}</h1>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

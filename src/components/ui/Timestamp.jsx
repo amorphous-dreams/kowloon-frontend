@@ -16,7 +16,7 @@ function formatRelative(date) {
   return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function Timestamp({ date, absolute = false, to }) {
+export default function Timestamp({ date, absolute = false, to, className }) {
   if (!date) return null
   const full = new Date(date).toLocaleString()
   const display = absolute ? full : formatRelative(date)
@@ -25,7 +25,7 @@ export default function Timestamp({ date, absolute = false, to }) {
     <time
       dateTime={new Date(date).toISOString()}
       title={full}
-      className="font-ui text-xs sm:text-sm text-base-content/70 uppercase tracking-widest"
+      className={className ?? 'font-ui text-xs sm:text-sm text-base-content/70 uppercase tracking-widest'}
     >
       {display}
     </time>

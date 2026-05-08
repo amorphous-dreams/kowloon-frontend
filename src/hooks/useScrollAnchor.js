@@ -6,7 +6,7 @@
 // Markup contract: each post container should expose `data-post-id="<post.id>"`.
 // PostCard and EventCard already do this.
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 const STORAGE_PREFIX = 'kowloon:feed:scrollAnchor:'
 
@@ -63,5 +63,36 @@ export function useTrackScrollAnchor(circleId, postIds = []) {
     const els = document.querySelectorAll('[data-post-id]')
     els.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
+  }, [circleId, fingerprint])
+}
+
+/**
+ * On mount, scroll to the saved anchor post for this circle (if any). Re-runs
+ * whenever postIds change until it succeeds, so we can wait for the feed to
+ * finish rendering. Once we've scrolled, won't try again for this mount.
+ */
+export function useRestoreScrollAnchor(circleId, postIds = []) {
+  const fingerprint = postIds.join('|')
+  const restored = useRef(false)
+
+  useEffect(() => {
+    if (restored.current) return
+    if (!circleId) return
+    const anchorId = getScrollAnchorFor(circleId)
+    if (!anchorId) {
+      restored.current = true
+      return
+    }
+    if (!postIds.length) return
+    const el = document.querySelector(`[data-post-id="${CSS.escape(anchorId)}"]`)
+    if (el) {
+      el.scrollIntoView({ block: 'start', behavior: 'instant' })
+      restored.current = true
+    }
+    // If the anchored post isn't in the rendered set, give up after the first
+    // batch of posts arrives — the feed must have moved on.
+    else if (postIds.length > 0) {
+      restored.current = true
+    }
   }, [circleId, fingerprint])
 }

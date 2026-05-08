@@ -18,6 +18,7 @@ import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
+import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -31,7 +32,8 @@ function CircleAvatar({ circle }) {
   if (circle.icon) {
     return (
       <img
-        src={circle.icon}
+        loading="lazy"
+        src={sizedUrl(circle.icon, 200)}
         alt={circle.name}
         className="w-14 h-14 object-cover shrink-0"
         style={hexMask}

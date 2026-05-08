@@ -4,6 +4,11 @@
 
 import { useState } from 'react'
 import { useSelector } from 'react-redux'
+import sizedUrl from '../../lib/sizedUrl'
+
+// sm/md → 200px thumb (28-40px rendered), lg → 400px (64px rendered, but
+// retina-friendly).
+const THUMB_SIZE = { sm: 200, md: 200, lg: 400 }
 
 export default function UserAvatar({ user, size = 'md' }) {
   const sizes = { sm: 'w-7 h-7 text-xs', md: 'w-10 h-10 text-sm', lg: 'w-16 h-16 text-xl' }
@@ -23,27 +28,21 @@ export default function UserAvatar({ user, size = 'md' }) {
     extractUsername(user.id) === extractUsername(authUser.id)
   const icon = isCurrentUser ? (authUser.profile?.icon ?? user?.icon) : user?.icon
 
-  const mask = {
-    WebkitMaskImage: 'url(/hex-mask.svg)',
-    maskImage: 'url(/hex-mask.svg)',
-    maskSize: 'contain',
-    maskRepeat: 'no-repeat',
-    maskPosition: 'center',
-  }
-
   const displayName = user?.name ?? user?.username ?? null
   const handle      = user?.id ?? null
   const tooltip     = [displayName, handle].filter(Boolean).join(' — ')
 
+  // User avatars are circular (universal "person" convention).
+  // Circles and Groups still use the hex mask elsewhere as the brand mark.
   return (
     <div
-      className={`${sizes[size]} bg-primary flex items-center justify-center shrink-0`}
-      style={mask}
+      className={`${sizes[size]} shrink-0 rounded-full overflow-hidden bg-primary flex items-center justify-center`}
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.18)' }}
       title={tooltip || undefined}
       aria-label={tooltip || undefined}
     >
       {icon && !imgError
-        ? <img src={icon} alt={tooltip || user?.username} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+        ? <img loading="lazy" src={sizedUrl(icon, THUMB_SIZE[size])} alt={tooltip || user?.username} className="w-full h-full object-cover" onError={() => setImgError(true)} />
         : <span className="font-display text-primary-content">{initial}</span>
       }
     </div>

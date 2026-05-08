@@ -254,8 +254,7 @@ export default function ProfilePage() {
       <Section title={t('profile.avatar', { defaultValue: 'Avatar' })}>
         <div className="flex items-center gap-6">
           <div
-            className="w-20 h-20 shrink-0 bg-primary cursor-pointer hover:opacity-80 transition-opacity"
-            style={hexMask}
+            className="w-20 h-20 shrink-0 rounded-full overflow-hidden bg-primary cursor-pointer hover:opacity-80 transition-opacity"
             onClick={() => fileInputRef.current?.click()}
           >
             {iconPreview && (

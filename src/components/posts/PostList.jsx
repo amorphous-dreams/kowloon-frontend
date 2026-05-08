@@ -10,6 +10,7 @@ import EmptyState from '../ui/EmptyState'
 import ErrorState from '../ui/ErrorState'
 import LoadMoreButton from '../ui/LoadMoreButton'
 import { Play } from 'lucide-react'
+import sizedUrl from '../../lib/sizedUrl'
 
 // ── Media grid ────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ function MediaThumb({ post }) {
   let thumb = null
 
   if (mt.startsWith('image/')) {
-    thumb = <img src={att.url} alt={post.name ?? ''} className="absolute inset-0 w-full h-full object-cover" />
+    thumb = <img loading="lazy" src={sizedUrl(att.url, 400)} alt={post.name ?? ''} className="absolute inset-0 w-full h-full object-cover" />
   } else if (mt.startsWith('video/')) {
     thumb = (
       <>
@@ -37,7 +38,7 @@ function MediaThumb({ post }) {
     thumb = (
       <>
         {bg
-          ? <img src={bg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ? <img loading="lazy" src={sizedUrl(bg, 400)} alt="" className="absolute inset-0 w-full h-full object-cover" />
           : <div className="absolute inset-0 bg-base-300" />
         }
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">

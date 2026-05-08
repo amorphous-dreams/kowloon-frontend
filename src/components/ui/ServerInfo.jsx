@@ -3,6 +3,7 @@
 
 import { useSelector } from 'react-redux'
 import { MapPin } from 'lucide-react'
+import sizedUrl from '../../lib/sizedUrl'
 
 export default function ServerInfo() {
   const server   = useSelector((state) => state.server)
@@ -19,7 +20,7 @@ export default function ServerInfo() {
         // desktop where the column has only vertical padding.
         <div className="-mt-6 -mx-6 lg:mx-0">
           <img
-            src={server.image}
+            src={sizedUrl(server.image, 400)}
             alt=""
             className="w-full aspect-video object-cover"
           />

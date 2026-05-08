@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 import { logoutAsync } from '../../features/auth/authSlice'
 import { useClient } from '../../hooks/useClient'
 import useFitText from '../../hooks/useFitText'
+import sizedUrl from '../../lib/sizedUrl'
 import Sidebar from './Sidebar'
 
 function BellIcon() {
@@ -122,7 +123,7 @@ export function Header() {
           const Icon = (
             <img
               className="h-9 w-9 object-contain shrink-0"
-              src={server.icon || '/logo.png'}
+              src={server.icon ? sizedUrl(server.icon, 200) : '/logo.png'}
               alt={serverName}
               onError={(e) => { e.currentTarget.src = '/logo.png' }}
             />
@@ -222,9 +223,9 @@ export function Header() {
                 className="flex items-center gap-3 px-3 h-10 text-base-300/70 hover:text-primary hover:bg-black/20 transition-colors"
               >
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt={userHandle} className="w-7 h-7 object-cover" />
+                  <img src={sizedUrl(avatarUrl, 200)} alt={userHandle} className="w-7 h-7 rounded-full object-cover" />
                 ) : (
-                  <div className="w-7 h-7 bg-primary flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
                     <span className="font-display text-sm text-primary-content">{userInitial}</span>
                   </div>
                 )}
@@ -308,16 +309,6 @@ export function Header() {
                 </li>
               ))}
 
-              {/* Server info */}
-              {server.description && (
-                <li className="px-4 py-4 border-t border-base-300 dark:border-white/10">
-                  <div
-                    className="font-reading text-sm text-base-content/75 dark:text-white/95 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: server.description }}
-                  />
-                </li>
-              )}
-
               {/* Pages */}
               {pages.length > 0 && (
                 <>
@@ -344,6 +335,18 @@ export function Header() {
                     </li>
                   ))}
                 </>
+              )}
+
+              {/* Admin — server admins only */}
+              {user?.isServerAdmin && (
+                <li className="border-t border-base-300 dark:border-white/10 mt-2">
+                  <Link
+                    to="/admin"
+                    className="block px-4 py-3 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
+                  >
+                    {t('nav.admin', { defaultValue: 'Admin' })}
+                  </Link>
+                </li>
               )}
 
               {/* Sign in / Register — logged-out only */}

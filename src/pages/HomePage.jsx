@@ -16,7 +16,7 @@ import { Eye } from 'lucide-react'
 import CircleSelector from '../components/circles/CircleSelector'
 import NewCircleModal from '../components/circles/NewCircleModal'
 import RssFeedLink from '../components/ui/RssFeedLink'
-import { useTrackScrollAnchor } from '../hooks/useScrollAnchor'
+import { useTrackScrollAnchor, useRestoreScrollAnchor } from '../hooks/useScrollAnchor'
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
@@ -158,9 +158,11 @@ export default function HomePage() {
 
   const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(fetchFn)
 
-  // Persist the topmost-visible post id per circle. Storage only — no
-  // auto-restore yet; call getScrollAnchorFor(circleId) when ready.
-  useTrackScrollAnchor(activeCircleId, items.map((p) => p.id))
+  // Persist the topmost-visible post id per circle, and restore it on mount
+  // (e.g. when navigating back from a post detail page).
+  const itemIds = items.map((p) => p.id)
+  useRestoreScrollAnchor(activeCircleId, itemIds)
+  useTrackScrollAnchor(activeCircleId, itemIds)
 
   if (!sessionChecked) return null
 
