@@ -3,19 +3,13 @@ import { Link } from 'react-router-dom'
 import { Trash2, RotateCcw, ExternalLink } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import { useBatchSelect } from '../../hooks/useBatchSelect'
+import stripHtml from '../../lib/stripHtml'
 import Spinner from '../../components/ui/Spinner'
 import BatchActionBar from '../../components/admin/BatchActionBar'
 
 function fmtDate(d) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-}
-
-function stripHtml(html) {
-  if (!html) return ''
-  const txt = document.createElement('textarea')
-  txt.innerHTML = html.replace(/<[^>]+>/g, ' ')
-  return txt.value.replace(/\s+/g, ' ').trim()
 }
 
 const TYPE_COLORS = {

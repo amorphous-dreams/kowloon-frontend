@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
+import { X } from 'lucide-react'
 import { logoutAsync } from '../../features/auth/authSlice'
 import { useClient } from '../../hooks/useClient'
+import useFitText from '../../hooks/useFitText'
+import Sidebar from './Sidebar'
 
 function BellIcon() {
   return (
@@ -25,7 +28,7 @@ function MenuIcon() {
 const navLinkClass = ({ isActive }) =>
   `flex items-center h-full px-5 font-ui text-xs uppercase tracking-widest transition-colors ${
     isActive
-      ? 'text-secondary-content border-b-4 border-primary -mb-[4px]'
+      ? 'text-secondary-content border-b-4 border-primary'
       : 'text-base-300/70 hover:text-secondary-content hover:bg-black/20'
   }`
 
@@ -39,8 +42,27 @@ export function Header() {
 
   const [menuOpen, setMenuOpen]         = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen]     = useState(false)
   const [pages, setPages]               = useState([])
   const [unreadCount, setUnreadCount]   = useState(0)
+
+  const serverName = server.name || 'Kowloon'
+  const [mobileTitleRef,  mobileTitleWrap]  = useFitText({ maxPx: 18, wrapPx: 13, text: serverName })
+  const [desktopTitleRef, desktopTitleWrap] = useFitText({ maxPx: 22, wrapPx: 16, text: serverName })
+  const [drawerTitleRef,  drawerTitleWrap]  = useFitText({ maxPx: 18, wrapPx: 14, text: serverName })
+
+  // Lock body scroll + close on Escape while drawer is open.
+  useEffect(() => {
+    if (!drawerOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => { if (e.key === 'Escape') setDrawerOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [drawerOpen])
 
   // Fetch pages for the mobile hamburger menu
   useEffect(() => {
@@ -82,23 +104,64 @@ export function Header() {
   const avatarUrl   = user?.profile?.icon ?? null
   const userHandle  = user?.id || user?.username
   const userInitial = user?.username?.[0]?.toUpperCase() ?? '?'
-  const serverName  = server.name || 'Kowloon'
 
   return (
-    <header className="bg-secondary border-b-4 border-primary sticky top-0 z-50">
+    <header className="bg-secondary sticky top-0 z-50">
       <nav className="flex items-stretch h-16">
 
-        {/* ── Logo — always a plain home link ── */}
-        <Link to="/" className="flex items-stretch shrink-0 hover:opacity-90 transition-opacity">
-          <div className="bg-primary flex items-center justify-center w-16">
-            <img className="h-10 w-10 object-contain" src="/logo.png" alt="Kowloon" />
-          </div>
-          <div className="flex items-center px-4 lg:px-5 bg-black/20">
-            <span className="font-display text-2xl lg:text-3xl tracking-[0.15em] text-secondary-content whitespace-nowrap">
-              {serverName}
-            </span>
-          </div>
-        </Link>
+        {/* ── Logo ── desktop: home link; mobile: drawer trigger */}
+        {(() => {
+          const titleClass = (wrapped) =>
+            `font-display text-secondary-content min-w-0 text-left ${
+              wrapped ? 'line-clamp-2 leading-[1.1]' : 'truncate'
+            }`
+          const titleStyle = (wrapped, wrapPx, maxPx) => ({
+            fontSize: wrapped ? `${wrapPx}px` : `${maxPx}px`,
+          })
+          const logoClass = 'flex items-center gap-3 pl-4 pr-3 min-w-0 hover:opacity-90 transition-opacity'
+          const Icon = (
+            <img
+              className="h-9 w-9 object-contain shrink-0"
+              src={server.icon || '/logo.png'}
+              alt={serverName}
+              onError={(e) => { e.currentTarget.src = '/logo.png' }}
+            />
+          )
+          return (
+            <>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                aria-label={t('a11y.openSidebar', { defaultValue: 'Open sidebar' })}
+                aria-expanded={drawerOpen}
+                aria-controls="mobile-sidebar-drawer"
+                className={`lg:hidden ${logoClass}`}
+              >
+                {Icon}
+                <span
+                  ref={mobileTitleRef}
+                  className={titleClass(mobileTitleWrap)}
+                  style={titleStyle(mobileTitleWrap, 13, 18)}
+                >
+                  {serverName}
+                </span>
+              </button>
+              <Link
+                to="/"
+                className={`hidden lg:flex ${logoClass}`}
+              >
+                {Icon}
+                <span
+                  ref={desktopTitleRef}
+                  className={titleClass(desktopTitleWrap)}
+                  style={titleStyle(desktopTitleWrap, 16, 22)}
+                >
+                  {serverName}
+                </span>
+              </Link>
+            </>
+          )
+        })()}
 
         {/* ── Desktop nav ──────────────────────────────────────── */}
         <ul className="hidden lg:flex items-stretch ml-2">
@@ -309,6 +372,51 @@ export function Header() {
 
         </div>
       </nav>
+
+      {/* ── Mobile sidebar drawer ─────────────────────────────── */}
+      {/* Backdrop */}
+      <div
+        onClick={() => setDrawerOpen(false)}
+        aria-hidden="true"
+        className={`fixed inset-0 bg-black/50 z-[60] lg:hidden transition-opacity duration-200 ${
+          drawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      />
+      {/* Drawer panel — slides from the left */}
+      <aside
+        id="mobile-sidebar-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('a11y.sidebar', { defaultValue: 'Sidebar' })}
+        // Close drawer when any link inside is clicked (event bubbles up)
+        onClick={(e) => { if (e.target.closest('a')) setDrawerOpen(false) }}
+        className={`fixed top-0 left-0 bottom-0 w-80 max-w-[85vw] bg-base-100 z-[70] overflow-y-auto lg:hidden transition-transform duration-200 ease-out ${
+          drawerOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3 h-16 bg-secondary px-4">
+          <span
+            ref={drawerTitleRef}
+            className={`font-display text-secondary-content min-w-0 text-left ${
+              drawerTitleWrap ? 'line-clamp-2 leading-[1.1]' : 'truncate'
+            }`}
+            style={{ fontSize: drawerTitleWrap ? '14px' : '18px' }}
+          >
+            {serverName}
+          </span>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(false)}
+            aria-label={t('a11y.closeSidebar', { defaultValue: 'Close sidebar' })}
+            className="p-2 -mr-2 text-base-300/70 hover:text-primary transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6">
+          <Sidebar />
+        </div>
+      </aside>
     </header>
   )
 }

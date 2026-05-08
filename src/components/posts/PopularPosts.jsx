@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { MessageSquare, Smile, Play, Music } from 'lucide-react'
 import { POST_TYPES } from '../../lib/postTypes'
+import stripHtml from '../../lib/stripHtml'
 import PostTypeIcon from '../ui/PostTypeIcon'
 import { useClient } from '../../hooks/useClient'
 
@@ -94,7 +95,7 @@ export default function PopularPosts() {
                         </span>
                       )}
                       <p className={`font-reading text-base-content/75 leading-snug line-clamp-2 ${post.name ? 'text-sm' : 'text-base'}`}>
-                        {post.summary}
+                        {post.textPreview ?? stripHtml(post.summary)}
                       </p>
                     </div>
                     {showThumb && <MediaThumb post={post} />}
