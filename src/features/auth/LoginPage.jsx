@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { loginAsync, clearError } from './authSlice'
+import PasswordInput from '../../components/ui/PasswordInput'
 
 const FIXED_SERVER = import.meta.env.VITE_SERVER_URL || window.KOWLOON_CONFIG?.apiUrl || window.location.origin
 
@@ -139,8 +140,7 @@ export default function LoginPage() {
             </Field>
 
             <Field label={t('auth.password', { defaultValue: 'Password' })}>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"

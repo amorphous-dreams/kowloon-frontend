@@ -25,9 +25,9 @@ const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
   const { t } = useTranslation()
   return (
-    <div className="flex items-center gap-0 border-b border-base-300 pb-3 mb-2">
+    <div className="flex flex-col sm:flex-row sm:items-stretch gap-0 border-b border-base-300 pb-3 mb-2">
       {prefix && (
-        <div className="flex items-center gap-2 px-3 py-2 border-r border-base-300 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-2 border-b sm:border-b-0 sm:border-r border-base-300 shrink-0">
           <span
             title={t('feed.show', { defaultValue: 'Show' })}
             aria-label={t('feed.show', { defaultValue: 'Show' })}
@@ -38,41 +38,43 @@ function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
           {prefix}
         </div>
       )}
-      <button
-        onClick={() => onTypeChange(null)}
-        className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
-          !activeType
-            ? 'bg-primary text-primary-content'
-            : 'bg-base-200 text-base-content/60 hover:bg-base-300'
-        }`}
-      >
-        {t('feed.all', { defaultValue: 'All' })}
-      </button>
-      {POST_TYPES.map((type) => (
+      <div className="flex items-center gap-0 flex-1 flex-wrap">
         <button
-          key={type}
-          onClick={() => onTypeChange(activeType === type ? null : type)}
-          title={t(`postTypes.${type}`, { defaultValue: type })}
-          className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
-            activeType === type
+          onClick={() => onTypeChange(null)}
+          className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
+            !activeType
               ? 'bg-primary text-primary-content'
               : 'bg-base-200 text-base-content/60 hover:bg-base-300'
           }`}
         >
-          <PostTypeIcon type={type} size="sm" />
-          <span className="hidden sm:inline">
-            {t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)}
-          </span>
+          {t('feed.all', { defaultValue: 'All' })}
         </button>
-      ))}
-      <button
-        onClick={onRefresh}
-        title={t('feed.refresh', { defaultValue: 'Refresh' })}
-        className="ml-auto px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
-        aria-label={t('feed.refresh', { defaultValue: 'Refresh' })}
-      >
-        ↻
-      </button>
+        {POST_TYPES.map((type) => (
+          <button
+            key={type}
+            onClick={() => onTypeChange(activeType === type ? null : type)}
+            title={t(`postTypes.${type}`, { defaultValue: type })}
+            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
+              activeType === type
+                ? 'bg-primary text-primary-content'
+                : 'bg-base-200 text-base-content/60 hover:bg-base-300'
+            }`}
+          >
+            <PostTypeIcon type={type} size="sm" />
+            <span className="hidden sm:inline">
+              {t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)}
+            </span>
+          </button>
+        ))}
+        <button
+          onClick={onRefresh}
+          title={t('feed.refresh', { defaultValue: 'Refresh' })}
+          className="ml-auto px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+          aria-label={t('feed.refresh', { defaultValue: 'Refresh' })}
+        >
+          ↻
+        </button>
+      </div>
     </div>
   )
 }
