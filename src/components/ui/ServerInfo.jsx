@@ -15,10 +15,11 @@ export default function ServerInfo() {
   return (
     <div className="flex flex-col gap-3 border-b-2 border-base-300 pb-5">
       {server.image && (
-        // Negative margins escape the parent's padding so the image bleeds to
-        // the sidebar's outer edges. `lg:mx-0` cancels the horizontal bleed on
-        // desktop where the column has only vertical padding.
-        <div className="-mt-6 -mx-6 lg:mx-0">
+        // Mobile: -mx-6 escapes the drawer's p-6 so the image is flush to the
+        // drawer edges. Desktop: pull -1rem left to escape the layout wrapper's
+        // px-4 so the hero bleeds to the page's outer left edge; right margin
+        // stays at the column boundary so we don't intrude into the gap.
+        <div className="-mt-6 -mx-6 lg:ml-[-1rem] lg:mr-[0]">
           <img
             src={sizedUrl(server.image, 400)}
             alt=""

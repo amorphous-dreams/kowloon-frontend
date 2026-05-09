@@ -420,17 +420,29 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     )
   }
 
-  // Auto-fetch link metadata on href blur
-  const handleHrefBlur = async () => {
-    if (!href || !client) return
+  // Auto-fetch link metadata for a given URL
+  const fetchLinkMeta = async (url) => {
+    if (!url || !client) return
     setFetchingMeta(true)
     try {
-      const meta = await client.http.get('/preview', { params: { url: href } })
+      const meta = await client.http.get('/preview', { params: { url } })
       if (meta?.title && !title) setTitle(meta.title)
       if (meta?.summary && !content) setContent(meta.summary)
       if (meta?.image && !featuredImage) setFeaturedImage(meta.image)
     } catch {}
     finally { setFetchingMeta(false) }
+  }
+
+  const handleHrefBlur = () => fetchLinkMeta(href)
+
+  // Trigger preview immediately when a URL is pasted into the href field
+  const handleHrefPaste = (e) => {
+    const text = (e.clipboardData?.getData('text') ?? '').trim()
+    if (/^https?:\/\/\S+/i.test(text)) {
+      setHref(text)
+      e.preventDefault()
+      fetchLinkMeta(text)
+    }
   }
 
   const handleArtImageFile = (e) => {
@@ -726,6 +738,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                 placeholder={t('composer.linkUrl')}
                 value={href}
                 onChange={(e) => setHref(e.target.value)}
+                onPaste={handleHrefPaste}
                 onBlur={handleHrefBlur}
                 disabled={!!initialValues.href}
                 className={`flex-1 px-4 py-3 bg-transparent font-display text-2xl tracking-wide text-base-content placeholder:text-base-content/30 outline-none min-w-0 ${initialValues.href ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -735,8 +748,8 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                   type="button"
                   onClick={async () => {
                     try {
-                      const text = await navigator.clipboard.readText()
-                      if (text) { setHref(text); setTimeout(() => hrefInputRef.current?.blur(), 0) }
+                      const text = (await navigator.clipboard.readText())?.trim()
+                      if (text) { setHref(text); fetchLinkMeta(text) }
                     } catch {}
                   }}
                   className="shrink-0 px-3 py-1.5 mx-2 font-ui text-xs uppercase tracking-widest bg-base-200 hover:bg-base-300 text-base-content/60 hover:text-base-content transition-colors"

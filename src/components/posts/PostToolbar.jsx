@@ -17,6 +17,7 @@ import { useClient } from '../../hooks/useClient'
 
 function buildShareTitle(post) {
   if (post.title ?? post.name) return post.title ?? post.name
+  if (post.textPreview) return post.textPreview
   const actor = post.attributedTo?.id ?? post.actorId ?? 'unknown'
   const date = new Date(post.published ?? post.createdAt ?? Date.now())
   const time = date.toLocaleTimeString('en-GB', {
@@ -80,12 +81,18 @@ function ShareButton({ post, t, user }) {
     )
   }
 
+  const firstImageAttachment = post.attachments?.find(
+    (a) => typeof a?.mediaType === 'string' && a.mediaType.startsWith('image/'),
+  )
+
   const initialValues = {
     type: 'Link',
     href: postUrl,
     title: buildShareTitle(post),
     content: buildShareContent(post),
-    featuredImage: post.featuredImage ?? post.image ?? null,
+    featuredImage:
+      post.featuredImage ?? post.image ?? firstImageAttachment?.url ?? null,
+    tags: ['kowloon'],
     target: post.id ?? null,
     to: 'public',
   }

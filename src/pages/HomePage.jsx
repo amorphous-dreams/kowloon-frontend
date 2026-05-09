@@ -7,7 +7,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { useClient } from '../hooks/useClient'
 import { useFeed } from '../hooks/useFeed'
-import { setCircle } from '../app/feedSlice'
+import { setCircle, toggleType, clearTypes } from '../app/feedSlice'
 import { fetchMyCircles } from '../features/circles/myCirclesSlice'
 import PostComposer from '../components/posts/PostComposer'
 import PostList from '../components/posts/PostList'
@@ -22,7 +22,7 @@ const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
 // ── Shared type filter + refresh bar ─────────────────────────────────────────
 
-function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
+function FilterBar({ activeTypes, onToggleType, onClearTypes, onRefresh, prefix }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col sm:flex-row sm:items-stretch gap-0 border-b border-base-300 pb-3 mb-2">
@@ -40,32 +40,35 @@ function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
       )}
       <div className="flex items-center gap-0 flex-1 flex-wrap">
         <button
-          onClick={() => onTypeChange(null)}
+          onClick={onClearTypes}
           className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
-            !activeType
+            activeTypes.length === 0
               ? 'bg-primary text-primary-content'
               : 'bg-base-200 text-base-content/60 hover:bg-base-300'
           }`}
         >
           {t('feed.all', { defaultValue: 'All' })}
         </button>
-        {POST_TYPES.map((type) => (
-          <button
-            key={type}
-            onClick={() => onTypeChange(activeType === type ? null : type)}
-            title={t(`postTypes.${type}`, { defaultValue: type })}
-            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
-              activeType === type
-                ? 'bg-primary text-primary-content'
-                : 'bg-base-200 text-base-content/60 hover:bg-base-300'
-            }`}
-          >
-            <PostTypeIcon type={type} size="sm" />
-            <span className="hidden sm:inline">
-              {t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)}
-            </span>
-          </button>
-        ))}
+        {POST_TYPES.map((type) => {
+          const active = activeTypes.includes(type)
+          return (
+            <button
+              key={type}
+              onClick={() => onToggleType(type)}
+              title={t(`postTypes.${type}`, { defaultValue: type })}
+              className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
+                active
+                  ? 'bg-primary text-primary-content'
+                  : 'bg-base-200 text-base-content/60 hover:bg-base-300'
+              }`}
+            >
+              <PostTypeIcon type={type} size="sm" />
+              <span className="hidden sm:inline">
+                {t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)}
+              </span>
+            </button>
+          )
+        })}
         <button
           onClick={onRefresh}
           title={t('feed.refresh', { defaultValue: 'Refresh' })}
@@ -84,12 +87,11 @@ function FilterBar({ activeType, onTypeChange, onRefresh, prefix }) {
 export default function HomePage() {
   const dispatch = useDispatch()
   const { user, sessionChecked } = useSelector((state) => state.auth)
-  const { circleId } = useSelector((state) => state.feed)
+  const { circleId, activeTypes } = useSelector((state) => state.feed)
   const { items: myCircles, status: circlesStatus } = useSelector((state) => state.myCircles)
   const client = useClient()
   const { t } = useTranslation()
 
-  const [activeType, setActiveType] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [showCreateCircle, setShowCreateCircle] = useState(false)
 
@@ -127,7 +129,10 @@ export default function HomePage() {
 
   const fetchPublic = useCallback(async (cursor) => {
     const page = cursor ?? 1
-    const res = await client.feeds.getServerPosts({ type: activeType ?? undefined, page })
+    const res = await client.feeds.getServerPosts({
+      types: activeTypes.length ? activeTypes : undefined,
+      page,
+    })
     const items = (res?.orderedItems ?? []).map((p) => ({
       ...p,
       attributedTo: p.attributedTo ?? p.actor ?? { id: p.actorId },
@@ -137,18 +142,18 @@ export default function HomePage() {
     const fetchedPage = res?.page ?? page
     const hasMore = fetchedPage * itemsPerPage < totalItems
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
-  }, [client, activeType, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [client, activeTypes, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCircle = useCallback(async (cursor) => {
     const res = await client.feeds.getCirclePosts({
       circleId: activeCircleId,
-      types: activeType ? [activeType] : undefined,
+      types: activeTypes.length ? activeTypes : undefined,
       before: cursor ?? undefined,
     })
     const items = res?.orderedItems ?? []
     const nc = res?.nextCursor ?? null
     return { items, nextCursor: nc, hasMore: nc !== null }
-  }, [client, activeCircleId, activeType, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [client, activeCircleId, activeTypes, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchFn = !sessionChecked
     ? null
@@ -179,8 +184,9 @@ export default function HomePage() {
           prompt={t('composer.prompt')}
         />
         <FilterBar
-          activeType={activeType}
-          onTypeChange={setActiveType}
+          activeTypes={activeTypes}
+          onToggleType={(type) => dispatch(toggleType(type))}
+          onClearTypes={() => dispatch(clearTypes())}
           onRefresh={handleRefresh}
           prefix={
             <CircleSelector
@@ -223,7 +229,12 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       <RssFeedLink href="/posts?rss" title="Public Posts" />
-      <FilterBar activeType={activeType} onTypeChange={setActiveType} onRefresh={handleRefresh} />
+      <FilterBar
+        activeTypes={activeTypes}
+        onToggleType={(type) => dispatch(toggleType(type))}
+        onClearTypes={() => dispatch(clearTypes())}
+        onRefresh={handleRefresh}
+      />
       <PostList onDeleted={removeItem}
         posts={items}
         loading={loading}
