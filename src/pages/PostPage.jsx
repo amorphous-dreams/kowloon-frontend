@@ -1,14 +1,13 @@
 // PostPage — single post view with full content, actions, and replies.
 
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import PostCard from '../components/posts/PostCard'
-import UserAvatar from '../components/ui/UserAvatar'
-import Timestamp from '../components/ui/Timestamp'
+import Reply from '../components/posts/Reply'
+import ReplyComposer from '../components/posts/ReplyComposer'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 
@@ -54,110 +53,6 @@ const MOCK_REPLIES = [
     actor: { id: '@cityhacker@kwln.org', name: 'City Hacker', icon: 'https://picsum.photos/seed/cityhacker/200/200' },
   },
 ]
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function Reply({ reply }) {
-  const actor = reply.actor ?? {}
-  const html = reply.body || reply.source?.content || ''
-
-  return (
-    <div className="flex gap-3 py-5 border-b border-base-300 last:border-b-0">
-      <div className="shrink-0">
-        <UserAvatar user={actor} size="sm" />
-      </div>
-      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/users/${encodeURIComponent(actor.id ?? '')}`}
-            className="font-ui text-sm font-bold text-base-content hover:text-primary transition-colors"
-          >
-            {actor.name ?? actor.displayName ?? actor.id}
-          </Link>
-          <Timestamp date={reply.createdAt} />
-        </div>
-        {html ? (
-          <div
-            className="prose prose-sm max-w-none text-[13.5px] [&_p]:leading-[1.45] [&_p]:font-[450] font-reading text-base-content/80"
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function ReplyComposer({ postId, canReply, onSubmitted }) {
-  const { t } = useTranslation()
-  const user = useSelector((state) => state.auth.user)
-  const client = useClient()
-  const [text, setText] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
-
-  // Not logged in — no composer
-  if (!user) return null
-
-  // canReply controls who can reply: '' or undefined = anyone, '@public' = public,
-  // '@server' = server members, a circle ID = circle members, '@none' = closed
-  if (canReply === '@none') {
-    return (
-      <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 pt-4">
-        {t('post.repliesClosed', { defaultValue: 'Replies are closed for this post.' })}
-      </p>
-    )
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!text.trim() || !client) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      await client.activities.reply({ postId, content: text })
-      setText('')
-      onSubmitted?.()
-    } catch (err) {
-      setError(err.message || 'Failed to post reply.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex gap-3 pt-4">
-      <div className="shrink-0">
-        <UserAvatar user={user} size="sm" />
-      </div>
-      <div className="flex flex-col gap-2 flex-1 min-w-0">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t('post.replyPlaceholder', { defaultValue: 'Write a reply…' })}
-          rows={3}
-          className="w-full px-4 py-3 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-reading text-sm text-base-content placeholder:text-base-content/30 resize-none transition-colors"
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e) }}
-        />
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-ui text-xs text-base-content/30 uppercase tracking-widest">
-            {t('post.replyHint', { defaultValue: 'Cmd/Ctrl+Enter to submit' })}
-          </span>
-          <div className="flex items-center gap-3">
-            {error && <span className="font-ui text-xs uppercase tracking-widest text-error">{error}</span>}
-            <button
-              type="submit"
-              disabled={!text.trim() || submitting}
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-            >
-              <Send size={12} />
-              {submitting ? t('post.replying', { defaultValue: 'Replying…' }) : t('post.reply', { defaultValue: 'Reply' })}
-            </button>
-          </div>
-        </div>
-      </div>
-    </form>
-  )
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -223,7 +118,12 @@ export default function PostPage() {
         {replies.length > 0 && (
           <div className="border-b border-base-300">
             {replies.map((reply) => (
-              <Reply key={reply.id} reply={reply} />
+              <Reply
+                key={reply.id}
+                reply={reply}
+                onUpdated={(next) => setReplies((arr) => arr.map((r) => r.id === next.id ? next : r))}
+                onDeleted={(rid) => setReplies((arr) => arr.filter((r) => r.id !== rid))}
+              />
             ))}
           </div>
         )}

@@ -42,6 +42,7 @@ export default function ReactButton({ post, t }) {
   const [emojis, setEmojis] = useState(cachedEmojis ?? DEFAULT_EMOJIS)
   const [pending, setPending] = useState(false)
   const [localCount, setLocalCount] = useState(post?.reactCount ?? 0)
+  const [popupBottom, setPopupBottom] = useState(0)
   const buttonRef = useRef(null)
   const popupRef = useRef(null)
 
@@ -64,6 +65,23 @@ export default function ReactButton({ post, t }) {
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  // Position popup above the button; recompute on resize/scroll
+  useEffect(() => {
+    if (!open) return
+    const update = () => {
+      if (!buttonRef.current) return
+      const rect = buttonRef.current.getBoundingClientRect()
+      setPopupBottom(window.innerHeight - rect.top + 8)
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
   }, [open])
 
   const handleReact = async (emoji, name) => {
@@ -105,7 +123,8 @@ export default function ReactButton({ post, t }) {
           ref={popupRef}
           role="menu"
           aria-label={t('post.reactPickerLabel', { defaultValue: 'Choose a reaction' })}
-          className="absolute bottom-full right-0 mb-2 flex gap-0 bg-base-100 border-2 border-primary shadow-lg z-40"
+          style={{ bottom: popupBottom }}
+          className="fixed left-[5px] right-[5px] flex flex-wrap justify-center gap-0 bg-base-100 border-2 border-primary shadow-lg z-40"
         >
           {emojis.map(({ emoji, name }) => (
             <button

@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faComment, faBookmark, faShareNodes, faPen, faTrash } from '@fortawesome/free-solid-svg-icons'
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
+import ReplyModal from './ReplyModal'
 import BookmarkComposer from '../bookmarks/BookmarkComposer'
 import { useClient } from '../../hooks/useClient'
 
@@ -175,6 +176,8 @@ export default function PostToolbar({ post, onDeleted }) {
   const { user } = useSelector((state) => state.auth)
   const { t } = useTranslation()
   const [bookmarking, setBookmarking] = useState(false)
+  const [replyOpen, setReplyOpen] = useState(false)
+  const [replyOffset, setReplyOffset] = useState(0)
 
   const postUrl = post?.url ?? (post?.id ? `/posts/${encodeURIComponent(post.id)}` : null)
   const bookmarkInitial = postUrl ? {
@@ -184,6 +187,7 @@ export default function PostToolbar({ post, onDeleted }) {
   } : null
 
   const isOwner = user && post?.attributedTo?.id && user.id === post.attributedTo.id
+  const displayedReplyCount = (post?.replyCount ?? 0) + replyOffset
 
   return (
     <div className="flex items-center gap-4 flex-1">
@@ -192,17 +196,26 @@ export default function PostToolbar({ post, onDeleted }) {
         <div className="flex items-center gap-4">
         {/* Reply */}
         {post?.id && (
-          <Link
-            to={`/posts/${encodeURIComponent(post.id)}#replies`}
+          <button
+            type="button"
+            onClick={() => setReplyOpen(true)}
             title={t('post.reply', { defaultValue: 'Reply' })}
             aria-label={t('post.reply', { defaultValue: 'Reply' })}
             className="inline-flex items-center gap-1.5 text-base text-base-content/50 hover:text-base-content transition-colors"
           >
             <FontAwesomeIcon icon={faComment} />
-            {post.replyCount > 0 && (
-              <span className="font-ui text-xs tracking-wider">{post.replyCount}</span>
+            {displayedReplyCount > 0 && (
+              <span className="font-ui text-xs tracking-wider">{displayedReplyCount}</span>
             )}
-          </Link>
+          </button>
+        )}
+        {post?.id && (
+          <ReplyModal
+            post={post}
+            open={replyOpen}
+            onClose={() => setReplyOpen(false)}
+            onReplied={({ delta = 1 } = {}) => setReplyOffset((n) => n + delta)}
+          />
         )}
 
         {/* React */}
