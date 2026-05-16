@@ -45,7 +45,7 @@ function groupResults(items) {
       buckets.posts.push({
         ...item,
         name: item.title ?? item.name,
-        attributedTo: { id: item.actorId },
+        actor: item.actor ?? { id: item.actorId },
       })
     } else if (t === 'User') {
       buckets.users.push({

@@ -15,7 +15,7 @@ export default function Reply({ reply, onUpdated, onDeleted }) {
   const { user } = useSelector((s) => s.auth)
   const client = useClient()
 
-  const actor = reply.actor ?? reply.attributedTo ?? {}
+  const actor = reply.actor ?? {}
   const html = reply.body || reply.source?.content || ''
   const isAuthor = !!user && reply.actorId === user.id
 

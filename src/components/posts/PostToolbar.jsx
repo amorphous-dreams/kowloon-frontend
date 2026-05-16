@@ -19,7 +19,7 @@ import { useClient } from '../../hooks/useClient'
 function buildShareTitle(post) {
   if (post.title ?? post.name) return post.title ?? post.name
   if (post.textPreview) return post.textPreview
-  const actor = post.attributedTo?.id ?? post.actorId ?? 'unknown'
+  const actor = post.actor?.id ?? post.actorId ?? 'unknown'
   const date = new Date(post.published ?? post.createdAt ?? Date.now())
   const time = date.toLocaleTimeString('en-GB', {
     hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
@@ -186,7 +186,7 @@ export default function PostToolbar({ post, onDeleted }) {
     image: post?.image ?? post?.featuredImage ?? undefined,
   } : null
 
-  const isOwner = user && post?.attributedTo?.id && user.id === post.attributedTo.id
+  const isOwner = user && post?.actor?.id && user.id === post.actor.id
   const displayedReplyCount = (post?.replyCount ?? 0) + replyOffset
 
   return (

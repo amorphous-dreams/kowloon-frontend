@@ -8,7 +8,7 @@ import Timestamp from '../ui/Timestamp'
 const TIMESTAMP_LINK_TYPES = ['Note', 'Article', 'Media', 'Link', 'Event']
 
 export default function PostMeta({ post }) {
-  const author = post?.attributedTo
+  const author = post?.actor
   const userUrl = author?.id ? `/users/${encodeURIComponent(author.id)}` : null
   const timestampTo = TIMESTAMP_LINK_TYPES.includes(post?.type) && post?.id
     ? `/posts/${encodeURIComponent(post.id)}`

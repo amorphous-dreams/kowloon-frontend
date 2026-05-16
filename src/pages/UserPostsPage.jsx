@@ -83,16 +83,15 @@ export default function UserPostsPage() {
       type: activeTypes.length === 1 ? activeTypes[0] : undefined,
       page,
     })
-    const attributedTo = user ? {
+    const fallbackActor = user ? {
       id: user.id,
-      name: user.name,
-      username: user.username,
+      name: user.profile?.name ?? user.name ?? user.username,
       icon: user.profile?.icon,
     } : undefined
     const rawPosts = res?.orderedItems ?? res ?? []
     const items = rawPosts.map((p) => ({
       ...p,
-      attributedTo: p.attributedTo ?? attributedTo,
+      actor: p.actor ?? fallbackActor,
       published: p.published ?? p.publishedAt ?? p.createdAt,
       visibility: p.visibility ?? (p.to === '@public' ? 'Public' : p.to?.startsWith('@') ? 'Server' : 'Audience'),
     }))

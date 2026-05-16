@@ -65,7 +65,7 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
   if (!open) return null
 
   const title = post?.title || post?.name || post?.textPreview || t('post.untitled', { defaultValue: 'Post' })
-  const author = post?.attributedTo ?? post?.actor ?? {}
+  const author = post?.actor ?? {}
   const postUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
 
   return (

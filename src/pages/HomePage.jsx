@@ -135,7 +135,6 @@ export default function HomePage() {
     })
     const items = (res?.orderedItems ?? []).map((p) => ({
       ...p,
-      attributedTo: p.attributedTo ?? p.actor ?? { id: p.actorId },
       published: p.published ?? p.createdAt,
     }))
     const { totalItems = 0, itemsPerPage = 20 } = res ?? {}

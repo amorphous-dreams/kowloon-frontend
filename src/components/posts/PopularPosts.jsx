@@ -75,7 +75,7 @@ export default function PopularPosts() {
         {posts.map((post) => {
           const typeColor = POST_TYPES[post.type]?.color
           const showThumb = post.type === 'Media'
-          const author = post.actor ?? post.attributedTo
+          const author = post.actor
 
           return (
             <li key={post.id} className="border-b border-base-300 last:border-b-0 mb-3 last:mb-0">

@@ -162,16 +162,15 @@ export default function UserPage() {
       }
       setUser(normalized)
 
-      const attributedTo = {
+      const fallbackActor = {
         id: normalized.id,
         name: normalized.name,
-        username: normalized.username,
         icon: normalized.profile?.icon,
       }
       const rawPosts = postsRes?.orderedItems ?? postsRes ?? []
       setPosts(rawPosts.map((p) => ({
         ...p,
-        attributedTo: p.attributedTo ?? attributedTo,
+        actor: p.actor ?? fallbackActor,
         published: p.published ?? p.publishedAt ?? p.createdAt,
         visibility: p.visibility ?? (p.to === '@public' ? 'Public' : p.to?.startsWith('@') ? 'Server' : 'Audience'),
       })))
