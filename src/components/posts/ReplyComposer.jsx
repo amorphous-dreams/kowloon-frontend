@@ -1,12 +1,13 @@
 // ReplyComposer — textarea + submit for replying to a post.
 // Used inline on PostPage and inside ReplyModal.
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { Send } from 'lucide-react'
 import UserAvatar from '../ui/UserAvatar'
 import { useClient } from '../../hooks/useClient'
+import { useDraft } from '../../hooks/useDraft'
 
 export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus = false }) {
   const { t } = useTranslation()
@@ -19,6 +20,28 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
   // server's dedupeKey lookup short-circuits duplicate Activity records
   // caused by network blips. Regenerated when the user edits the text.
   const dedupeRef = useRef(null)
+
+  // Draft persistence keyed by the parent post so each thread has its own
+  // unsaved-reply slot.
+  const draftKey = user && postId ? `reply:${user.id}:${postId}` : null
+  const draft = useDraft(draftKey)
+  const restoredRef = useRef(false)
+
+  // Restore once per (user × postId).
+  useEffect(() => {
+    if (restoredRef.current || !draftKey) return
+    restoredRef.current = true
+    const saved = draft.load()
+    if (saved?.text) setText(saved.text)
+  }, [draftKey, draft])
+
+  // Save on every edit; clear if the user empties the field. Reply drafts
+  // are small and per-thread, so an emptied field is a clean discard signal.
+  useEffect(() => {
+    if (!draftKey || !restoredRef.current) return
+    if (text.trim()) draft.save({ text })
+    else draft.clear()
+  }, [text, draftKey, draft])
 
   if (!user) return null
 
@@ -44,6 +67,7 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
       const res = await client.activities.reply({ postId, content: text, dedupeKey: dedupeRef.current.key })
       setText('')
       dedupeRef.current = null
+      draft.clear()
       onSubmitted?.({ duplicated: !!res?.duplicated })
     } catch (err) {
       setError(err.message || 'Failed to post reply.')

@@ -4,7 +4,7 @@
 //   onClose: () => void
 //   onSaved: (bookmark) => void
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
@@ -62,6 +62,10 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
   const [newFolderName, setNewFolderName] = useState('')
   const [newFolderSaving, setNewFolderSaving] = useState(false)
 
+  // Idempotency key — reused across retries of the same bookmark so a network
+  // blip can't create duplicates. Regenerated when user materially edits.
+  const dedupeRef = useRef(null)
+
   // Load the current user's folders for the picker
   useEffect(() => {
     if (!client || !user) return
@@ -93,8 +97,13 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
     if (!href || !title || saving) return
     setSaving(true)
     setError(null)
+    const tagList = tags ? tags.split(',').map((s) => s.trim()).filter(Boolean) : []
+    const signature = JSON.stringify({ href, title, notes, tagList, to, parentFolder })
+    if (!dedupeRef.current || dedupeRef.current.signature !== signature) {
+      const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+      dedupeRef.current = { key, signature }
+    }
     try {
-      const tagList = tags ? tags.split(',').map((s) => s.trim()).filter(Boolean) : []
       const res = await client.activities.createBookmark({
         href,
         title,
@@ -105,7 +114,9 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
         parentFolder: parentFolder ?? undefined,
         canReply: 'public',
         canReact: 'public',
+        dedupeKey: dedupeRef.current.key,
       })
+      dedupeRef.current = null
       onSaved?.(res?.created)
       onClose?.()
     } catch (err) {

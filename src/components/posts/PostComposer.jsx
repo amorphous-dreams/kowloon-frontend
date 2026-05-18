@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 import MediaIcon from '../../assets/icons/post-media.svg?react'
 import PostTypeIcon from '../ui/PostTypeIcon'
 import { useClient } from '../../hooks/useClient'
+import { useDraft } from '../../hooks/useDraft'
 import UserAvatar from '../ui/UserAvatar'
 import PostTypeSelector from './PostTypeSelector'
 import { POST_TYPES } from '../../lib/postTypes'
@@ -294,6 +295,24 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const triggerRef       = useRef(null)
   const typeDropdownRef  = useRef(null)
 
+  // Idempotency key for retry-safe submission. Reused across retries of the
+  // same content (e.g. mobile signal drops mid-submit) so the server's
+  // dedupeKey lookup short-circuits duplicate posts. Regenerated when the
+  // user materially changes the post body/title/audience/etc.
+  const dedupeRef = useRef(null)
+
+  // Draft persistence — survives tab close, app switch, browser crash.
+  // Skipped in prefilled/share mode where the composer is opened with content
+  // from the caller (sharing a post, prefilled Link, edit-in-place).
+  const isPrefilled = defaultOpen
+    || initialValues.content
+    || initialValues.href
+    || initialValues.target
+    || initialValues.title
+  const draftKey = user && !isPrefilled ? `post:${user.id}` : null
+  const draft = useDraft(draftKey)
+  const draftRestoredRef = useRef(false)
+
   const wordCount = postType === 'Note' ? countWords(content) : 0
   const charCount = postType === 'Note' ? content.length : 0
   const atNoteLimit = postType === 'Note' && (wordCount >= NOTE_MAX_WORDS || charCount >= NOTE_MAX_CHARS)
@@ -356,7 +375,72 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     }
   }, [expanded])
 
+  // Restore saved draft when the modal opens.
+  useEffect(() => {
+    if (!expanded) {
+      draftRestoredRef.current = false
+      return
+    }
+    if (draftRestoredRef.current || !draftKey) return
+    draftRestoredRef.current = true
+    const saved = draft.load()
+    if (!saved) return
+    if (saved.postType) setPostType(saved.postType)
+    if (saved.content) setContent(saved.content)
+    if (saved.title) setTitle(saved.title)
+    if (saved.href) setHref(saved.href)
+    if (saved.tags?.length) setTags(saved.tags)
+    if (saved.location) setLocation(saved.location)
+    if (saved.audience) setAudience(saved.audience)
+    if (saved.startDatePart) setStartDatePart(saved.startDatePart)
+    if (saved.startTimePart) setStartTimePart(saved.startTimePart)
+    if (saved.endDatePart) setEndDatePart(saved.endDatePart)
+    if (saved.endTimePart) setEndTimePart(saved.endTimePart)
+    if (saved.featuredImage) setFeaturedImage(saved.featuredImage)
+    // Bump editor key so RichTextEditor picks up restored content.
+    if (saved.content) setEditorKey((k) => k + 1)
+  }, [expanded, draftKey, draft])
+
+  // Persist draft on field changes (debounced inside useDraft). We stash
+  // `expanded: true` alongside the content so a page reload can reopen the
+  // composer right where the user left it.
+  useEffect(() => {
+    if (!expanded || !draftKey || !draftRestoredRef.current) return
+    const hasContent = content.trim() || title.trim() || href.trim()
+      || tags.length || location || startDatePart || endDatePart
+    if (!hasContent) {
+      // Drop any pending debounced write so a momentarily-empty state
+      // doesn't get persisted, but keep the stored draft (only Cancel
+      // discards explicitly).
+      draft.cancel()
+      return
+    }
+    draft.save({
+      expanded: true,
+      postType, content, title, href, tags, location, audience,
+      startDatePart, startTimePart, endDatePart, endTimePart, featuredImage,
+    })
+  }, [
+    expanded, draftKey, draft,
+    postType, content, title, href, tags, location, audience,
+    startDatePart, startTimePart, endDatePart, endTimePart, featuredImage,
+  ])
+
+  // On mount, reopen the composer if the user had it open with unsaved
+  // content. The existing restore effect (above) will populate the fields
+  // when `expanded` flips true.
+  useEffect(() => {
+    if (isPrefilled || !draftKey) return
+    const saved = draft.load()
+    if (saved?.expanded) setExpanded(true)
+    // Run once on mount — no deps on `draft` or `draftKey` so navigation
+    // between pages with the same composer doesn't re-trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleCancel = () => {
+    draft.clear()
+    dedupeRef.current = null
     setExpanded(false)
     setTimeout(() => triggerRef.current?.focus(), 0)
     setContent('')
@@ -370,7 +454,6 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     setLocation('')
     setGeo(null)
     setAttachments((prev) => { prev.forEach((a) => URL.revokeObjectURL(a.previewUrl)); return [] })
-    setFeaturedIdx(0)
     setFeaturedImage(null)
     if (artFeaturedPreview) { URL.revokeObjectURL(artFeaturedPreview); setArtFeaturedPreview(null) }
     setArtFeaturedFile(null)
@@ -497,6 +580,20 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     setSubmitting(true)
     setError(null)
     setUploadErrors({})
+    // Reuse the same dedupeKey across retries of the same content. The
+    // signature covers every user-visible field; changing any of them is a
+    // "different post" and gets a fresh key. Attachment file names are
+    // included so swapping attachments invalidates the key, but the underlying
+    // File objects are not (they aren't structurally comparable).
+    const signature = JSON.stringify({
+      postType, content, title, href, tags, location, audience,
+      startDate, endDate, target,
+      attachmentNames: attachments.map((a) => a.file.name),
+    })
+    if (!dedupeRef.current || dedupeRef.current.signature !== signature) {
+      const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+      dedupeRef.current = { key, signature }
+    }
     try {
       let uploadedAttachments
       let uploadedFeaturedImage = featuredImage || undefined
@@ -558,6 +655,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
         attachments: uploadedAttachments,
         featuredImage: uploadedFeaturedImage,
         target: target || undefined,
+        dedupeKey: dedupeRef.current.key,
       })
       handleCancel()
       onPostCreated?.()
