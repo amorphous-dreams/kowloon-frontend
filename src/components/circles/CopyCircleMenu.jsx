@@ -62,6 +62,7 @@ export default function CopyCircleMenu({ circle, className = '', onCopied, onAdd
 
   const handleCopy = async () => {
     if (!client || busy) return
+    console.log('[CopyCircleMenu] handleCopy: start', { source: circle?.id })
     setBusy(true)
     try {
       const created = await client.activities.createCircle({
@@ -70,12 +71,14 @@ export default function CopyCircleMenu({ circle, className = '', onCopied, onAdd
         icon: circle.icon ?? undefined,
         to: circle.to ?? '@public',
       })
+      console.log('[CopyCircleMenu] createCircle response', created)
       // /outbox returns createdId at the top level — match it first.
       const newCircleId = created?.createdId
         ?? created?.result?.created?.id
         ?? created?.result?.id
         ?? created?.activity?.object?.id
         ?? created?.id
+      console.log('[CopyCircleMenu] resolved newCircleId', newCircleId)
       const members = Array.isArray(circle.members) ? circle.members : []
       if (newCircleId && members.length) {
         await client.activities.addToCircle({ circleId: newCircleId, members })
@@ -89,7 +92,9 @@ export default function CopyCircleMenu({ circle, className = '', onCopied, onAdd
           : undefined,
       )
       onCopied?.(newCircleId)
+      console.log('[CopyCircleMenu] handleCopy: done')
     } catch (err) {
+      console.warn('[CopyCircleMenu] handleCopy: error', err)
       toast.error(
         t('circle.copyFailed', { defaultValue: 'Copy failed' }),
         { detail: err?.message },
