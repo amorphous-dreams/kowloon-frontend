@@ -5,7 +5,7 @@
 // bottom-inset full-width on mobile. Mount once in App.jsx (above the
 // router so pre-auth pages get it too).
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
@@ -19,11 +19,24 @@ const KIND_META = {
   error:   { Icon: AlertCircle,  bar: 'border-l-error',    iconClass: 'text-error',   role: 'alert',  aria: 'assertive' },
 }
 
+// Brief grace period before a freshly-mounted toast accepts pointer events.
+// Prevents a fingerlift from a tap on the action button that *opened* the
+// toast (or any other on-screen tap-in-progress) landing on the toast's
+// action link and triggering an unintended navigation.
+const ARM_DELAY_MS = 350
+
 function Toast({ toast }) {
   const dispatch = useDispatch()
   const meta = KIND_META[toast.kind] ?? KIND_META.info
   const { Icon } = meta
   const close = () => dispatch(dismissToast(toast.id))
+  const [armed, setArmed] = useState(false)
+
+  // Wait a beat before accepting clicks.
+  useEffect(() => {
+    const handle = setTimeout(() => setArmed(true), ARM_DELAY_MS)
+    return () => clearTimeout(handle)
+  }, [toast.id])
 
   // Auto-dismiss after durationMs; 0 means sticky.
   useEffect(() => {
@@ -54,7 +67,7 @@ function Toast({ toast }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 16, transition: { duration: 0.2 } }}
       transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-      className={`pointer-events-auto w-full lg:w-80 bg-base-100 border-2 border-base-300 border-l-4 ${meta.bar} shadow-lg flex items-start gap-3 px-4 py-3`}
+      className={`${armed ? 'pointer-events-auto' : 'pointer-events-none'} w-full lg:w-80 bg-base-100 border-2 border-base-300 border-l-4 ${meta.bar} shadow-lg flex items-start gap-3 px-4 py-3`}
     >
       <Icon size={18} className={`mt-0.5 shrink-0 ${meta.iconClass}`} aria-hidden="true" />
       <div className="flex-1 min-w-0">
@@ -83,7 +96,7 @@ export default function ToastStack() {
 
   return createPortal(
     <div
-      className="fixed z-[300] pointer-events-none flex flex-col gap-2 bottom-2 inset-x-2 items-stretch lg:bottom-4 lg:right-4 lg:left-auto lg:inset-x-auto lg:items-end lg:max-w-sm"
+      className="fixed z-[300] pointer-events-none flex flex-col gap-2 top-2 inset-x-2 items-stretch lg:top-4 lg:right-4 lg:left-auto lg:inset-x-auto lg:items-end lg:max-w-sm"
       aria-live="polite"
     >
       <AnimatePresence initial={false}>
