@@ -33,7 +33,7 @@ export const loginAsync = createAsyncThunk(
 export const registerAsync = createAsyncThunk(
   'auth/register',
   async (
-    { serverUrl, username, password, email, profile, inviteCode },
+    { serverUrl, username, password, email, profile, inviteCode, acknowledgedRules },
     { rejectWithValue }
   ) => {
     try {
@@ -44,6 +44,7 @@ export const registerAsync = createAsyncThunk(
         email,
         profile,
         inviteCode,
+        acknowledgedRules,
       })
       localStorage.setItem(SERVER_URL_KEY, serverUrl)
       return { ...result, serverUrl }

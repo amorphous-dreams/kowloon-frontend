@@ -1,7 +1,7 @@
 // AdminSettingsPage — view and edit server settings.
 
 import { useState, useEffect } from 'react'
-import { Pencil, Check, X } from 'lucide-react'
+import { Pencil, Check, X, ArrowUp, ArrowDown, Trash2, Plus } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
 
@@ -12,6 +12,125 @@ function isReadonly(setting) {
 function toEditString(uiType, v) {
   if (uiType === 'json') return v != null ? JSON.stringify(v, null, 2) : ''
   return String(v ?? '')
+}
+
+// ── Rules editor ───────────────────────────────────────────────────────────
+// Server stores each rule as { id, text, html }. The widget only edits
+// id + text; the server re-renders html on save. New rules omit id and the
+// server generates one.
+
+function newLocalRuleId() {
+  return globalThis.crypto?.randomUUID?.() ?? `new-${Date.now()}-${Math.random()}`
+}
+
+function RulesEditorRow({ setting, onSaved, readonly }) {
+  const client = useClient()
+  const initial = Array.isArray(setting.value)
+    ? setting.value.map((r) => ({ id: r.id, text: r.text ?? '' }))
+    : []
+  const [rules, setRules] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+
+  const dirty = JSON.stringify(rules) !== JSON.stringify(initial)
+
+  const update = (i, text) =>
+    setRules((prev) => prev.map((r, idx) => (idx === i ? { ...r, text } : r)))
+  const move = (i, delta) =>
+    setRules((prev) => {
+      const j = i + delta
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  const remove = (i) => setRules((prev) => prev.filter((_, idx) => idx !== i))
+  const add = () => setRules((prev) => [...prev, { id: newLocalRuleId(), text: '' }])
+  const revert = () => { setRules(initial); setError(null) }
+
+  const save = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const payload = rules
+        .map((r) => ({ id: r.id, text: (r.text || '').trim() }))
+        .filter((r) => r.text)
+      await client.admin.updateSetting({ settingId: setting.name, value: payload })
+      onSaved(setting.name, payload)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <tr className="border-b border-base-300">
+      <td className="py-3 pr-4 align-top" colSpan={3}>
+        <div className="mb-3">
+          <p className="font-ui text-sm font-medium">{setting.name}</p>
+          {setting.description && (
+            <p className="font-ui text-xs text-base-content/40 mt-0.5">{setting.description}</p>
+          )}
+        </div>
+        {rules.length === 0 && (
+          <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 mb-3">
+            No rules set. New users won't see any acknowledgement step.
+          </p>
+        )}
+        <ul className="flex flex-col gap-2">
+          {rules.map((rule, i) => (
+            <li key={rule.id} className="flex items-start gap-2 border border-base-300 bg-base-100 p-2">
+              <span className="font-ui text-xs uppercase tracking-widest text-base-content/40 mt-2 w-6 text-right tabular-nums shrink-0">
+                {i + 1}
+              </span>
+              <textarea
+                value={rule.text}
+                onChange={(e) => update(i, e.target.value)}
+                placeholder="Markdown supported — links, emphasis, lists."
+                rows={2}
+                disabled={readonly || saving}
+                className="flex-1 bg-base-100 border border-base-300 focus:border-primary outline-none px-2 py-1 font-reading text-sm resize-y"
+              />
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button type="button" onClick={() => move(i, -1)} disabled={readonly || saving || i === 0}
+                  className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20" title="Move up">
+                  <ArrowUp size={14} />
+                </button>
+                <button type="button" onClick={() => move(i, 1)} disabled={readonly || saving || i === rules.length - 1}
+                  className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20" title="Move down">
+                  <ArrowDown size={14} />
+                </button>
+                <button type="button" onClick={() => remove(i)} disabled={readonly || saving}
+                  className="p-1 text-base-content/40 hover:text-error disabled:opacity-20" title="Delete">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center justify-between mt-3 gap-3">
+          <button type="button" onClick={add} disabled={readonly || saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:text-base-content border border-base-300 hover:border-primary transition-colors disabled:opacity-40">
+            <Plus size={13} /> Add rule
+          </button>
+          <div className="flex items-center gap-2">
+            {error && <span className="font-ui text-xs text-error">{error}</span>}
+            {dirty && (
+              <button type="button" onClick={revert} disabled={saving}
+                className="px-3 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors">
+                Revert
+              </button>
+            )}
+            <button type="button" onClick={save} disabled={readonly || saving || !dirty}
+              className="px-4 py-1.5 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  )
 }
 
 function SettingRow({ setting, onSaved }) {
@@ -222,7 +341,11 @@ export default function AdminSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {editable.map((s) => <SettingRow key={s.name} setting={s} onSaved={handleSaved} />)}
+                  {editable.map((s) =>
+                    s.ui?.type === 'rules'
+                      ? <RulesEditorRow key={s.name} setting={s} onSaved={handleSaved} readonly={isReadonly(s)} />
+                      : <SettingRow key={s.name} setting={s} onSaved={handleSaved} />
+                  )}
                 </tbody>
               </table>
             </>
@@ -240,7 +363,11 @@ export default function AdminSettingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {readonly.map((s) => <SettingRow key={s.name} setting={s} onSaved={handleSaved} />)}
+                  {readonly.map((s) =>
+                    s.ui?.type === 'rules'
+                      ? <RulesEditorRow key={s.name} setting={s} onSaved={handleSaved} readonly={isReadonly(s)} />
+                      : <SettingRow key={s.name} setting={s} onSaved={handleSaved} />
+                  )}
                 </tbody>
               </table>
             </>

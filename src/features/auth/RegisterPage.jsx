@@ -26,8 +26,10 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, sessionChecked, status, error } = useSelector((state) => state.auth)
-  const { registrationIsOpen } = useSelector((state) => state.server)
+  const { registrationIsOpen, settings: serverSettings } = useSelector((state) => state.server)
   const { t } = useTranslation()
+
+  const rules = Array.isArray(serverSettings?.rules) ? serverSettings.rules : []
 
   const [serverUrl, setServerUrl]           = useState(FIXED_SERVER || '')
   const [username, setUsername]             = useState('')
@@ -36,7 +38,11 @@ export default function RegisterPage() {
   const [password, setPassword]             = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [inviteCode, setInviteCode]         = useState(searchParams.get('invite') || '')
+  const [acknowledged, setAcknowledged]     = useState({}) // { [ruleId]: true }
   const [localError, setLocalError]         = useState('')
+
+  const allRulesAcked = rules.every((r) => acknowledged[r.id])
+  const toggleRule = (id) => setAcknowledged((prev) => ({ ...prev, [id]: !prev[id] }))
 
   useEffect(() => { dispatch(clearError()) }, [dispatch])
   useEffect(() => {
@@ -51,6 +57,10 @@ export default function RegisterPage() {
     setLocalError('')
     if (password !== confirmPassword) { setLocalError(t('auth.passwordMismatch')); return }
     if (password.length < 8) { setLocalError(t('auth.passwordTooShort')); return }
+    if (rules.length > 0 && !allRulesAcked) {
+      setLocalError(t('auth.mustAcknowledgeRules', { defaultValue: 'Please acknowledge every server rule before registering.' }))
+      return
+    }
     dispatch(registerAsync({
       serverUrl: serverUrl.trim(),
       username: username.trim(),
@@ -58,6 +68,7 @@ export default function RegisterPage() {
       email: email.trim() || undefined,
       profile: displayName.trim() ? { name: displayName.trim() } : undefined,
       inviteCode: inviteCode.trim() || undefined,
+      acknowledgedRules: rules.length > 0 ? rules.map((r) => r.id) : undefined,
     }))
   }
 
@@ -230,9 +241,38 @@ export default function RegisterPage() {
               />
             </Field>
 
+            {rules.length > 0 && (
+              <fieldset className="mt-2 border-t border-base-300 pt-5">
+                <legend className="font-ui text-xs uppercase tracking-widest text-base-content/50 mb-3">
+                  {t('auth.serverRules', { defaultValue: 'Server Rules' })}
+                </legend>
+                <p className="font-reading text-sm text-base-content/60 mb-4">
+                  {t('auth.serverRulesIntro', { defaultValue: 'Please read and acknowledge each rule before creating your account.' })}
+                </p>
+                <ul className="flex flex-col gap-3">
+                  {rules.map((rule) => (
+                    <li key={rule.id} className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id={`rule-${rule.id}`}
+                        checked={!!acknowledged[rule.id]}
+                        onChange={() => toggleRule(rule.id)}
+                        className="mt-1.5 w-4 h-4 accent-primary cursor-pointer shrink-0"
+                      />
+                      <label
+                        htmlFor={`rule-${rule.id}`}
+                        className="font-reading text-sm text-base-content cursor-pointer flex-1 [&_p]:m-0 [&_p+p]:mt-2 [&_a]:text-primary [&_a]:underline"
+                        dangerouslySetInnerHTML={{ __html: rule.html || '' }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </fieldset>
+            )}
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (rules.length > 0 && !allRulesAcked)}
               className="mt-3 w-full py-3 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
             >
               {isLoading
