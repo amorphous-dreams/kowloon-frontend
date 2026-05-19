@@ -46,6 +46,7 @@ export const savePinnedCirclesAsync = createAsyncThunk(
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY_CIRCLE = 'kowloon:feed:lastCircleId'
+const STORAGE_KEY_TYPES  = 'kowloon:feed:activeTypes'
 
 function readPersistedCircleId() {
   if (typeof localStorage === 'undefined') return null
@@ -60,11 +61,34 @@ function writePersistedCircleId(id) {
   } catch { /* quota or private mode — fall through silently */ }
 }
 
-function loadPrefsFromUser(state, user) {
+function readPersistedTypes() {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TYPES)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : null
+  } catch { return null }
+}
+
+function writePersistedTypes(types) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    if (Array.isArray(types)) localStorage.setItem(STORAGE_KEY_TYPES, JSON.stringify(types))
+    else                      localStorage.removeItem(STORAGE_KEY_TYPES)
+  } catch { /* quota or private mode — fall through silently */ }
+}
+
+function loadPrefsFromUser(state, user, { preserveActiveTypes = false } = {}) {
   const prefs = user?.prefs ?? {}
   state.defaultTypes    = prefs.defaultPostView  ?? []
-  state.activeTypes     = prefs.defaultPostView  ?? []
   state.pinnedCircleIds = prefs.pinnedCircleIds  ?? []
+  // On session restore, keep whatever filter the user had last applied.
+  // On fresh login, fall through to their saved default.
+  if (!preserveActiveTypes) {
+    state.activeTypes = prefs.defaultPostView ?? []
+    writePersistedTypes(state.activeTypes.length ? state.activeTypes : null)
+  }
 }
 
 function resetFeedState(state) {
@@ -73,6 +97,7 @@ function resetFeedState(state) {
   state.defaultTypes    = []
   state.pinnedCircleIds = []
   writePersistedCircleId(null)
+  writePersistedTypes(null)
 }
 
 // ── Slice ───────────────────────────────────────────────────────────────────
@@ -80,11 +105,11 @@ function resetFeedState(state) {
 const feedSlice = createSlice({
   name: 'feed',
   initialState: {
-    // Hydrated from localStorage so the user's last-viewed circle survives a
-    // page reload. HomePage validates against the loaded circle list and
-    // falls back to Following if the saved id is gone (deleted, other user, etc).
+    // Hydrated from localStorage so the user's last-viewed circle and active
+    // type filter survive a page reload. HomePage validates the saved circle
+    // against the loaded list and falls back to Following if it's gone.
     circleId: readPersistedCircleId(),
-    activeTypes: [],      // current session filter — [] means show all types
+    activeTypes: readPersistedTypes() ?? [],
     defaultTypes: [],     // user's saved default type filter (from profile)
     pinnedCircleIds: [],  // user-pinned circle IDs (from profile)
   },
@@ -101,15 +126,18 @@ const feedSlice = createSlice({
       } else {
         state.activeTypes.push(type)
       }
+      writePersistedTypes(state.activeTypes.length ? state.activeTypes : null)
     },
 
     clearTypes(state) {
       state.activeTypes = []
+      writePersistedTypes(null)
     },
 
     // Restore active types back to the saved defaults
     resetToDefaults(state) {
       state.activeTypes = [...state.defaultTypes]
+      writePersistedTypes(state.activeTypes.length ? state.activeTypes : null)
     },
 
     pinCircle(state, action) {
@@ -125,13 +153,16 @@ const feedSlice = createSlice({
 
   extraReducers: (builder) => {
     builder
-      // Load prefs when user logs in
+      // Load prefs when user logs in. Reset activeTypes to the user's saved
+      // default — we don't want one user's session filter leaking into the
+      // next user's session.
       .addCase(loginAsync.fulfilled, (state, action) => {
         loadPrefsFromUser(state, action.payload.user)
       })
-      // Load prefs when session is restored
+      // Load prefs when session is restored. Keep activeTypes as-is so the
+      // filter survives a page reload.
       .addCase(restoreSessionAsync.fulfilled, (state, action) => {
-        if (action.payload?.user) loadPrefsFromUser(state, action.payload.user)
+        if (action.payload?.user) loadPrefsFromUser(state, action.payload.user, { preserveActiveTypes: true })
       })
       // New users get blank prefs
       .addCase(registerAsync.fulfilled, (state) => {
