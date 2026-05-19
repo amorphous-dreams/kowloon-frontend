@@ -27,7 +27,7 @@ function LinkTitle({ post }) {
 
   return (
     <div className="mb-3">
-      <h1 className="font-display text-4xl lg:text-5xl mb-12">
+      <h1 className="font-display text-2xl lg:text-5xl mb-12">
         {href
           ? <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">{inner}</a>
           : inner
@@ -506,7 +506,7 @@ export default function PostBody({ post, showFull = false }) {
       {title && (
         isLink
           ? <LinkTitle post={{ ...post, name: title }} />
-          : <h1 className="font-display text-4xl lg:text-5xl mt-4 mb-8">
+          : <h1 className="font-display text-2xl lg:text-5xl mt-4 mb-8">
               {titleLinksToPost && postUrl
                 ? <Link to={postUrl} className="hover:text-primary transition-colors">{title}</Link>
                 : title
@@ -538,7 +538,7 @@ export default function PostBody({ post, showFull = false }) {
       {isMedia && <MediaGallery attachments={post?.attachments ?? []} />}
 
       <div
-        className="prose prose-lg max-w-none [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
+        className="prose prose-lg max-w-none [&_h1]:text-xl lg:[&_h1]:text-3xl [&_h1]:mt-0 [&_h1]:mb-3 [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
         dangerouslySetInnerHTML={{ __html: html }}
       />
 
