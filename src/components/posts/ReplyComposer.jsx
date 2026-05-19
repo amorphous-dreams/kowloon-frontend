@@ -8,6 +8,7 @@ import { Send } from 'lucide-react'
 import UserAvatar from '../ui/UserAvatar'
 import { useClient } from '../../hooks/useClient'
 import { useDraft } from '../../hooks/useDraft'
+import { toast } from '../../app/toast'
 
 export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus = false }) {
   const { t } = useTranslation()
@@ -69,8 +70,10 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
       dedupeRef.current = null
       draft.clear()
       onSubmitted?.({ duplicated: !!res?.duplicated })
+      if (!res?.duplicated) toast.success(t('post.replySentToast', { defaultValue: 'Reply sent' }))
     } catch (err) {
       setError(err.message || 'Failed to post reply.')
+      toast.error(t('post.replyFailedToast', { defaultValue: 'Failed to post reply' }), { detail: err.message })
     } finally {
       setSubmitting(false)
     }

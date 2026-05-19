@@ -4,6 +4,7 @@ import feedReducer from './feedSlice'
 import serverReducer, { fetchServerInfoAsync } from './serverSlice'
 import themeReducer, { fetchThemesAsync, setActiveTheme } from '../features/theme/themeSlice'
 import myCirclesReducer from '../features/circles/myCirclesSlice'
+import toastsReducer from './toastSlice'
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     server: serverReducer,
     theme: themeReducer,
     myCircles: myCirclesReducer,
+    toasts: toastsReducer,
   },
 })
 

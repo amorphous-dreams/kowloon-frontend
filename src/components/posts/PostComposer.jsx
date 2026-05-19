@@ -14,6 +14,7 @@ import MediaIcon from '../../assets/icons/post-media.svg?react'
 import PostTypeIcon from '../ui/PostTypeIcon'
 import { useClient } from '../../hooks/useClient'
 import { useDraft } from '../../hooks/useDraft'
+import { toast } from '../../app/toast'
 import UserAvatar from '../ui/UserAvatar'
 import PostTypeSelector from './PostTypeSelector'
 import { POST_TYPES } from '../../lib/postTypes'
@@ -640,7 +641,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
         }))
       }
 
-      await client.activities.createPost({
+      const result = await client.activities.createPost({
         type: postType,
         title: title || undefined,
         content: content || undefined,
@@ -659,8 +660,16 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
       })
       handleCancel()
       onPostCreated?.()
+      const newPostId = result?.created?.id ?? result?.activity?.object?.id
+      toast.success(
+        t('composer.postedToast', { defaultValue: 'Post created' }),
+        newPostId
+          ? { action: { label: t('composer.viewPost', { defaultValue: 'View post' }), to: `/posts/${encodeURIComponent(newPostId)}` } }
+          : undefined,
+      )
     } catch (err) {
       setError(err.message || 'Failed to post.')
+      toast.error(t('composer.postFailed', { defaultValue: 'Failed to post' }), { detail: err.message })
     } finally {
       setSubmitting(false)
     }

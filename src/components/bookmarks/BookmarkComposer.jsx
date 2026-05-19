@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { X, FolderPlus, Folder } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import RichTextEditor from '../posts/RichTextEditor'
+import { toast } from '../../app/toast'
 
 const VISIBILITY_OPTIONS = [
   { value: '@public', label: 'Public' },
@@ -119,8 +120,10 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
       dedupeRef.current = null
       onSaved?.(res?.created)
       onClose?.()
+      toast.success(t('bookmark.savedToast', { defaultValue: 'Bookmark saved' }))
     } catch (err) {
       setError(err.message)
+      toast.error(t('bookmark.saveFailedToast', { defaultValue: 'Failed to save bookmark' }), { detail: err.message })
       setSaving(false)
     }
   }

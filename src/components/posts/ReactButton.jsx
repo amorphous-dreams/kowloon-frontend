@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faFaceSmile } from '@fortawesome/free-solid-svg-icons'
 import { useClient } from '../../hooks/useClient'
+import { toast } from '../../app/toast'
 
 // Module-level cache so we only fetch once per session
 let cachedEmojis = null
@@ -95,7 +96,7 @@ export default function ReactButton({ post, t }) {
         setLocalCount((c) => c + 1)
       }
     } catch (err) {
-      console.warn('[ReactButton] react failed:', err.message)
+      toast.error('Reaction failed', { detail: err?.message })
     } finally {
       setPending(false)
     }

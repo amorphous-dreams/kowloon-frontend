@@ -5,10 +5,11 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Copy, Share2, Pencil, Trash2, X, Check, UserPlus, UserMinus, Loader } from 'lucide-react'
+import { Share2, Pencil, Trash2, X, Check, UserPlus, UserMinus, Loader } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import UserAvatar from '../components/ui/UserAvatar'
 import CircleIcon from '../components/ui/CircleIcon'
+import CopyCircleMenu from '../components/circles/CopyCircleMenu'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import PostComposer from '../components/posts/PostComposer'
@@ -445,20 +446,7 @@ export default function CirclePage() {
             ) : (
               <>
                 {isLoggedIn && (
-                  <button
-                    onClick={() => navigate('/circles/new', {
-                      state: {
-                        name: circle.name,
-                        description: circle.summary ?? '',
-                        icon: circle.icon ?? null,
-                        to: circle.to ?? '@public',
-                        members,
-                      }
-                    })}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
-                  >
-                    <Copy size={12} /> {t('circle.copy')}
-                  </button>
+                  <CopyCircleMenu circle={{ ...circle, members }} />
                 )}
                 <button
                   onClick={() => setSharing(true)}

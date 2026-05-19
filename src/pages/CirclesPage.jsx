@@ -9,12 +9,12 @@ const MOCK_CIRCLES = [
 ]
 
 import { useEffect, useState, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Copy } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import CircleIcon from '../components/ui/CircleIcon'
+import CopyCircleMenu from '../components/circles/CopyCircleMenu'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
@@ -47,7 +47,7 @@ function CircleAvatar({ circle }) {
   )
 }
 
-function CircleBrowseCard({ circle, onCopy, isLoggedIn }) {
+function CircleBrowseCard({ circle, isLoggedIn }) {
   const { t } = useTranslation()
 
   return (
@@ -88,13 +88,7 @@ function CircleBrowseCard({ circle, onCopy, isLoggedIn }) {
           </div>
 
           {isLoggedIn && (
-            <button
-              onClick={() => onCopy(circle)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-              title={t('circle.copy', { defaultValue: 'Copy' })}
-            >
-              <Copy size={12} /> {t('circle.copy', { defaultValue: 'Copy' })}
-            </button>
+            <CopyCircleMenu circle={circle} className="opacity-0 group-hover:opacity-100 focus-within:opacity-100" />
           )}
         </div>
 
@@ -120,7 +114,6 @@ export default function CirclesPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const navigate = useNavigate()
 
   const load = useCallback(async (sortOrder, pageNum) => {
     if (!client) {
@@ -153,18 +146,6 @@ export default function CirclesPage() {
     if (newSort === sort) return
     setSort(newSort)
     setPage(1)
-  }
-
-  const handleCopy = (circle) => {
-    navigate('/circles/new', {
-      state: {
-        name: circle.name,
-        description: circle.summary ?? '',
-        icon: circle.icon ?? null,
-        to: circle.to ?? '@public',
-        members: circle.members ?? [],
-      }
-    })
   }
 
   const totalPages = Math.ceil(totalItems / itemsPerPage)
@@ -234,7 +215,6 @@ export default function CirclesPage() {
               key={circle.id}
               circle={circle}
               isLoggedIn={!!user}
-              onCopy={handleCopy}
             />
           ))}
         </div>

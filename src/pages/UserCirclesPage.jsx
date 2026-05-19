@@ -2,12 +2,13 @@
 // Backend only returns circles to the owner; everyone else sees an empty state.
 
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Copy } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import CircleIcon from '../components/ui/CircleIcon'
+import CopyCircleMenu from '../components/circles/CopyCircleMenu'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import EmptyState from '../components/ui/EmptyState'
@@ -22,7 +23,7 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-function CircleCard({ circle, isOwner, onCopy }) {
+function CircleCard({ circle, isOwner }) {
   const { t } = useTranslation()
 
   return (
@@ -63,12 +64,7 @@ function CircleCard({ circle, isOwner, onCopy }) {
           </div>
 
           {!isOwner && (
-            <button
-              onClick={() => onCopy(circle)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors opacity-0 group-hover:opacity-100"
-            >
-              <Copy size={12} /> {t('circle.copy', { defaultValue: 'Copy' })}
-            </button>
+            <CopyCircleMenu circle={circle} className="opacity-0 group-hover:opacity-100 focus-within:opacity-100" />
           )}
         </div>
 
@@ -86,7 +82,6 @@ export default function UserCirclesPage() {
   const { id } = useParams()
   const { t } = useTranslation()
   const client = useClient()
-  const navigate = useNavigate()
   const authUser = useSelector((state) => state.auth.user)
 
   const isOwner = authUser?.id === decodeURIComponent(id)
@@ -131,18 +126,6 @@ export default function UserCirclesPage() {
   useEffect(() => { loadCircles(page) }, [loadCircles, page])
 
   const displayName = user?.profile?.name ?? user?.name ?? user?.username ?? decodeURIComponent(id)
-
-  const handleCopy = (circle) => {
-    navigate('/circles/new', {
-      state: {
-        name: circle.name,
-        description: circle.summary,
-        icon: circle.icon ?? null,
-        to: '@public',
-        members: [],
-      },
-    })
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -195,7 +178,6 @@ export default function UserCirclesPage() {
                 key={circle.id}
                 circle={circle}
                 isOwner={isOwner}
-                onCopy={handleCopy}
               />
             ))}
           </div>
