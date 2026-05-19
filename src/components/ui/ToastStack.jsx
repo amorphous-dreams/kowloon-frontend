@@ -7,11 +7,11 @@
 
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 import { dismissToast } from '../../app/toastSlice'
+import router from '../../app/router'
 
 const KIND_META = {
   success: { Icon: CheckCircle2, bar: 'border-l-success',  iconClass: 'text-success', role: 'status', aria: 'polite' },
@@ -50,7 +50,14 @@ function Toast({ toast }) {
     if (!toast.action) return null
     const { label, to, onClick } = toast.action
     const cls = 'font-ui text-xs uppercase tracking-widest text-primary hover:opacity-70 transition-opacity shrink-0'
-    if (to) return <Link to={to} onClick={close} className={cls}>{label}</Link>
+    // We can't use react-router-dom's <Link> here — ToastStack mounts as a
+    // sibling of <RouterProvider> in App.jsx so it doesn't have the router
+    // context. Navigate imperatively via the router instance instead.
+    if (to) return (
+      <button type="button" onClick={() => { router.navigate(to); close() }} className={cls}>
+        {label}
+      </button>
+    )
     if (onClick) return (
       <button type="button" onClick={() => { onClick(); close() }} className={cls}>
         {label}
