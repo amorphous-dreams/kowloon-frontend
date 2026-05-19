@@ -70,7 +70,12 @@ export default function CopyCircleMenu({ circle, className = '', onCopied, onAdd
         icon: circle.icon ?? undefined,
         to: circle.to ?? '@public',
       })
-      const newCircleId = created?.created?.id ?? created?.activity?.object?.id ?? created?.id
+      // /outbox returns createdId at the top level — match it first.
+      const newCircleId = created?.createdId
+        ?? created?.result?.created?.id
+        ?? created?.result?.id
+        ?? created?.activity?.object?.id
+        ?? created?.id
       const members = Array.isArray(circle.members) ? circle.members : []
       if (newCircleId && members.length) {
         await client.activities.addToCircle({ circleId: newCircleId, members })
