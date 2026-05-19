@@ -660,7 +660,12 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
       })
       handleCancel()
       onPostCreated?.()
-      const newPostId = result?.created?.id ?? result?.activity?.object?.id
+      // POST /outbox sets createdId at the top of the response; fall back
+      // to other shapes for safety.
+      const newPostId = result?.createdId
+        ?? result?.result?.created?.id
+        ?? result?.result?.id
+        ?? result?.activity?.object?.id
       toast.success(
         t('composer.postedToast', { defaultValue: 'Post created' }),
         newPostId

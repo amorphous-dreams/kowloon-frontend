@@ -120,7 +120,12 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
       dedupeRef.current = null
       onSaved?.(res?.created)
       onClose?.()
-      toast.success(t('bookmark.savedToast', { defaultValue: 'Bookmark saved' }))
+      toast.success(
+        t('bookmark.savedToast', { defaultValue: 'Bookmark saved' }),
+        user?.id
+          ? { action: { label: t('bookmark.viewBookmarks', { defaultValue: 'View bookmarks' }), to: `/users/${encodeURIComponent(user.id)}/bookmarks` } }
+          : undefined,
+      )
     } catch (err) {
       setError(err.message)
       toast.error(t('bookmark.saveFailedToast', { defaultValue: 'Failed to save bookmark' }), { detail: err.message })

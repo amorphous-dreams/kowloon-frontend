@@ -70,7 +70,12 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
       dedupeRef.current = null
       draft.clear()
       onSubmitted?.({ duplicated: !!res?.duplicated })
-      if (!res?.duplicated) toast.success(t('post.replySentToast', { defaultValue: 'Reply sent' }))
+      if (!res?.duplicated) {
+        toast.success(
+          t('post.replySentToast', { defaultValue: 'Reply sent' }),
+          { action: { label: t('post.viewPost', { defaultValue: 'View post' }), to: `/posts/${encodeURIComponent(postId)}` } },
+        )
+      }
     } catch (err) {
       setError(err.message || 'Failed to post reply.')
       toast.error(t('post.replyFailedToast', { defaultValue: 'Failed to post reply' }), { detail: err.message })
