@@ -1,16 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { getClient } from '../lib/client'
-
-const getStoredServerUrl = () => {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('kowloon_server_url') || import.meta.env.VITE_SERVER_URL || null
-}
+import { getClient, resolveServerUrl } from '../lib/client'
 
 export const fetchServerInfoAsync = createAsyncThunk(
   'server/fetchInfo',
   async (_, { rejectWithValue }) => {
     try {
-      const serverUrl = getStoredServerUrl()
+      const serverUrl = resolveServerUrl()
       if (!serverUrl) return rejectWithValue('No server URL configured')
       const client = getClient(serverUrl)
       return await client.feeds.getServerInfo()
