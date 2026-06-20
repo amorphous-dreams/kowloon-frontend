@@ -76,11 +76,11 @@ function ProfileSettingRow({ setting, onSaved }) {
   const dispatch = useDispatch()
   const initial = setting.value ?? {}
   const [form, setForm] = useState({
-    name:        initial.name        ?? '',
-    subtitle:    initial.subtitle    ?? '',
-    description: initial.description ?? '',
-    icon:        initial.icon        ?? '',
-    image:       initial.image       ?? '',
+    name:         initial.name         ?? '',
+    subtitle:     initial.subtitle     ?? '',
+    description:  initial.description  ?? '',
+    icon:         initial.icon         ?? '',
+    image:        initial.image        ?? '',
     locationName: initial.location?.name ?? '',
   })
   const [saving, setSaving] = useState(false)
@@ -89,20 +89,22 @@ function ProfileSettingRow({ setting, onSaved }) {
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false) }
 
-  const handleSave = async () => {
+  // Save with an explicit form snapshot — avoids stale closure issues when
+  // called immediately after a state update (e.g. image autosave on upload).
+  const doSave = async (snapshot) => {
     setSaving(true)
     setError(null)
     try {
       const value = {
         ...initial,
-        name:        form.name,
-        subtitle:    form.subtitle,
-        description: form.description,
-        icon:        form.icon,
-        image:       form.image,
+        name:        snapshot.name,
+        subtitle:    snapshot.subtitle,
+        description: snapshot.description,
+        icon:        snapshot.icon,
+        image:       snapshot.image,
         location: {
           ...(initial.location ?? {}),
-          name: form.locationName,
+          name: snapshot.locationName,
         },
       }
       await client.admin.updateSetting({ settingId: setting.name, value })
@@ -114,6 +116,17 @@ function ProfileSettingRow({ setting, onSaved }) {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSave = () => doSave(form)
+
+  // Autosave immediately on image/icon upload so the user doesn't need to
+  // click "Save profile" separately — images take effect right away.
+  const handleImageUploaded = (field, url) => {
+    const next = { ...form, [field]: url }
+    setForm(next)
+    setSaved(false)
+    doSave(next)
   }
 
   return (
@@ -142,9 +155,9 @@ function ProfileSettingRow({ setting, onSaved }) {
               className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
           </div>
           <ImageUploadField label="Server icon (header)" value={form.icon}
-            onUploaded={(url) => set('icon', url)} client={client} />
+            onUploaded={(url) => handleImageUploaded('icon', url)} client={client} />
           <ImageUploadField label="Hero image (sidebar banner)" value={form.image}
-            onUploaded={(url) => set('image', url)} client={client} />
+            onUploaded={(url) => handleImageUploaded('image', url)} client={client} />
           <div className="flex items-center gap-3">
             {error && <span className="font-ui text-xs text-error">{error}</span>}
             {saved && !error && <span className="font-ui text-xs text-success uppercase tracking-widest">Saved</span>}
