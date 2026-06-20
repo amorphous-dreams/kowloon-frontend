@@ -261,17 +261,17 @@ function SettingRow({ setting, onSaved }) {
         {editing ? (
           <div className="flex gap-1 justify-end">
             <button onClick={() => handleSave()} disabled={saving}
-              className="p-1 text-success hover:text-success/80 transition-colors disabled:opacity-30" title="Save">
-              <Check size={14} />
+              className="px-2 py-1 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
+              {saving ? 'Saving…' : 'Save'}
             </button>
             <button onClick={handleCancel}
-              className="p-1 text-base-content/40 hover:text-base-content transition-colors" title="Cancel">
-              <X size={14} />
+              className="px-2 py-1 font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content border border-base-300 transition-colors">
+              Cancel
             </button>
           </div>
         ) : !readonly && (
           <button onClick={() => setEditing(true)}
-            className="p-1 text-base-content/0 group-hover:text-base-content/40 hover:text-base-content transition-colors" title="Edit">
+            className="p-1 text-base-content/20 group-hover:text-base-content/60 hover:text-base-content transition-colors" title="Edit">
             <Pencil size={13} />
           </button>
         )}
