@@ -191,6 +191,9 @@ textarea:focus-visible {
   .prose em {
     font-style: italic;
   }
+  .prose u {
+    text-decoration: underline;
+  }
   .prose a {
     color: var(--color-primary);
     text-decoration: underline;
