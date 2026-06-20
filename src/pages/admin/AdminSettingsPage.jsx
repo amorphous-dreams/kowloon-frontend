@@ -1,9 +1,12 @@
 // AdminSettingsPage — view and edit server settings.
 
-import { useState, useEffect } from 'react'
-import { Pencil, Check, X, ArrowUp, ArrowDown, Trash2, Plus } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useDispatch } from 'react-redux'
+import { Pencil, Check, ArrowUp, ArrowDown, Trash2, Plus, Upload, X } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
+import { fetchServerInfoAsync } from '../../app/serverSlice'
+import sizedUrl from '../../lib/sizedUrl'
 
 function isReadonly(setting) {
   return setting?.canEdit === '@private' || setting?.ui?.type === 'redacted'
@@ -12,6 +15,148 @@ function isReadonly(setting) {
 function toEditString(uiType, v) {
   if (uiType === 'json') return v != null ? JSON.stringify(v, null, 2) : ''
   return String(v ?? '')
+}
+
+// ── Profile editor ─────────────────────────────────────────────────────────
+
+function ImageUploadField({ label, value, onUploaded, client }) {
+  const inputRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError(null)
+    try {
+      const result = await client.files.upload({
+        file,
+        filename: file.name,
+        contentType: file.type,
+        to: '@public',
+        generateThumbnail: true,
+        thumbnailSizes: [200, 400],
+      })
+      onUploaded(result.file.url)
+    } catch (err) {
+      setError(err?.message || 'Upload failed')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="font-ui text-xs uppercase tracking-widest text-base-content/50">{label}</p>
+      {value && (
+        <div className="relative w-fit">
+          <img src={sizedUrl(value, 400)} alt="" className="max-h-32 max-w-xs object-contain border border-base-300" />
+          <button type="button" onClick={() => onUploaded('')}
+            className="absolute top-1 right-1 bg-base-100 border border-base-300 p-0.5 text-base-content/50 hover:text-error transition-colors"
+            title="Remove">
+            <X size={12} />
+          </button>
+        </div>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}
+        className="flex items-center gap-2 w-fit px-3 py-1.5 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
+        <Upload size={13} />
+        {uploading ? 'Uploading...' : value ? 'Replace' : 'Upload image'}
+      </button>
+      {error && <p className="font-ui text-xs text-error">{error}</p>}
+    </div>
+  )
+}
+
+function ProfileSettingRow({ setting, onSaved }) {
+  const client = useClient()
+  const dispatch = useDispatch()
+  const initial = setting.value ?? {}
+  const [form, setForm] = useState({
+    name:        initial.name        ?? '',
+    subtitle:    initial.subtitle    ?? '',
+    description: initial.description ?? '',
+    icon:        initial.icon        ?? '',
+    image:       initial.image       ?? '',
+    locationName: initial.location?.name ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState(null)
+  const [saved, setSaved]   = useState(false)
+
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false) }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const value = {
+        ...initial,
+        name:        form.name,
+        subtitle:    form.subtitle,
+        description: form.description,
+        icon:        form.icon,
+        image:       form.image,
+        location: {
+          ...(initial.location ?? {}),
+          name: form.locationName,
+        },
+      }
+      await client.admin.updateSetting({ settingId: setting.name, value })
+      onSaved(setting.name, value)
+      dispatch(fetchServerInfoAsync())
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <tr className="border-b border-base-300">
+      <td className="py-4 align-top" colSpan={3}>
+        <div className="flex flex-col gap-5 max-w-xl">
+          <div className="flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Server name</label>
+            <input type="text" value={form.name} onChange={(e) => set('name', e.target.value)}
+              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Subtitle</label>
+            <input type="text" value={form.subtitle} onChange={(e) => set('subtitle', e.target.value)}
+              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Description (HTML)</label>
+            <textarea value={form.description} onChange={(e) => set('description', e.target.value)}
+              rows={4}
+              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-mono text-xs outline-none resize-y" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Location name</label>
+            <input type="text" value={form.locationName} onChange={(e) => set('locationName', e.target.value)}
+              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+          <ImageUploadField label="Server icon (header)" value={form.icon}
+            onUploaded={(url) => set('icon', url)} client={client} />
+          <ImageUploadField label="Hero image (sidebar banner)" value={form.image}
+            onUploaded={(url) => set('image', url)} client={client} />
+          <div className="flex items-center gap-3">
+            {error && <span className="font-ui text-xs text-error">{error}</span>}
+            {saved && !error && <span className="font-ui text-xs text-success uppercase tracking-widest">Saved</span>}
+            <button type="button" onClick={handleSave} disabled={saving}
+              className="px-4 py-1.5 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
+              {saving ? 'Saving...' : 'Save profile'}
+            </button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  )
 }
 
 // ── Rules editor ───────────────────────────────────────────────────────────
@@ -342,7 +487,9 @@ export default function AdminSettingsPage() {
                 </thead>
                 <tbody>
                   {editable.map((s) =>
-                    s.ui?.type === 'rules'
+                    s.name === 'profile'
+                      ? <ProfileSettingRow key={s.name} setting={s} onSaved={handleSaved} />
+                      : s.ui?.type === 'rules'
                       ? <RulesEditorRow key={s.name} setting={s} onSaved={handleSaved} readonly={isReadonly(s)} />
                       : <SettingRow key={s.name} setting={s} onSaved={handleSaved} />
                   )}
