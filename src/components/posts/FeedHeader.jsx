@@ -149,7 +149,13 @@ export default function FeedHeader({ currentCircle }) {
   const dispatch = useDispatch()
   const { activeTypes, defaultTypes, pinnedCircleIds } = useSelector((state) => state.feed)
 
+  const { t } = useTranslation()
   const currentCircleObj = circles.find((c) => c.id === currentCircle?.id) ?? currentCircle
+
+  const TYPE_LABELS = { Note: t('feed.notes'), Article: t('feed.articles'), Media: t('feed.media'), Event: t('feed.events'), Link: t('feed.links') }
+  const filterLabel = activeTypes.length > 0
+    ? activeTypes.map((type) => TYPE_LABELS[type] ?? type).join(' / ')
+    : null
 
   return (
     <div className="flex flex-col gap-0 border-b-2 border-base-300 mb-4">
@@ -177,6 +183,12 @@ export default function FeedHeader({ currentCircle }) {
         />
         <TypeFilter activeTypes={activeTypes} defaultTypes={defaultTypes} />
       </div>
+
+      {filterLabel && (
+        <p className="pb-2 text-sm font-reading text-base-content/50 tracking-wide">
+          {filterLabel}
+        </p>
+      )}
     </div>
   )
 }
