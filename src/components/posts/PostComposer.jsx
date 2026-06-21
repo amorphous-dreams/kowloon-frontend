@@ -295,6 +295,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const hrefInputRef     = useRef(null)
   const triggerRef       = useRef(null)
   const typeDropdownRef  = useRef(null)
+  const popupHostRef     = useRef(null)
 
   // Idempotency key for retry-safe submission. Reused across retries of the
   // same content (e.g. mobile signal drops mid-submit) so the server's
@@ -976,6 +977,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                 locating={locating}
                 onGeolocate={handleGeolocate}
                 geocodingUrl={geocodingUrl}
+                popupHostRef={popupHostRef}
               />
             </>
           )}
@@ -1004,6 +1006,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
               locating={locating}
               onGeolocate={handleGeolocate}
               geocodingUrl={geocodingUrl}
+              popupHostRef={popupHostRef}
               borderTop
             />
           )}
@@ -1032,6 +1035,11 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
         </div>
 
       </motion.div>
+
+      {/* Portal host for dropdowns — must live inside FocusTrap so focus-trap
+          v8's inert pass doesn't make them unclickable */}
+      <div ref={popupHostRef} />
+
     </div>
     </FocusTrap>
           )}

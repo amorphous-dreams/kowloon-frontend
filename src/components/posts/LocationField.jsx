@@ -17,6 +17,7 @@ export default function LocationField({
   geocodingUrl,
   borderTop = false,
   variant = 'composer',
+  popupHostRef = null,
 }) {
   const { t } = useTranslation()
   const [suggestions, setSuggestions] = useState([])
@@ -108,7 +109,7 @@ export default function LocationField({
         </li>
       ))}
     </ul>,
-    document.body
+    popupHostRef?.current ?? document.body
   )
 
   if (variant === 'page') {
