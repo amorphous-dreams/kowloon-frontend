@@ -194,40 +194,29 @@ function ImageUploadField({ label, description, value, onUploaded, client }) {
   )
 }
 
-// ── User ID picker ─────────────────────────────────────────────────────────
-// Shows current user IDs as chips with remove buttons and a search-to-add row.
-// Props: ids (string[]), onChange(string[]), client, disabled
+// ── Circle member picker ───────────────────────────────────────────────────
+// Manages membership in a server-role circle (admin or mod).
+// Saves immediately on add/remove — no Save button needed.
 
-function UserIdPicker({ ids, onChange, client, disabled }) {
-  const [resolved, setResolved] = useState({})   // id -> { name, icon }
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [searching, setSearching] = useState(false)
+function CircleMemberPicker({ role, client }) {
+  const [members,     setMembers]     = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [fetchError,  setFetchError]  = useState(null)
+  const [pending,     setPending]     = useState(new Set())
+  const [query,       setQuery]       = useState('')
+  const [results,     setResults]     = useState([])
+  const [searching,   setSearching]   = useState(false)
   const [searchError, setSearchError] = useState(null)
+  const [opError,     setOpError]     = useState(null)
 
-  // Resolve display info for any IDs we haven't looked up yet
   useEffect(() => {
-    const unresolved = ids.filter((id) => !resolved[id])
-    if (!unresolved.length || !client) return
-    Promise.allSettled(
-      unresolved.map((id) =>
-        client.feeds.http.get('/users/search', { params: { q: id, limit: 1 } })
-          .then((res) => {
-            const match = (res?.orderedItems ?? []).find((u) => u.id === id)
-            return match ? { id, name: match.name, icon: match.icon } : null
-          })
-          .catch(() => null)
-      )
-    ).then((settled) => {
-      const updates = {}
-      for (const r of settled) {
-        if (r.status === 'fulfilled' && r.value) {
-          updates[r.value.id] = { name: r.value.name, icon: r.value.icon }
-        }
-      }
-      if (Object.keys(updates).length) setResolved((prev) => ({ ...prev, ...updates }))
-    })
-  }, [ids.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!client) return
+    setLoading(true); setFetchError(null)
+    const fn = role === 'admin' ? client.admin.getAdmins() : client.admin.getMods()
+    fn.then((res) => setMembers(res?.members ?? []))
+      .catch((err) => setFetchError(err?.message || 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [role, client])
 
   const handleSearch = async () => {
     const q = query.trim()
@@ -245,38 +234,62 @@ function UserIdPicker({ ids, onChange, client, disabled }) {
     }
   }
 
-  const handleAdd = (user) => {
-    if (ids.includes(user.id)) return
-    setResolved((prev) => ({ ...prev, [user.id]: { name: user.name, icon: user.icon } }))
-    onChange([...ids, user.id])
+  const handleAdd = async (user) => {
+    if (members.some((m) => m.id === user.id)) return
+    setOpError(null)
+    const optimistic = { id: user.id, name: user.name, icon: user.icon }
+    setMembers((prev) => [...prev, optimistic])
     setQuery(''); setResults([]); setSearchError(null)
+    try {
+      if (role === 'admin') await client.admin.addAdmin({ userId: user.id })
+      else await client.admin.addMod({ userId: user.id })
+    } catch (err) {
+      setMembers((prev) => prev.filter((m) => m.id !== user.id))
+      setOpError(err?.message || 'Failed to add user')
+    }
   }
 
-  const handleRemove = (id) => onChange(ids.filter((i) => i !== id))
+  const handleRemove = async (id) => {
+    setOpError(null)
+    const removed = members.find((m) => m.id === id)
+    setPending((p) => new Set([...p, id]))
+    setMembers((prev) => prev.filter((m) => m.id !== id))
+    try {
+      if (role === 'admin') await client.admin.removeAdmin({ userId: id })
+      else await client.admin.removeMod({ userId: id })
+    } catch (err) {
+      setMembers((prev) => [...prev, removed])
+      setOpError(err?.message || 'Failed to remove user')
+    } finally {
+      setPending((p) => { const n = new Set(p); n.delete(id); return n })
+    }
+  }
+
+  if (loading) return <Spinner />
+  if (fetchError) return <p className="font-ui text-xs text-error">{fetchError}</p>
 
   return (
     <div className="flex flex-col gap-3">
-      {ids.length === 0 ? (
+      {members.length === 0 ? (
         <p className="font-ui text-xs text-base-content/40">None.</p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {ids.map((id) => {
-            const info = resolved[id]
-            return (
-              <li key={id} className="flex items-center gap-3 border border-base-300 bg-base-100 px-3 py-2">
-                {info?.icon
-                  ? <img src={info.icon} alt="" className="w-7 h-7 object-cover shrink-0" />
-                  : <div className="w-7 h-7 bg-base-300 shrink-0" />
-                }
-                <div className="flex-1 min-w-0">
-                  {info?.name && <p className="font-ui text-sm truncate">{info.name}</p>}
-                  <p className="font-mono text-xs text-base-content/50 truncate">{id}</p>
-                </div>
-                <button type="button" onClick={() => handleRemove(id)} disabled={disabled}
-                  className="p-1 text-base-content/30 hover:text-error disabled:opacity-20"><X size={14} /></button>
-              </li>
-            )
-          })}
+          {members.map((m) => (
+            <li key={m.id} className="flex items-center gap-3 border border-base-300 bg-base-100 px-3 py-2">
+              {m.icon
+                ? <img src={m.icon} alt="" className="w-7 h-7 object-cover shrink-0" />
+                : <div className="w-7 h-7 bg-base-300 shrink-0" />
+              }
+              <div className="flex-1 min-w-0">
+                {m.name && <p className="font-ui text-sm truncate">{m.name}</p>}
+                <p className="font-mono text-xs text-base-content/50 truncate">{m.id}</p>
+              </div>
+              <button type="button" onClick={() => handleRemove(m.id)} disabled={pending.has(m.id)}
+                className="p-1 text-base-content/30 hover:text-error disabled:opacity-20 transition-colors">
+                {pending.has(m.id) ? <Loader size={13} className="animate-spin" /> : <X size={14} />}
+              </button>
+            </li>
+          ))}
         </ul>
       )}
 
@@ -285,21 +298,21 @@ function UserIdPicker({ ids, onChange, client, disabled }) {
           onChange={(e) => { setQuery(e.target.value); setResults([]); setSearchError(null) }}
           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
           placeholder="Search by name or @handle"
-          disabled={disabled}
-          className="flex-1 max-w-sm border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none disabled:opacity-50"
+          className="flex-1 max-w-sm border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none"
         />
-        <button type="button" onClick={handleSearch} disabled={!query.trim() || searching || disabled}
+        <button type="button" onClick={handleSearch} disabled={!query.trim() || searching}
           className="px-4 py-2 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
           {searching ? <Loader size={14} className="animate-spin" /> : 'Search'}
         </button>
       </div>
 
       {searchError && <p className="font-ui text-xs text-error">{searchError}</p>}
+      {opError    && <p className="font-ui text-xs text-error">{opError}</p>}
 
       {results.length > 0 && (
         <ul className="flex flex-col border border-base-300 max-w-sm">
           {results.map((user) => {
-            const already = ids.includes(user.id)
+            const already = members.some((m) => m.id === user.id)
             return (
               <li key={user.id} className="flex items-center gap-3 border-b border-base-300 last:border-b-0 bg-base-100 hover:bg-base-200 transition-colors">
                 <button type="button" onClick={() => handleAdd(user)} disabled={already}
@@ -549,44 +562,26 @@ function BlockedDomainsEditor({ setting, client, onSaved }) {
 
 function GeneralSection({ settings, client, onSaved }) {
   const get = (name) => settings.find((s) => s.name === name)
-  const domainSetting      = get('domain')
-  const emailSetting       = get('adminEmail')
-  const adminUsersSetting  = get('adminUsers')
-  const editorUsersSetting = get('editorUsers')
+  const domainSetting = get('domain')
+  const emailSetting  = get('adminEmail')
 
-  const [domain,      setDomain]      = useState(domainSetting?.value ?? '')
-  const [adminEmail,  setAdminEmail]  = useState(emailSetting?.value ?? '')
-  const [adminUsers,  setAdminUsers]  = useState(Array.isArray(adminUsersSetting?.value)  ? adminUsersSetting.value  : [])
-  const [editorUsers, setEditorUsers] = useState(Array.isArray(editorUsersSetting?.value) ? editorUsersSetting.value : [])
-
+  const [domain,     setDomain]     = useState(domainSetting?.value ?? '')
+  const [adminEmail, setAdminEmail] = useState(emailSetting?.value  ?? '')
   const [saving, setSaving] = useState(false)
   const [saved,  setSaved]  = useState(false)
   const [error,  setError]  = useState(null)
 
-  const initialDomain      = domainSetting?.value ?? ''
-  const initialAdminEmail  = emailSetting?.value ?? ''
-  const initialAdminUsers  = Array.isArray(adminUsersSetting?.value)  ? adminUsersSetting.value  : []
-  const initialEditorUsers = Array.isArray(editorUsersSetting?.value) ? editorUsersSetting.value : []
-
-  const dirty =
-    domain      !== initialDomain      ||
-    adminEmail  !== initialAdminEmail  ||
-    JSON.stringify(adminUsers)  !== JSON.stringify(initialAdminUsers)  ||
-    JSON.stringify(editorUsers) !== JSON.stringify(initialEditorUsers)
+  const dirty = domain !== (domainSetting?.value ?? '') || adminEmail !== (emailSetting?.value ?? '')
 
   const save = async () => {
     setSaving(true); setError(null); setSaved(false)
     try {
       await Promise.all([
-        client.admin.updateSetting({ settingId: 'domain',      value: domain }),
-        client.admin.updateSetting({ settingId: 'adminEmail',  value: adminEmail }),
-        client.admin.updateSetting({ settingId: 'adminUsers',  value: adminUsers }),
-        client.admin.updateSetting({ settingId: 'editorUsers', value: editorUsers }),
+        client.admin.updateSetting({ settingId: 'domain',     value: domain }),
+        client.admin.updateSetting({ settingId: 'adminEmail', value: adminEmail }),
       ])
-      onSaved('domain',      domain)
-      onSaved('adminEmail',  adminEmail)
-      onSaved('adminUsers',  adminUsers)
-      onSaved('editorUsers', editorUsers)
+      onSaved('domain',     domain)
+      onSaved('adminEmail', adminEmail)
       setSaved(true)
     } catch (err) {
       setError(err?.message || 'Save failed')
@@ -604,13 +599,25 @@ function GeneralSection({ settings, client, onSaved }) {
       <FieldRow label="Admin email" description="Used for Let's Encrypt certificate warnings and server-level notifications.">
         <TextInput type="email" value={adminEmail} onChange={(v) => { setAdminEmail(v); setSaved(false) }} disabled={saving} />
       </FieldRow>
-      <FieldRow label="Admin users" description="Users with full server admin access. Search and add by name or @handle.">
-        <UserIdPicker ids={adminUsers} onChange={(v) => { setAdminUsers(v); setSaved(false) }} client={client} disabled={saving} />
-      </FieldRow>
-      <FieldRow label="Editor users" description="Users allowed to create and edit server Pages.">
-        <UserIdPicker ids={editorUsers} onChange={(v) => { setEditorUsers(v); setSaved(false) }} client={client} disabled={saving} />
-      </FieldRow>
       <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+
+      <div className="mt-10 pt-8 border-t-2 border-base-300">
+        <h3 className="font-display text-xl tracking-wide mb-1">Administrators</h3>
+        <p className="font-ui text-sm text-base-content/50 mb-4">
+          Members of the admin circle have full access to this settings panel and all admin tools.
+          Changes take effect immediately.
+        </p>
+        <CircleMemberPicker role="admin" client={client} />
+      </div>
+
+      <div className="mt-8 pt-8 border-t-2 border-base-300">
+        <h3 className="font-display text-xl tracking-wide mb-1">Moderators</h3>
+        <p className="font-ui text-sm text-base-content/50 mb-4">
+          Members of the mod circle can review flagged content and take moderation actions.
+          Changes take effect immediately.
+        </p>
+        <CircleMemberPicker role="mod" client={client} />
+      </div>
     </div>
   )
 }
