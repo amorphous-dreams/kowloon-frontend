@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useDispatch } from 'react-redux'
 import { ArrowUp, ArrowDown, Trash2, Plus, Upload, X, Check, Eye, EyeOff, Loader } from 'lucide-react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Link from '@tiptap/extension-link'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
 import { fetchServerInfoAsync } from '../../app/serverSlice'
@@ -133,6 +137,84 @@ function SaveBar({ saving, saved, error, onSave, dirty }) {
         </span>
       )}
       {error && <span className="font-ui text-xs text-error">{error}</span>}
+    </div>
+  )
+}
+
+// ── HTML rich-text editor ──────────────────────────────────────────────────
+// TipTap editor that reads/writes HTML (not Markdown). Used for the server
+// profile description, which is stored and rendered as HTML.
+
+function EditorToolbarButton({ onClick, active, title, children }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onMouseDown={(e) => { e.preventDefault(); onClick() }}
+      className={`px-4 py-2.5 font-ui text-sm uppercase tracking-widest transition-colors ${
+        active
+          ? 'bg-primary text-primary-content'
+          : 'bg-base-200 text-base-content/70 hover:bg-base-300'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function HtmlEditor({ value, onChange, disabled }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({ openOnClick: false }),
+    ],
+    content: value,
+    onUpdate({ editor }) {
+      onChange?.(editor.getHTML())
+    },
+  })
+
+  useEffect(() => {
+    if (editor && editor.isEditable === disabled) {
+      editor.setEditable(!disabled)
+    }
+  }, [editor, disabled])
+
+  if (!editor) return null
+
+  return (
+    <div className={`border-2 border-base-300 max-w-2xl ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className="flex flex-wrap gap-0 border-b-2 border-base-300 bg-base-200">
+        <EditorToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>B</EditorToolbarButton>
+        <EditorToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}><em>I</em></EditorToolbarButton>
+        <EditorToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')}><span className="underline">U</span></EditorToolbarButton>
+        <EditorToolbarButton
+          onClick={() => {
+            const url = window.prompt('Enter URL')
+            if (url) editor.chain().focus().setLink({ href: url }).run()
+          }}
+          active={editor.isActive('link')}
+        >
+          Link
+        </EditorToolbarButton>
+        {editor.isActive('link') && (
+          <EditorToolbarButton onClick={() => editor.chain().focus().unsetLink().run()} active={false}>Unlink</EditorToolbarButton>
+        )}
+        <EditorToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Blockquote">
+          &ldquo;&rdquo;
+        </EditorToolbarButton>
+        <EditorToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="Heading">
+          H2
+        </EditorToolbarButton>
+        <EditorToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Bullet list">
+          &bull;&mdash;
+        </EditorToolbarButton>
+      </div>
+      <EditorContent
+        editor={editor}
+        className="font-reading text-base-content p-4 prose max-w-none focus:outline-none bg-base-100 min-h-32"
+      />
     </div>
   )
 }
@@ -686,13 +768,8 @@ function AppearanceSection({ settings, client, onSaved }) {
       <FieldRow label="Subtitle" description="Short tagline shown under the server name.">
         <TextInput value={form.subtitle} onChange={(v) => set('subtitle', v)} disabled={saving} />
       </FieldRow>
-      <FieldRow label="Description" description="Public-facing server description. HTML supported.">
-        <textarea
-          value={form.description}
-          onChange={(e) => set('description', e.target.value)}
-          disabled={saving} rows={5}
-          className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-mono text-xs outline-none w-full max-w-2xl resize-y disabled:opacity-50"
-        />
+      <FieldRow label="Description" description="Public-facing server description, shown on the homepage.">
+        <HtmlEditor value={form.description} onChange={(v) => set('description', v)} disabled={saving} />
       </FieldRow>
       <FieldRow label="Location" description="Optional location name shown in the server profile.">
         <TextInput value={form.locationName} onChange={(v) => set('locationName', v)} disabled={saving} />
