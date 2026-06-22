@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useDispatch } from 'react-redux'
-import { ArrowUp, ArrowDown, Trash2, Plus, Upload, X, Check, Eye, EyeOff } from 'lucide-react'
+import { ArrowUp, ArrowDown, Trash2, Plus, Upload, X, Check, Eye, EyeOff, Loader } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
 import { fetchServerInfoAsync } from '../../app/serverSlice'
@@ -191,6 +191,137 @@ function ImageUploadField({ label, description, value, onUploaded, client }) {
       </button>
       {error && <p className="font-ui text-xs text-error mt-1">{error}</p>}
     </FieldRow>
+  )
+}
+
+// ── User ID picker ─────────────────────────────────────────────────────────
+// Shows current user IDs as chips with remove buttons and a search-to-add row.
+// Props: ids (string[]), onChange(string[]), client, disabled
+
+function UserIdPicker({ ids, onChange, client, disabled }) {
+  const [resolved, setResolved] = useState({})   // id -> { name, icon }
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState(null)
+
+  // Resolve display info for any IDs we haven't looked up yet
+  useEffect(() => {
+    const unresolved = ids.filter((id) => !resolved[id])
+    if (!unresolved.length || !client) return
+    Promise.allSettled(
+      unresolved.map((id) =>
+        client.feeds.http.get('/users/search', { params: { q: id, limit: 1 } })
+          .then((res) => {
+            const match = (res?.orderedItems ?? []).find((u) => u.id === id)
+            return match ? { id, name: match.name, icon: match.icon } : null
+          })
+          .catch(() => null)
+      )
+    ).then((settled) => {
+      const updates = {}
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value) {
+          updates[r.value.id] = { name: r.value.name, icon: r.value.icon }
+        }
+      }
+      if (Object.keys(updates).length) setResolved((prev) => ({ ...prev, ...updates }))
+    })
+  }, [ids.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSearch = async () => {
+    const q = query.trim()
+    if (!q) return
+    setSearching(true); setSearchError(null); setResults([])
+    try {
+      const res = await client.feeds.http.get('/users/search', { params: { q, limit: 10 } })
+      const items = res?.orderedItems ?? []
+      if (!items.length) setSearchError('No users found')
+      setResults(items)
+    } catch (err) {
+      setSearchError(err?.message || 'Search failed')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleAdd = (user) => {
+    if (ids.includes(user.id)) return
+    setResolved((prev) => ({ ...prev, [user.id]: { name: user.name, icon: user.icon } }))
+    onChange([...ids, user.id])
+    setQuery(''); setResults([]); setSearchError(null)
+  }
+
+  const handleRemove = (id) => onChange(ids.filter((i) => i !== id))
+
+  return (
+    <div className="flex flex-col gap-3">
+      {ids.length === 0 ? (
+        <p className="font-ui text-xs text-base-content/40">None.</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {ids.map((id) => {
+            const info = resolved[id]
+            return (
+              <li key={id} className="flex items-center gap-3 border border-base-300 bg-base-100 px-3 py-2">
+                {info?.icon
+                  ? <img src={info.icon} alt="" className="w-7 h-7 object-cover shrink-0" />
+                  : <div className="w-7 h-7 bg-base-300 shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  {info?.name && <p className="font-ui text-sm truncate">{info.name}</p>}
+                  <p className="font-mono text-xs text-base-content/50 truncate">{id}</p>
+                </div>
+                <button type="button" onClick={() => handleRemove(id)} disabled={disabled}
+                  className="p-1 text-base-content/30 hover:text-error disabled:opacity-20"><X size={14} /></button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      <div className="flex gap-2">
+        <input type="text" value={query}
+          onChange={(e) => { setQuery(e.target.value); setResults([]); setSearchError(null) }}
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+          placeholder="Search by name or @handle"
+          disabled={disabled}
+          className="flex-1 max-w-sm border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none disabled:opacity-50"
+        />
+        <button type="button" onClick={handleSearch} disabled={!query.trim() || searching || disabled}
+          className="px-4 py-2 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
+          {searching ? <Loader size={14} className="animate-spin" /> : 'Search'}
+        </button>
+      </div>
+
+      {searchError && <p className="font-ui text-xs text-error">{searchError}</p>}
+
+      {results.length > 0 && (
+        <ul className="flex flex-col border border-base-300 max-w-sm">
+          {results.map((user) => {
+            const already = ids.includes(user.id)
+            return (
+              <li key={user.id} className="flex items-center gap-3 border-b border-base-300 last:border-b-0 bg-base-100 hover:bg-base-200 transition-colors">
+                <button type="button" onClick={() => handleAdd(user)} disabled={already}
+                  className="flex items-center gap-3 px-3 py-2 flex-1 min-w-0 text-left disabled:opacity-40">
+                  {user.icon
+                    ? <img src={user.icon} alt="" className="w-7 h-7 object-cover shrink-0" />
+                    : <div className="w-7 h-7 bg-base-300 shrink-0" />
+                  }
+                  <div className="flex-1 min-w-0">
+                    <p className="font-ui text-sm truncate">{user.name}</p>
+                    <p className="font-mono text-xs text-base-content/50 truncate">{user.id}</p>
+                  </div>
+                  {!already && (
+                    <span className="shrink-0 font-ui text-xs uppercase tracking-widest text-primary">Add</span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -418,47 +549,44 @@ function BlockedDomainsEditor({ setting, client, onSaved }) {
 
 function GeneralSection({ settings, client, onSaved }) {
   const get = (name) => settings.find((s) => s.name === name)
-  const domainSetting  = get('domain')
-  const emailSetting   = get('adminEmail')
+  const domainSetting      = get('domain')
+  const emailSetting       = get('adminEmail')
   const adminUsersSetting  = get('adminUsers')
   const editorUsersSetting = get('editorUsers')
 
-  const [form, setForm] = useState({
-    domain:     domainSetting?.value ?? '',
-    adminEmail: emailSetting?.value ?? '',
-    adminUsers:  JSON.stringify(adminUsersSetting?.value ?? [], null, 2),
-    editorUsers: JSON.stringify(editorUsersSetting?.value ?? [], null, 2),
-  })
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState(null)
+  const [domain,      setDomain]      = useState(domainSetting?.value ?? '')
+  const [adminEmail,  setAdminEmail]  = useState(emailSetting?.value ?? '')
+  const [adminUsers,  setAdminUsers]  = useState(Array.isArray(adminUsersSetting?.value)  ? adminUsersSetting.value  : [])
+  const [editorUsers, setEditorUsers] = useState(Array.isArray(editorUsersSetting?.value) ? editorUsersSetting.value : [])
 
-  const initial = {
-    domain:     domainSetting?.value ?? '',
-    adminEmail: emailSetting?.value ?? '',
-    adminUsers:  JSON.stringify(adminUsersSetting?.value ?? [], null, 2),
-    editorUsers: JSON.stringify(editorUsersSetting?.value ?? [], null, 2),
-  }
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial)
-  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false) }
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(false)
+  const [error,  setError]  = useState(null)
+
+  const initialDomain      = domainSetting?.value ?? ''
+  const initialAdminEmail  = emailSetting?.value ?? ''
+  const initialAdminUsers  = Array.isArray(adminUsersSetting?.value)  ? adminUsersSetting.value  : []
+  const initialEditorUsers = Array.isArray(editorUsersSetting?.value) ? editorUsersSetting.value : []
+
+  const dirty =
+    domain      !== initialDomain      ||
+    adminEmail  !== initialAdminEmail  ||
+    JSON.stringify(adminUsers)  !== JSON.stringify(initialAdminUsers)  ||
+    JSON.stringify(editorUsers) !== JSON.stringify(initialEditorUsers)
 
   const save = async () => {
-    let adminUsersVal, editorUsersVal
-    try { adminUsersVal = JSON.parse(form.adminUsers) } catch { setError('Admin Users: invalid JSON'); return }
-    try { editorUsersVal = JSON.parse(form.editorUsers) } catch { setError('Editor Users: invalid JSON'); return }
-
     setSaving(true); setError(null); setSaved(false)
     try {
       await Promise.all([
-        client.admin.updateSetting({ settingId: 'domain', value: form.domain }),
-        client.admin.updateSetting({ settingId: 'adminEmail', value: form.adminEmail }),
-        client.admin.updateSetting({ settingId: 'adminUsers', value: adminUsersVal }),
-        client.admin.updateSetting({ settingId: 'editorUsers', value: editorUsersVal }),
+        client.admin.updateSetting({ settingId: 'domain',      value: domain }),
+        client.admin.updateSetting({ settingId: 'adminEmail',  value: adminEmail }),
+        client.admin.updateSetting({ settingId: 'adminUsers',  value: adminUsers }),
+        client.admin.updateSetting({ settingId: 'editorUsers', value: editorUsers }),
       ])
-      onSaved('domain', form.domain)
-      onSaved('adminEmail', form.adminEmail)
-      onSaved('adminUsers', adminUsersVal)
-      onSaved('editorUsers', editorUsersVal)
+      onSaved('domain',      domain)
+      onSaved('adminEmail',  adminEmail)
+      onSaved('adminUsers',  adminUsers)
+      onSaved('editorUsers', editorUsers)
       setSaved(true)
     } catch (err) {
       setError(err?.message || 'Save failed')
@@ -471,16 +599,16 @@ function GeneralSection({ settings, client, onSaved }) {
     <div>
       <SectionHeading title="General" description="Core server identity." />
       <FieldRow label="Domain" description="Fully-qualified domain name. Changing this after setup can break federation.">
-        <TextInput value={form.domain} onChange={(v) => set('domain', v)} disabled={saving} />
+        <TextInput value={domain} onChange={(v) => { setDomain(v); setSaved(false) }} disabled={saving} />
       </FieldRow>
       <FieldRow label="Admin email" description="Used for Let's Encrypt certificate warnings and server-level notifications.">
-        <TextInput type="email" value={form.adminEmail} onChange={(v) => set('adminEmail', v)} disabled={saving} />
+        <TextInput type="email" value={adminEmail} onChange={(v) => { setAdminEmail(v); setSaved(false) }} disabled={saving} />
       </FieldRow>
-      <FieldRow label="Admin user IDs" description='JSON array of user IDs with server admin access. e.g. ["@alice@kwln.social"]'>
-        <JsonTextarea value={form.adminUsers} onChange={(v) => set('adminUsers', v)} disabled={saving} rows={4} />
+      <FieldRow label="Admin users" description="Users with full server admin access. Search and add by name or @handle.">
+        <UserIdPicker ids={adminUsers} onChange={(v) => { setAdminUsers(v); setSaved(false) }} client={client} disabled={saving} />
       </FieldRow>
-      <FieldRow label="Editor user IDs" description="JSON array of user IDs allowed to create and edit server Pages.">
-        <JsonTextarea value={form.editorUsers} onChange={(v) => set('editorUsers', v)} disabled={saving} rows={4} />
+      <FieldRow label="Editor users" description="Users allowed to create and edit server Pages.">
+        <UserIdPicker ids={editorUsers} onChange={(v) => { setEditorUsers(v); setSaved(false) }} client={client} disabled={saving} />
       </FieldRow>
       <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
     </div>
