@@ -946,33 +946,150 @@ function EmailSection({ settings, client, onSaved }) {
   )
 }
 
+// ── Flag options editor ────────────────────────────────────────────────────
+
+function FlagOptionsEditor({ setting, client, onSaved }) {
+  const newKey = () => globalThis.crypto?.randomUUID?.() ?? `new-${Math.random()}`
+
+  const toItems = (val) => {
+    if (!val || typeof val !== 'object' || Array.isArray(val)) return []
+    return Object.entries(val).map(([slug, v]) => ({
+      _key: newKey(),
+      _slugManual: true,
+      slug,
+      label:       v?.label       ?? '',
+      description: v?.description ?? '',
+    }))
+  }
+
+  const toValue = (items) =>
+    Object.fromEntries(
+      items
+        .filter((i) => i.slug.trim())
+        .map(({ slug, label, description }) => [slug.trim(), { label: label.trim(), description: description.trim() }])
+    )
+
+  const initial = toItems(setting?.value)
+  const [items,  setItems]  = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [saved,  setSaved]  = useState(false)
+  const [error,  setError]  = useState(null)
+
+  const dirty = JSON.stringify(toValue(items)) !== JSON.stringify(setting?.value ?? {})
+
+  const update = (key, field, val) => setItems((p) => p.map((i) => {
+    if (i._key !== key) return i
+    const next = { ...i, [field]: val }
+    if (field === 'label' && !i._slugManual) {
+      next.slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+    }
+    if (field === 'slug') next._slugManual = true
+    return next
+  }))
+
+  const move = (key, d) => setItems((p) => {
+    const idx = p.findIndex((i) => i._key === key)
+    const j = idx + d
+    if (j < 0 || j >= p.length) return p
+    const n = [...p]; [n[idx], n[j]] = [n[j], n[idx]]; return n
+  })
+
+  const remove = (key) => setItems((p) => p.filter((i) => i._key !== key))
+
+  const add = () => setItems((p) => [
+    ...p,
+    { _key: newKey(), _slugManual: false, slug: '', label: '', description: '' },
+  ])
+
+  const save = async () => {
+    const slugs = items.map((i) => i.slug.trim())
+    const empty = slugs.some((s) => !s)
+    if (empty) { setError('All categories need a slug'); return }
+    const dupes = slugs.filter((s, i) => slugs.indexOf(s) !== i)
+    if (dupes.length) { setError(`Duplicate slugs: ${dupes.join(', ')}`); return }
+
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      const value = toValue(items)
+      await client.admin.updateSetting({ settingId: setting.name, value })
+      onSaved(setting.name, value)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {items.length === 0 && (
+        <p className="font-ui text-xs text-base-content/40 uppercase tracking-widest">No categories defined.</p>
+      )}
+
+      <ul className="flex flex-col gap-3">
+        {items.map((item, i) => (
+          <li key={item._key} className="border border-base-300 bg-base-100 p-3 flex flex-col gap-2">
+            {/* Slug + Label row */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-ui text-xs uppercase tracking-widest text-base-content/40 w-10 text-right">{i + 1}</span>
+                <input
+                  type="text"
+                  value={item.slug}
+                  onChange={(e) => update(item._key, 'slug', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder="slug"
+                  disabled={saving}
+                  title="Internal ID — lowercase letters, numbers, underscores only"
+                  className="border border-base-300 focus:border-primary bg-base-200 px-2 py-1 font-mono text-xs outline-none w-32 disabled:opacity-50"
+                />
+              </div>
+              <input
+                type="text"
+                value={item.label}
+                onChange={(e) => update(item._key, 'label', e.target.value)}
+                placeholder="Display name"
+                disabled={saving}
+                className="border border-base-300 focus:border-primary bg-base-100 px-2 py-1 font-ui text-sm outline-none flex-1 min-w-32 disabled:opacity-50"
+              />
+              <div className="flex gap-0.5 shrink-0">
+                <button type="button" onClick={() => move(item._key, -1)} disabled={saving || i === 0}
+                  className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20"><ArrowUp size={14} /></button>
+                <button type="button" onClick={() => move(item._key, 1)} disabled={saving || i === items.length - 1}
+                  className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20"><ArrowDown size={14} /></button>
+                <button type="button" onClick={() => remove(item._key)} disabled={saving}
+                  className="p-1 text-base-content/40 hover:text-error disabled:opacity-20"><Trash2 size={14} /></button>
+              </div>
+            </div>
+            {/* Description */}
+            <textarea
+              value={item.description}
+              onChange={(e) => update(item._key, 'description', e.target.value)}
+              placeholder="Description shown to users when they select this category"
+              rows={2}
+              disabled={saving}
+              className="border border-base-300 focus:border-primary bg-base-100 px-2 py-1.5 font-reading text-sm outline-none w-full resize-y disabled:opacity-50"
+            />
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex items-center justify-between gap-3">
+        <button type="button" onClick={add} disabled={saving}
+          className="flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
+          <Plus size={13} /> Add category
+        </button>
+        <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+      </div>
+    </div>
+  )
+}
+
 function ModerationSection({ settings, client, onSaved }) {
   const get = (name) => settings.find((s) => s.name === name)
   const rulesSetting   = get('rules')
   const blockedSetting = get('blocked')
   const flagSetting    = get('flagOptions')
-
-  const initialFlagJson = flagSetting ? JSON.stringify(flagSetting.value ?? {}, null, 2) : ''
-  const [flagJson, setFlagJson] = useState(initialFlagJson)
-  const [flagSaving, setFlagSaving] = useState(false)
-  const [flagSaved, setFlagSaved] = useState(false)
-  const [flagError, setFlagError] = useState(null)
-  const flagDirty = flagJson !== initialFlagJson
-
-  const saveFlags = async () => {
-    let val
-    try { val = JSON.parse(flagJson) } catch { setFlagError('Invalid JSON'); return }
-    setFlagSaving(true); setFlagError(null); setFlagSaved(false)
-    try {
-      await client.admin.updateSetting({ settingId: 'flagOptions', value: val })
-      onSaved('flagOptions', val)
-      setFlagSaved(true)
-    } catch (err) {
-      setFlagError(err?.message || 'Save failed')
-    } finally {
-      setFlagSaving(false)
-    }
-  }
 
   return (
     <div>
@@ -1002,11 +1119,9 @@ function ModerationSection({ settings, client, onSaved }) {
         <div className="py-8 border-t-2 border-base-300">
           <h3 className="font-display text-xl tracking-wide mb-1">Report categories</h3>
           <p className="font-ui text-sm text-base-content/50 mb-4">
-            Categories shown to users when flagging content. JSON object — keys are category IDs, each value has <code>label</code> and <code>description</code>.
+            Categories shown to users when flagging content for review.
           </p>
-          <JsonTextarea value={flagJson} onChange={(v) => { setFlagJson(v); setFlagSaved(false) }}
-            disabled={flagSaving} rows={14} />
-          <SaveBar saving={flagSaving} saved={flagSaved} error={flagError} onSave={saveFlags} dirty={flagDirty} />
+          <FlagOptionsEditor setting={flagSetting} client={client} onSaved={onSaved} />
         </div>
       )}
     </div>
