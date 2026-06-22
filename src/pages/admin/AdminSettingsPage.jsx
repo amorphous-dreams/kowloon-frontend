@@ -1,25 +1,154 @@
-// AdminSettingsPage — view and edit server settings.
+// AdminSettingsPage — tabbed, purpose-built settings editor
 
 import { useState, useEffect, useRef } from 'react'
 import { useDispatch } from 'react-redux'
-import { Pencil, Check, ArrowUp, ArrowDown, Trash2, Plus, Upload, X } from 'lucide-react'
+import { ArrowUp, ArrowDown, Trash2, Plus, Upload, X, Check, Eye, EyeOff } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import Spinner from '../../components/ui/Spinner'
 import { fetchServerInfoAsync } from '../../app/serverSlice'
 import sizedUrl from '../../lib/sizedUrl'
 
-function isReadonly(setting) {
-  return setting?.canEdit === '@private' || setting?.ui?.type === 'redacted'
+// ── Tab config ─────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'general',      label: 'General' },
+  { id: 'appearance',   label: 'Appearance' },
+  { id: 'registration', label: 'Registration' },
+  { id: 'email',        label: 'Email' },
+  { id: 'moderation',   label: 'Moderation' },
+  { id: 'content',      label: 'Content' },
+  { id: 'integrations', label: 'Integrations' },
+  { id: 'maintenance',  label: 'Maintenance' },
+]
+
+// ── Shared UI primitives ───────────────────────────────────────────────────
+
+function FieldRow({ label, description, children, className = '' }) {
+  return (
+    <div className={`flex flex-col gap-1.5 py-4 border-b border-base-300 last:border-0 ${className}`}>
+      <label className="font-ui text-xs uppercase tracking-widest text-base-content/60">{label}</label>
+      {children}
+      {description && (
+        <p className="font-ui text-xs text-base-content/40 mt-0.5">{description}</p>
+      )}
+    </div>
+  )
 }
 
-function toEditString(uiType, v) {
-  if (uiType === 'json') return v != null ? JSON.stringify(v, null, 2) : ''
-  return String(v ?? '')
+function TextInput({ value, onChange, type = 'text', placeholder, disabled, className = '' }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={`border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none w-full max-w-md disabled:opacity-50 ${className}`}
+    />
+  )
 }
 
-// ── Profile editor ─────────────────────────────────────────────────────────
+function NumberInput({ value, onChange, min, max, disabled, className = '' }) {
+  return (
+    <input
+      type="number"
+      value={value}
+      min={min}
+      max={max}
+      onChange={(e) => onChange(Number(e.target.value))}
+      disabled={disabled}
+      className={`border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none w-32 disabled:opacity-50 ${className}`}
+    />
+  )
+}
 
-function ImageUploadField({ label, value, onUploaded, client }) {
+function PasswordInput({ value, onChange, disabled }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="relative max-w-md">
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 pr-10 font-ui text-sm outline-none w-full disabled:opacity-50"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        tabIndex={-1}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content transition-colors"
+      >
+        {show ? <EyeOff size={14} /> : <Eye size={14} />}
+      </button>
+    </div>
+  )
+}
+
+function Toggle({ checked, onChange, disabled, label }) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer w-fit select-none">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => !disabled && onChange(!checked)}
+        className={`relative w-10 h-5 transition-colors shrink-0 ${checked ? 'bg-primary' : 'bg-base-300'} ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+      </button>
+      <span className={`font-ui text-sm ${checked ? 'text-base-content' : 'text-base-content/50'}`}>
+        {label ?? (checked ? 'Enabled' : 'Disabled')}
+      </span>
+    </label>
+  )
+}
+
+function JsonTextarea({ value, onChange, disabled, rows = 6 }) {
+  return (
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      rows={rows}
+      className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-mono text-xs outline-none w-full max-w-2xl resize-y disabled:opacity-50"
+    />
+  )
+}
+
+function SaveBar({ saving, saved, error, onSave, dirty }) {
+  return (
+    <div className="flex items-center gap-3 pt-5">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={saving || !dirty}
+        className="px-5 py-2 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity"
+      >
+        {saving ? 'Saving...' : 'Save changes'}
+      </button>
+      {saved && !error && (
+        <span className="flex items-center gap-1.5 font-ui text-xs text-success uppercase tracking-widest">
+          <Check size={12} /> Saved
+        </span>
+      )}
+      {error && <span className="font-ui text-xs text-error">{error}</span>}
+    </div>
+  )
+}
+
+function SectionHeading({ title, description }) {
+  return (
+    <div className="mb-6">
+      <h2 className="font-display text-2xl tracking-wide">{title}</h2>
+      {description && <p className="font-ui text-sm text-base-content/50 mt-1">{description}</p>}
+    </div>
+  )
+}
+
+// ── Image upload ───────────────────────────────────────────────────────────
+
+function ImageUploadField({ label, description, value, onUploaded, client }) {
   const inputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
@@ -31,12 +160,8 @@ function ImageUploadField({ label, value, onUploaded, client }) {
     setError(null)
     try {
       const result = await client.files.upload({
-        file,
-        filename: file.name,
-        contentType: file.type,
-        to: '@public',
-        generateThumbnail: true,
-        thumbnailSizes: [200, 400],
+        file, filename: file.name, contentType: file.type,
+        to: '@public', generateThumbnail: true, thumbnailSizes: [200, 400],
       })
       onUploaded(result.file.url)
     } catch (err) {
@@ -48,14 +173,12 @@ function ImageUploadField({ label, value, onUploaded, client }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <p className="font-ui text-xs uppercase tracking-widest text-base-content/50">{label}</p>
+    <FieldRow label={label} description={description}>
       {value && (
-        <div className="relative w-fit">
-          <img src={sizedUrl(value, 400)} alt="" className="max-h-32 max-w-xs object-contain border border-base-300" />
+        <div className="relative w-fit mb-1">
+          <img src={sizedUrl(value, 400)} alt="" className="max-h-28 max-w-xs object-contain border border-base-300" />
           <button type="button" onClick={() => onUploaded('')}
-            className="absolute top-1 right-1 bg-base-100 border border-base-300 p-0.5 text-base-content/50 hover:text-error transition-colors"
-            title="Remove">
+            className="absolute top-1 right-1 bg-base-100 border border-base-300 p-0.5 text-base-content/50 hover:text-error transition-colors">
             <X size={12} />
           </button>
         </div>
@@ -64,51 +187,345 @@ function ImageUploadField({ label, value, onUploaded, client }) {
       <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}
         className="flex items-center gap-2 w-fit px-3 py-1.5 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
         <Upload size={13} />
-        {uploading ? 'Uploading...' : value ? 'Replace' : 'Upload image'}
+        {uploading ? 'Uploading...' : value ? 'Replace' : 'Upload'}
       </button>
-      {error && <p className="font-ui text-xs text-error">{error}</p>}
+      {error && <p className="font-ui text-xs text-error mt-1">{error}</p>}
+    </FieldRow>
+  )
+}
+
+// ── Rules editor ───────────────────────────────────────────────────────────
+
+function RulesEditor({ setting, client, onSaved }) {
+  const initial = Array.isArray(setting?.value)
+    ? setting.value.map((r) => ({ id: r.id, text: r.text ?? '' }))
+    : []
+  const [rules, setRules] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+
+  const dirty = JSON.stringify(rules) !== JSON.stringify(initial)
+
+  const update = (i, text) => setRules((p) => p.map((r, idx) => idx === i ? { ...r, text } : r))
+  const move = (i, d) => setRules((p) => {
+    const j = i + d
+    if (j < 0 || j >= p.length) return p
+    const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n
+  })
+  const remove = (i) => setRules((p) => p.filter((_, idx) => idx !== i))
+  const add = () => setRules((p) => [
+    ...p,
+    { id: globalThis.crypto?.randomUUID?.() ?? `new-${Math.random()}`, text: '' },
+  ])
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      const payload = rules
+        .map((r) => ({ id: r.id, text: (r.text || '').trim() }))
+        .filter((r) => r.text)
+      await client.admin.updateSetting({ settingId: setting.name, value: payload })
+      onSaved(setting.name, payload)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {rules.length === 0 && (
+        <p className="font-ui text-xs text-base-content/40 uppercase tracking-widest">
+          No rules — users won't see an acknowledgement step at registration.
+        </p>
+      )}
+      <ul className="flex flex-col gap-2">
+        {rules.map((rule, i) => (
+          <li key={rule.id} className="flex items-start gap-2 border border-base-300 bg-base-100 p-2">
+            <span className="font-ui text-xs text-base-content/40 mt-2 w-5 text-right tabular-nums shrink-0">{i + 1}</span>
+            <textarea value={rule.text} onChange={(e) => update(i, e.target.value)}
+              placeholder="Markdown supported" rows={2} disabled={saving}
+              className="flex-1 bg-base-100 border border-base-300 focus:border-primary outline-none px-2 py-1 font-reading text-sm resize-y" />
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <button type="button" onClick={() => move(i, -1)} disabled={saving || i === 0}
+                className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20"><ArrowUp size={14} /></button>
+              <button type="button" onClick={() => move(i, 1)} disabled={saving || i === rules.length - 1}
+                className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20"><ArrowDown size={14} /></button>
+              <button type="button" onClick={() => remove(i)} disabled={saving}
+                className="p-1 text-base-content/40 hover:text-error disabled:opacity-20"><Trash2 size={14} /></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center justify-between gap-3">
+        <button type="button" onClick={add} disabled={saving}
+          className="flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
+          <Plus size={13} /> Add rule
+        </button>
+        <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+      </div>
     </div>
   )
 }
 
-function ProfileSettingRow({ setting, onSaved }) {
-  const client = useClient()
+// ── Emoji editor ───────────────────────────────────────────────────────────
+
+function EmojiEditor({ setting, client, onSaved }) {
+  const initial = Array.isArray(setting?.value) ? setting.value : []
+  const [emojis, setEmojis] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+  const [newEmoji, setNewEmoji] = useState('')
+  const [newName, setNewName] = useState('')
+
+  const dirty = JSON.stringify(emojis) !== JSON.stringify(initial)
+
+  const move = (i, d) => setEmojis((p) => {
+    const j = i + d
+    if (j < 0 || j >= p.length) return p
+    const n = [...p]; [n[i], n[j]] = [n[j], n[i]]; return n
+  })
+  const remove = (i) => setEmojis((p) => p.filter((_, idx) => idx !== i))
+  const addEmoji = () => {
+    if (!newEmoji.trim() || !newName.trim()) return
+    setEmojis((p) => [...p, { emoji: newEmoji.trim(), name: newName.trim() }])
+    setNewEmoji(''); setNewName('')
+  }
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await client.admin.updateSetting({ settingId: setting.name, value: emojis })
+      onSaved(setting.name, emojis)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-1">
+        {emojis.map((e, i) => (
+          <li key={i} className="flex items-center gap-3 border border-base-300 bg-base-100 px-3 py-2">
+            <span className="text-xl w-8 text-center">{e.emoji}</span>
+            <span className="font-ui text-sm flex-1">{e.name}</span>
+            <div className="flex items-center gap-0.5">
+              <button type="button" onClick={() => move(i, -1)} disabled={saving || i === 0}
+                className="p-1 text-base-content/30 hover:text-base-content disabled:opacity-20"><ArrowUp size={12} /></button>
+              <button type="button" onClick={() => move(i, 1)} disabled={saving || i === emojis.length - 1}
+                className="p-1 text-base-content/30 hover:text-base-content disabled:opacity-20"><ArrowDown size={12} /></button>
+              <button type="button" onClick={() => remove(i)} disabled={saving}
+                className="p-1 text-base-content/30 hover:text-error disabled:opacity-20"><Trash2 size={12} /></button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-2">
+        <input type="text" value={newEmoji} onChange={(e) => setNewEmoji(e.target.value)}
+          placeholder="😀" maxLength={8}
+          className="border border-base-300 focus:border-primary bg-base-100 px-2 py-1.5 text-center text-xl w-14 outline-none" />
+        <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
+          placeholder="Reaction name" onKeyDown={(e) => e.key === 'Enter' && addEmoji()}
+          className="border border-base-300 focus:border-primary bg-base-100 px-3 py-1.5 font-ui text-sm outline-none w-48" />
+        <button type="button" onClick={addEmoji} disabled={!newEmoji.trim() || !newName.trim()}
+          className="flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
+          <Plus size={13} /> Add
+        </button>
+      </div>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
+  )
+}
+
+// ── Blocked domains editor ─────────────────────────────────────────────────
+
+function BlockedDomainsEditor({ setting, client, onSaved }) {
+  const toEntries = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}
+  const initial = toEntries(setting?.value)
+  const [blocked, setBlocked] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+  const [newDomain, setNewDomain] = useState('')
+  const [newReason, setNewReason] = useState('')
+
+  const dirty = JSON.stringify(blocked) !== JSON.stringify(initial)
+  const entries = Object.entries(blocked)
+
+  const addDomain = () => {
+    const d = newDomain.trim().toLowerCase().replace(/^https?:\/\//, '')
+    if (!d) return
+    setBlocked((p) => ({ ...p, [d]: newReason.trim() }))
+    setNewDomain(''); setNewReason('')
+  }
+  const removeDomain = (domain) => setBlocked((p) => {
+    const n = { ...p }; delete n[domain]; return n
+  })
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await client.admin.updateSetting({ settingId: setting.name, value: blocked })
+      onSaved(setting.name, blocked)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {entries.length === 0 && (
+        <p className="font-ui text-xs text-base-content/40 uppercase tracking-widest">No domains blocked.</p>
+      )}
+      <ul className="flex flex-col gap-1">
+        {entries.map(([domain, reason]) => (
+          <li key={domain} className="flex items-center gap-3 border border-base-300 bg-base-100 px-3 py-2">
+            <span className="font-mono text-sm flex-1">{domain}</span>
+            {reason && <span className="font-ui text-xs text-base-content/50 flex-1 truncate">{reason}</span>}
+            <button type="button" onClick={() => removeDomain(domain)} disabled={saving}
+              className="p-1 text-base-content/30 hover:text-error disabled:opacity-20"><X size={14} /></button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-2 flex-wrap">
+        <input type="text" value={newDomain} onChange={(e) => setNewDomain(e.target.value)}
+          placeholder="example.com" onKeyDown={(e) => e.key === 'Enter' && addDomain()}
+          className="border border-base-300 focus:border-primary bg-base-100 px-3 py-1.5 font-mono text-sm outline-none w-44" />
+        <input type="text" value={newReason} onChange={(e) => setNewReason(e.target.value)}
+          placeholder="Reason (optional)" onKeyDown={(e) => e.key === 'Enter' && addDomain()}
+          className="border border-base-300 focus:border-primary bg-base-100 px-3 py-1.5 font-ui text-sm outline-none w-64" />
+        <button type="button" onClick={addDomain} disabled={!newDomain.trim()}
+          className="flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest border border-base-300 hover:border-primary text-base-content/60 hover:text-base-content disabled:opacity-40 transition-colors">
+          <Plus size={13} /> Block
+        </button>
+      </div>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
+  )
+}
+
+// ── Tab sections ───────────────────────────────────────────────────────────
+
+function GeneralSection({ settings, client, onSaved }) {
+  const get = (name) => settings.find((s) => s.name === name)
+  const domainSetting  = get('domain')
+  const emailSetting   = get('adminEmail')
+  const adminUsersSetting  = get('adminUsers')
+  const editorUsersSetting = get('editorUsers')
+
+  const [form, setForm] = useState({
+    domain:     domainSetting?.value ?? '',
+    adminEmail: emailSetting?.value ?? '',
+    adminUsers:  JSON.stringify(adminUsersSetting?.value ?? [], null, 2),
+    editorUsers: JSON.stringify(editorUsersSetting?.value ?? [], null, 2),
+  })
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+
+  const initial = {
+    domain:     domainSetting?.value ?? '',
+    adminEmail: emailSetting?.value ?? '',
+    adminUsers:  JSON.stringify(adminUsersSetting?.value ?? [], null, 2),
+    editorUsers: JSON.stringify(editorUsersSetting?.value ?? [], null, 2),
+  }
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial)
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false) }
+
+  const save = async () => {
+    let adminUsersVal, editorUsersVal
+    try { adminUsersVal = JSON.parse(form.adminUsers) } catch { setError('Admin Users: invalid JSON'); return }
+    try { editorUsersVal = JSON.parse(form.editorUsers) } catch { setError('Editor Users: invalid JSON'); return }
+
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await Promise.all([
+        client.admin.updateSetting({ settingId: 'domain', value: form.domain }),
+        client.admin.updateSetting({ settingId: 'adminEmail', value: form.adminEmail }),
+        client.admin.updateSetting({ settingId: 'adminUsers', value: adminUsersVal }),
+        client.admin.updateSetting({ settingId: 'editorUsers', value: editorUsersVal }),
+      ])
+      onSaved('domain', form.domain)
+      onSaved('adminEmail', form.adminEmail)
+      onSaved('adminUsers', adminUsersVal)
+      onSaved('editorUsers', editorUsersVal)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeading title="General" description="Core server identity." />
+      <FieldRow label="Domain" description="Fully-qualified domain name. Changing this after setup can break federation.">
+        <TextInput value={form.domain} onChange={(v) => set('domain', v)} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Admin email" description="Used for Let's Encrypt certificate warnings and server-level notifications.">
+        <TextInput type="email" value={form.adminEmail} onChange={(v) => set('adminEmail', v)} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Admin user IDs" description='JSON array of user IDs with server admin access. e.g. ["@alice@kwln.social"]'>
+        <JsonTextarea value={form.adminUsers} onChange={(v) => set('adminUsers', v)} disabled={saving} rows={4} />
+      </FieldRow>
+      <FieldRow label="Editor user IDs" description="JSON array of user IDs allowed to create and edit server Pages.">
+        <JsonTextarea value={form.editorUsers} onChange={(v) => set('editorUsers', v)} disabled={saving} rows={4} />
+      </FieldRow>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
+  )
+}
+
+function AppearanceSection({ settings, client, onSaved }) {
   const dispatch = useDispatch()
-  const initial = setting.value ?? {}
+  const get = (name) => settings.find((s) => s.name === name)
+  const profileSetting = get('profile')
+  const emojiSetting   = get('reactEmojis')
+
+  const initial = profileSetting?.value ?? {}
   const [form, setForm] = useState({
     name:         initial.name         ?? '',
     subtitle:     initial.subtitle     ?? '',
     description:  initial.description  ?? '',
+    locationName: initial.location?.name ?? '',
     icon:         initial.icon         ?? '',
     image:        initial.image        ?? '',
-    locationName: initial.location?.name ?? '',
   })
   const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState(null)
-  const [saved, setSaved]   = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
 
+  const initialForm = {
+    name: initial.name ?? '', subtitle: initial.subtitle ?? '',
+    description: initial.description ?? '', locationName: initial.location?.name ?? '',
+    icon: initial.icon ?? '', image: initial.image ?? '',
+  }
+  const dirty = JSON.stringify(form) !== JSON.stringify(initialForm)
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false) }
 
-  // Save with an explicit form snapshot — avoids stale closure issues when
-  // called immediately after a state update (e.g. image autosave on upload).
-  const doSave = async (snapshot) => {
-    setSaving(true)
-    setError(null)
+  const saveProfile = async (snapshot) => {
+    const s = snapshot ?? form
+    setSaving(true); setError(null); setSaved(false)
     try {
       const value = {
         ...initial,
-        name:        snapshot.name,
-        subtitle:    snapshot.subtitle,
-        description: snapshot.description,
-        icon:        snapshot.icon,
-        image:       snapshot.image,
-        location: {
-          ...(initial.location ?? {}),
-          name: snapshot.locationName,
-        },
+        name: s.name, subtitle: s.subtitle, description: s.description,
+        icon: s.icon, image: s.image,
+        location: { ...(initial.location ?? {}), name: s.locationName },
       }
-      await client.admin.updateSetting({ settingId: setting.name, value })
-      onSaved(setting.name, value)
+      await client.admin.updateSetting({ settingId: 'profile', value })
+      onSaved('profile', value)
       dispatch(fetchServerInfoAsync())
       setSaved(true)
     } catch (err) {
@@ -118,103 +535,89 @@ function ProfileSettingRow({ setting, onSaved }) {
     }
   }
 
-  const handleSave = () => doSave(form)
-
-  // Autosave immediately on image/icon upload so the user doesn't need to
-  // click "Save profile" separately — images take effect right away.
   const handleImageUploaded = (field, url) => {
     const next = { ...form, [field]: url }
     setForm(next)
     setSaved(false)
-    doSave(next)
+    saveProfile(next)
   }
 
   return (
-    <tr className="border-b border-base-300">
-      <td className="py-4 align-top" colSpan={3}>
-        <div className="flex flex-col gap-5 max-w-xl">
-          <div className="flex flex-col gap-1">
-            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Server name</label>
-            <input type="text" value={form.name} onChange={(e) => set('name', e.target.value)}
-              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Subtitle</label>
-            <input type="text" value={form.subtitle} onChange={(e) => set('subtitle', e.target.value)}
-              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Description (HTML)</label>
-            <textarea value={form.description} onChange={(e) => set('description', e.target.value)}
-              rows={4}
-              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-mono text-xs outline-none resize-y" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Location name</label>
-            <input type="text" value={form.locationName} onChange={(e) => set('locationName', e.target.value)}
-              className="border border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
-          </div>
-          <ImageUploadField label="Server icon (header)" value={form.icon}
-            onUploaded={(url) => handleImageUploaded('icon', url)} client={client} />
-          <ImageUploadField label="Hero image (sidebar banner)" value={form.image}
-            onUploaded={(url) => handleImageUploaded('image', url)} client={client} />
-          <div className="flex items-center gap-3">
-            {error && <span className="font-ui text-xs text-error">{error}</span>}
-            {saved && !error && <span className="font-ui text-xs text-success uppercase tracking-widest">Saved</span>}
-            <button type="button" onClick={handleSave} disabled={saving}
-              className="px-4 py-1.5 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
-              {saving ? 'Saving...' : 'Save profile'}
-            </button>
-          </div>
+    <div>
+      <SectionHeading title="Appearance" description="How your server presents itself to the world." />
+      <FieldRow label="Server name" description="Shown in the header and in federation metadata.">
+        <TextInput value={form.name} onChange={(v) => set('name', v)} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Subtitle" description="Short tagline shown under the server name.">
+        <TextInput value={form.subtitle} onChange={(v) => set('subtitle', v)} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Description" description="Public-facing server description. HTML supported.">
+        <textarea
+          value={form.description}
+          onChange={(e) => set('description', e.target.value)}
+          disabled={saving} rows={5}
+          className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-mono text-xs outline-none w-full max-w-2xl resize-y disabled:opacity-50"
+        />
+      </FieldRow>
+      <FieldRow label="Location" description="Optional location name shown in the server profile.">
+        <TextInput value={form.locationName} onChange={(v) => set('locationName', v)} disabled={saving} />
+      </FieldRow>
+      <ImageUploadField
+        label="Server icon" client={client} value={form.icon}
+        description="Used in the header and federation previews. Recommended: square, at least 200x200px."
+        onUploaded={(url) => handleImageUploaded('icon', url)}
+      />
+      <ImageUploadField
+        label="Hero image" client={client} value={form.image}
+        description="Banner shown in the sidebar. Recommended: 1200x400px or wider."
+        onUploaded={(url) => handleImageUploaded('image', url)}
+      />
+      <SaveBar saving={saving} saved={saved} error={error} onSave={() => saveProfile()} dirty={dirty} />
+
+      {emojiSetting && (
+        <div className="mt-10 pt-8 border-t-2 border-base-300">
+          <h3 className="font-display text-xl tracking-wide mb-1">Reaction emojis</h3>
+          <p className="font-ui text-sm text-base-content/50 mb-4">
+            Reactions users can apply to posts.
+          </p>
+          <EmojiEditor setting={emojiSetting} client={client} onSaved={onSaved} />
         </div>
-      </td>
-    </tr>
+      )}
+    </div>
   )
 }
 
-// ── Rules editor ───────────────────────────────────────────────────────────
-// Server stores each rule as { id, text, html }. The widget only edits
-// id + text; the server re-renders html on save. New rules omit id and the
-// server generates one.
+function RegistrationSection({ settings, client, onSaved }) {
+  const get = (name) => settings.find((s) => s.name === name)
+  const regSetting      = get('registrationIsOpen')
+  const pronounsSetting = get('defaultPronouns')
 
-function newLocalRuleId() {
-  return globalThis.crypto?.randomUUID?.() ?? `new-${Date.now()}-${Math.random()}`
-}
-
-function RulesEditorRow({ setting, onSaved, readonly }) {
-  const client = useClient()
-  const initial = Array.isArray(setting.value)
-    ? setting.value.map((r) => ({ id: r.id, text: r.text ?? '' }))
-    : []
-  const [rules, setRules] = useState(initial)
+  const [isOpen, setIsOpen] = useState(Boolean(regSetting?.value))
+  const [pronouns, setPronouns] = useState({
+    subject:   pronounsSetting?.value?.subject   ?? 'they',
+    object:    pronounsSetting?.value?.object    ?? 'them',
+    possAdj:   pronounsSetting?.value?.possAdj   ?? 'their',
+    possPro:   pronounsSetting?.value?.possPro   ?? 'theirs',
+    reflexive: pronounsSetting?.value?.reflexive ?? 'themselves',
+  })
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
 
-  const dirty = JSON.stringify(rules) !== JSON.stringify(initial)
+  const initialOpen     = Boolean(regSetting?.value)
+  const initialPronouns = { ...pronounsSetting?.value }
+  const dirty = isOpen !== initialOpen || JSON.stringify(pronouns) !== JSON.stringify(initialPronouns)
 
-  const update = (i, text) =>
-    setRules((prev) => prev.map((r, idx) => (idx === i ? { ...r, text } : r)))
-  const move = (i, delta) =>
-    setRules((prev) => {
-      const j = i + delta
-      if (j < 0 || j >= prev.length) return prev
-      const next = [...prev]
-      ;[next[i], next[j]] = [next[j], next[i]]
-      return next
-    })
-  const remove = (i) => setRules((prev) => prev.filter((_, idx) => idx !== i))
-  const add = () => setRules((prev) => [...prev, { id: newLocalRuleId(), text: '' }])
-  const revert = () => { setRules(initial); setError(null) }
+  const setP = (k, v) => { setPronouns((p) => ({ ...p, [k]: v })); setSaved(false) }
 
   const save = async () => {
-    setSaving(true)
-    setError(null)
+    setSaving(true); setError(null); setSaved(false)
     try {
-      const payload = rules
-        .map((r) => ({ id: r.id, text: (r.text || '').trim() }))
-        .filter((r) => r.text)
-      await client.admin.updateSetting({ settingId: setting.name, value: payload })
-      onSaved(setting.name, payload)
+      await client.admin.updateSetting({ settingId: 'registrationIsOpen', value: isOpen })
+      onSaved('registrationIsOpen', isOpen)
+      await client.admin.updateSetting({ settingId: 'defaultPronouns', value: pronouns })
+      onSaved('defaultPronouns', pronouns)
+      setSaved(true)
     } catch (err) {
       setError(err?.message || 'Save failed')
     } finally {
@@ -222,107 +625,83 @@ function RulesEditorRow({ setting, onSaved, readonly }) {
     }
   }
 
+  const PRONOUN_FIELDS = [
+    { key: 'subject',   label: 'Subject',              placeholder: 'they' },
+    { key: 'object',    label: 'Object',               placeholder: 'them' },
+    { key: 'possAdj',  label: 'Possessive adjective',  placeholder: 'their' },
+    { key: 'possPro',  label: 'Possessive pronoun',    placeholder: 'theirs' },
+    { key: 'reflexive', label: 'Reflexive',            placeholder: 'themselves' },
+  ]
+
   return (
-    <tr className="border-b border-base-300">
-      <td className="py-3 pr-4 align-top" colSpan={3}>
-        <div className="mb-3">
-          <p className="font-ui text-sm font-medium">{setting.name}</p>
-          {setting.description && (
-            <p className="font-ui text-xs text-base-content/40 mt-0.5">{setting.description}</p>
-          )}
-        </div>
-        {rules.length === 0 && (
-          <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 mb-3">
-            No rules set. New users won't see any acknowledgement step.
-          </p>
-        )}
-        <ul className="flex flex-col gap-2">
-          {rules.map((rule, i) => (
-            <li key={rule.id} className="flex items-start gap-2 border border-base-300 bg-base-100 p-2">
-              <span className="font-ui text-xs uppercase tracking-widest text-base-content/40 mt-2 w-6 text-right tabular-nums shrink-0">
-                {i + 1}
-              </span>
-              <textarea
-                value={rule.text}
-                onChange={(e) => update(i, e.target.value)}
-                placeholder="Markdown supported — links, emphasis, lists."
-                rows={2}
-                disabled={readonly || saving}
-                className="flex-1 bg-base-100 border border-base-300 focus:border-primary outline-none px-2 py-1 font-reading text-sm resize-y"
+    <div>
+      <SectionHeading title="Registration" description="Control who can create accounts on this server." />
+      <FieldRow label="Open registration"
+        description="When enabled, anyone can sign up without an invite code. Disable to make this invite-only.">
+        <Toggle
+          checked={isOpen}
+          onChange={(v) => { setIsOpen(v); setSaved(false) }}
+          disabled={saving}
+          label={isOpen ? 'Anyone can register' : 'Invite-only'}
+        />
+      </FieldRow>
+      <div className="mt-6">
+        <h3 className="font-display text-xl tracking-wide mb-1">Default pronouns</h3>
+        <p className="font-ui text-sm text-base-content/50 mb-4">Pre-filled in new user profiles. Users can change them at any time.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-0">
+          {PRONOUN_FIELDS.map(({ key, label, placeholder }) => (
+            <FieldRow key={key} label={label} className="last:border-0">
+              <TextInput
+                value={pronouns[key] ?? ''}
+                onChange={(v) => setP(key, v)}
+                placeholder={placeholder}
+                disabled={saving}
+                className="max-w-xs"
               />
-              <div className="flex flex-col gap-0.5 shrink-0">
-                <button type="button" onClick={() => move(i, -1)} disabled={readonly || saving || i === 0}
-                  className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20" title="Move up">
-                  <ArrowUp size={14} />
-                </button>
-                <button type="button" onClick={() => move(i, 1)} disabled={readonly || saving || i === rules.length - 1}
-                  className="p-1 text-base-content/40 hover:text-base-content disabled:opacity-20" title="Move down">
-                  <ArrowDown size={14} />
-                </button>
-                <button type="button" onClick={() => remove(i)} disabled={readonly || saving}
-                  className="p-1 text-base-content/40 hover:text-error disabled:opacity-20" title="Delete">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </li>
+            </FieldRow>
           ))}
-        </ul>
-        <div className="flex items-center justify-between mt-3 gap-3">
-          <button type="button" onClick={add} disabled={readonly || saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:text-base-content border border-base-300 hover:border-primary transition-colors disabled:opacity-40">
-            <Plus size={13} /> Add rule
-          </button>
-          <div className="flex items-center gap-2">
-            {error && <span className="font-ui text-xs text-error">{error}</span>}
-            {dirty && (
-              <button type="button" onClick={revert} disabled={saving}
-                className="px-3 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors">
-                Revert
-              </button>
-            )}
-            <button type="button" onClick={save} disabled={readonly || saving || !dirty}
-              className="px-4 py-1.5 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-          </div>
         </div>
-      </td>
-    </tr>
+      </div>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
   )
 }
 
-function SettingRow({ setting, onSaved }) {
-  const client = useClient()
-  const uiType = setting.ui?.type ?? 'text'
-  const readonly = isReadonly(setting)
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(() => toEditString(uiType, setting.value))
+function EmailSection({ settings, client, onSaved }) {
+  const get = (name) => settings.find((s) => s.name === name)
+  const smtpSetting     = get('emailServer')
+  const verifSetting    = get('requireEmailVerification')
+
+  const initialSmtp = smtpSetting?.value ?? {}
+  const [form, setForm] = useState({
+    host:     initialSmtp.host     ?? '',
+    port:     initialSmtp.port     ?? 587,
+    username: initialSmtp.username ?? '',
+    password: initialSmtp.password ?? '',
+  })
+  const [requireVerif, setRequireVerif] = useState(Boolean(verifSetting?.value))
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleSave = async (override) => {
-    setSaving(true)
-    setError(null)
-    let coerced
+  const initialForm = {
+    host: initialSmtp.host ?? '', port: initialSmtp.port ?? 587,
+    username: initialSmtp.username ?? '', password: initialSmtp.password ?? '',
+  }
+  const initialVerif = Boolean(verifSetting?.value)
+  const dirty = JSON.stringify(form) !== JSON.stringify(initialForm) || requireVerif !== initialVerif
+
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false) }
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
     try {
-      if (override !== undefined) {
-        coerced = override
-      } else if (uiType === 'json') {
-        coerced = JSON.parse(value)
-      } else if (uiType === 'number') {
-        coerced = Number(value)
-      } else {
-        coerced = value
-      }
-    } catch {
-      setError('Invalid JSON')
-      setSaving(false)
-      return
-    }
-    try {
-      await client.admin.updateSetting({ settingId: setting.name, value: coerced })
-      onSaved(setting.name, coerced)
-      setEditing(false)
+      const emailValue = { ...initialSmtp, host: form.host, port: Number(form.port), username: form.username, password: form.password }
+      await client.admin.updateSetting({ settingId: 'emailServer', value: emailValue })
+      onSaved('emailServer', emailValue)
+      await client.admin.updateSetting({ settingId: 'requireEmailVerification', value: requireVerif })
+      onSaved('requireEmailVerification', requireVerif)
+      setSaved(true)
     } catch (err) {
       setError(err?.message || 'Save failed')
     } finally {
@@ -330,112 +709,257 @@ function SettingRow({ setting, onSaved }) {
     }
   }
 
-  const handleCancel = () => {
-    setValue(toEditString(uiType, setting.value))
-    setEditing(false)
-    setError(null)
-  }
+  return (
+    <div>
+      <SectionHeading title="Email" description="Outbound email for notifications, password resets, and invite links." />
+      <FieldRow label="SMTP host">
+        <TextInput value={form.host} onChange={(v) => set('host', v)} placeholder="smtp.example.com" disabled={saving} />
+      </FieldRow>
+      <FieldRow label="SMTP port">
+        <NumberInput value={form.port} onChange={(v) => set('port', v)} min={1} max={65535} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Username">
+        <TextInput value={form.username} onChange={(v) => set('username', v)} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Password">
+        <PasswordInput value={form.password} onChange={(v) => set('password', v)} disabled={saving} />
+      </FieldRow>
+      <FieldRow label="Require email verification"
+        description="New accounts must verify their email before logging in. Requires working SMTP above.">
+        <Toggle checked={requireVerif} onChange={(v) => { setRequireVerif(v); setSaved(false) }} disabled={saving}
+          label={requireVerif ? 'Required' : 'Not required'} />
+      </FieldRow>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
+  )
+}
 
-  if (uiType === 'boolean') {
-    const checked = Boolean(setting.value)
-    return (
-      <tr className="border-b border-base-300 hover:bg-base-200">
-        <td className="py-3 pr-4 align-middle">
-          <p className="font-ui text-sm font-medium">{setting.name}</p>
-          {setting.description && (
-            <p className="font-ui text-xs text-base-content/40 mt-0.5">{setting.description}</p>
-          )}
-        </td>
-        <td className="py-3 pr-4 align-middle" colSpan={2}>
-          <label className="flex items-center gap-3 cursor-pointer w-fit">
-            <input type="checkbox" checked={checked} disabled={readonly || saving}
-              className="cursor-pointer"
-              onChange={() => handleSave(!checked)} />
-            <span className={`font-ui text-xs uppercase tracking-widest ${checked ? 'text-success' : 'text-base-content/40'}`}>
-              {checked ? 'Enabled' : 'Disabled'}
-            </span>
-          </label>
-          {error && <p className="font-ui text-xs text-error mt-1">{error}</p>}
-        </td>
-      </tr>
-    )
-  }
+function ModerationSection({ settings, client, onSaved }) {
+  const get = (name) => settings.find((s) => s.name === name)
+  const rulesSetting   = get('rules')
+  const blockedSetting = get('blocked')
+  const flagSetting    = get('flagOptions')
 
-  const displayValue = () => {
-    const v = setting.value
-    if (v === null || v === undefined) return <span className="text-base-content/30">null</span>
-    if (typeof v === 'object') {
-      const str = JSON.stringify(v)
-      return <span className="font-mono text-xs text-base-content/60 break-all">{str.length > 80 ? str.slice(0, 80) + '…' : str}</span>
+  const initialFlagJson = flagSetting ? JSON.stringify(flagSetting.value ?? {}, null, 2) : ''
+  const [flagJson, setFlagJson] = useState(initialFlagJson)
+  const [flagSaving, setFlagSaving] = useState(false)
+  const [flagSaved, setFlagSaved] = useState(false)
+  const [flagError, setFlagError] = useState(null)
+  const flagDirty = flagJson !== initialFlagJson
+
+  const saveFlags = async () => {
+    let val
+    try { val = JSON.parse(flagJson) } catch { setFlagError('Invalid JSON'); return }
+    setFlagSaving(true); setFlagError(null); setFlagSaved(false)
+    try {
+      await client.admin.updateSetting({ settingId: 'flagOptions', value: val })
+      onSaved('flagOptions', val)
+      setFlagSaved(true)
+    } catch (err) {
+      setFlagError(err?.message || 'Save failed')
+    } finally {
+      setFlagSaving(false)
     }
-    const str = String(v)
-    if (str === '[redacted]') return <span className="text-base-content/30 italic">redacted</span>
-    return <span className="font-mono text-xs break-all">{str.length > 80 ? str.slice(0, 80) + '…' : str}</span>
-  }
-
-  const renderInput = () => {
-    if (uiType === 'json' || uiType === 'textarea') {
-      return (
-        <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          rows={uiType === 'json' ? 8 : 4}
-          className="border-2 border-primary bg-base-100 px-2 py-1 font-mono text-xs outline-none w-full resize-y"
-          autoFocus
-        />
-      )
-    }
-    const inputType = ['email', 'url', 'number'].includes(uiType) ? uiType : 'text'
-    return (
-      <input
-        type={inputType}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="border-2 border-primary bg-base-100 px-2 py-1 font-ui text-sm outline-none w-full"
-        autoFocus
-        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') handleCancel() }}
-      />
-    )
   }
 
   return (
-    <tr className="border-b border-base-300 group hover:bg-base-200">
-      <td className="py-3 pr-4 align-top">
-        <p className="font-ui text-sm font-medium">{setting.name}</p>
-        {setting.description && (
-          <p className="font-ui text-xs text-base-content/40 mt-0.5">{setting.description}</p>
-        )}
-      </td>
-      <td className={`py-3 pr-4 align-middle font-ui text-sm ${!editing && !readonly ? 'cursor-pointer' : ''}`}
-        onClick={!editing && !readonly ? () => setEditing(true) : undefined}>
-        {editing ? (
-          <div className="flex flex-col gap-1">
-            {renderInput()}
-            {error && <p className="font-ui text-xs text-error">{error}</p>}
-          </div>
-        ) : displayValue()}
-      </td>
-      <td className="py-3 align-top text-right">
-        {editing ? (
-          <div className="flex gap-1 justify-end">
-            <button onClick={() => handleSave()} disabled={saving}
-              className="px-2 py-1 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button onClick={handleCancel}
-              className="px-2 py-1 font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content border border-base-300 transition-colors">
-              Cancel
-            </button>
-          </div>
-        ) : !readonly && (
-          <button onClick={() => setEditing(true)}
-            className="p-1 text-base-content/20 group-hover:text-base-content/60 hover:text-base-content transition-colors" title="Edit">
-            <Pencil size={13} />
-          </button>
-        )}
-      </td>
-    </tr>
+    <div>
+      <SectionHeading title="Moderation" description="Community rules, blocked servers, and report categories." />
+
+      {rulesSetting && (
+        <div className="mb-10">
+          <h3 className="font-display text-xl tracking-wide mb-1">Community rules</h3>
+          <p className="font-ui text-sm text-base-content/50 mb-4">
+            Shown to new users at registration and on the public /rules page. Markdown supported.
+          </p>
+          <RulesEditor setting={rulesSetting} client={client} onSaved={onSaved} />
+        </div>
+      )}
+
+      {blockedSetting && (
+        <div className="py-8 border-t-2 border-base-300 mb-10">
+          <h3 className="font-display text-xl tracking-wide mb-1">Blocked domains</h3>
+          <p className="font-ui text-sm text-base-content/50 mb-4">
+            Content from these servers won't be delivered to your users.
+          </p>
+          <BlockedDomainsEditor setting={blockedSetting} client={client} onSaved={onSaved} />
+        </div>
+      )}
+
+      {flagSetting && (
+        <div className="py-8 border-t-2 border-base-300">
+          <h3 className="font-display text-xl tracking-wide mb-1">Report categories</h3>
+          <p className="font-ui text-sm text-base-content/50 mb-4">
+            Categories shown to users when flagging content. JSON object — keys are category IDs, each value has <code>label</code> and <code>description</code>.
+          </p>
+          <JsonTextarea value={flagJson} onChange={(v) => { setFlagJson(v); setFlagSaved(false) }}
+            disabled={flagSaving} rows={14} />
+          <SaveBar saving={flagSaving} saved={flagSaved} error={flagError} onSave={saveFlags} dirty={flagDirty} />
+        </div>
+      )}
+    </div>
   )
+}
+
+function ContentSection({ settings, client, onSaved }) {
+  const setting = settings.find((s) => s.name === 'maxUploadSize')
+  const [maxUpload, setMaxUpload] = useState(setting?.value ?? 100)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+  const dirty = maxUpload !== (setting?.value ?? 100)
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await client.admin.updateSetting({ settingId: 'maxUploadSize', value: maxUpload })
+      onSaved('maxUploadSize', maxUpload)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeading title="Content" description="Upload limits and content handling." />
+      <FieldRow label="Max upload size" description="Maximum file size users can upload. Applies to images, video, and other attachments.">
+        <div className="flex items-center gap-3">
+          <NumberInput value={maxUpload} onChange={(v) => { setMaxUpload(v); setSaved(false) }} min={1} max={2048} disabled={saving} />
+          <span className="font-ui text-sm text-base-content/50">MB</span>
+        </div>
+      </FieldRow>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
+  )
+}
+
+function IntegrationsSection({ settings, client, onSaved }) {
+  const setting = settings.find((s) => s.name === 'geocodingUrl')
+  const [url, setUrl] = useState(setting?.value ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+  const dirty = url !== (setting?.value ?? '')
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await client.admin.updateSetting({ settingId: 'geocodingUrl', value: url })
+      onSaved('geocodingUrl', url)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeading title="Integrations" description="Third-party service connections." />
+      <FieldRow label="Geocoding service URL"
+        description="Forward geocoding for the post composer location field. Must be Nominatim-compatible. Defaults to the public OpenStreetMap Nominatim instance.">
+        <TextInput type="url" value={url} onChange={(v) => { setUrl(v); setSaved(false) }} disabled={saving} />
+      </FieldRow>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+    </div>
+  )
+}
+
+function MaintenanceSection({ settings, client, onSaved }) {
+  const setting = settings.find((s) => s.name === 'gcRetentionDays')
+  const [days, setDays] = useState(setting?.value ?? 30)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+  const [backingUp, setBackingUp] = useState(false)
+  const [backupError, setBackupError] = useState(null)
+  const dirty = days !== (setting?.value ?? 30)
+
+  const saveGc = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await client.admin.updateSetting({ settingId: 'gcRetentionDays', value: days })
+      onSaved('gcRetentionDays', days)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleBackup = async () => {
+    setBackingUp(true); setBackupError(null)
+    try {
+      const data = await client.admin.backup()
+      const json = JSON.stringify(data, null, 2)
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const dateStr = new Date().toISOString().split('T')[0]
+      a.href = url
+      a.download = `kowloon-backup-${dateStr}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setBackupError(err?.message || 'Backup failed')
+    } finally {
+      setBackingUp(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeading title="Maintenance" description="Housekeeping and data management." />
+      <FieldRow label="Deleted content retention"
+        description="Days to keep soft-deleted posts, users, files, and groups before the nightly garbage collection job permanently removes them.">
+        <div className="flex items-center gap-3">
+          <NumberInput value={days} onChange={(v) => { setDays(v); setSaved(false) }} min={1} max={365} disabled={saving} />
+          <span className="font-ui text-sm text-base-content/50">days</span>
+        </div>
+      </FieldRow>
+      <SaveBar saving={saving} saved={saved} error={error} onSave={saveGc} dirty={dirty} />
+
+      <div className="mt-10 pt-8 border-t-2 border-base-300">
+        <h3 className="font-display text-xl tracking-wide mb-1">Database backup</h3>
+        <p className="font-ui text-sm text-base-content/50 mb-4">
+          Export all posts, users, groups, circles, settings, and file metadata as a JSON file.
+          Store it somewhere safe — you can use it to restore the server if anything goes wrong.
+        </p>
+        <div className="flex items-center gap-4 flex-wrap">
+          <button type="button" onClick={handleBackup} disabled={backingUp}
+            className="px-5 py-2 font-ui text-xs uppercase tracking-widest bg-secondary text-secondary-content hover:opacity-90 disabled:opacity-40 transition-opacity">
+            {backingUp ? 'Preparing...' : 'Download backup'}
+          </button>
+          {backupError && <span className="font-ui text-xs text-error">{backupError}</span>}
+          {!backupError && (
+            <span className="font-ui text-xs text-base-content/40">
+              Includes all database collections. Does not include stored files (MinIO).
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
+
+const SECTION_MAP = {
+  general:      GeneralSection,
+  appearance:   AppearanceSection,
+  registration: RegistrationSection,
+  email:        EmailSection,
+  moderation:   ModerationSection,
+  content:      ContentSection,
+  integrations: IntegrationsSection,
+  maintenance:  MaintenanceSection,
 }
 
 export default function AdminSettingsPage() {
@@ -443,7 +967,7 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState([])
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [search, setSearch] = useState('')
+  const [tab, setTab] = useState('general')
 
   useEffect(() => {
     if (!client) return
@@ -460,83 +984,39 @@ export default function AdminSettingsPage() {
   }
 
   if (denied) return (
-    <div className="py-16 text-center"><p className="font-display text-3xl tracking-wide">Access Denied</p></div>
+    <div className="py-16 text-center">
+      <p className="font-display text-3xl tracking-wide">Access Denied</p>
+    </div>
   )
 
-  const filtered = search.trim()
-    ? settings.filter((s) => s.name?.toLowerCase().includes(search.toLowerCase()) || s.description?.toLowerCase().includes(search.toLowerCase()))
-    : settings
-
-  const editable = filtered.filter((s) => !isReadonly(s))
-  const readonly = filtered.filter((s) => isReadonly(s))
+  const ActiveSection = SECTION_MAP[tab]
 
   return (
     <div>
-      <div className="flex items-baseline justify-between border-b-2 border-base-300 pb-4 mb-6">
+      <div className="flex items-baseline justify-between border-b-2 border-base-300 pb-4">
         <h1 className="font-display text-5xl tracking-wide">Settings</h1>
-        <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">{settings.length} total</span>
       </div>
 
-      <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Filter settings…"
-        className="w-full border-2 border-base-300 focus:border-primary bg-base-100 px-4 py-2 font-ui text-sm outline-none mb-6"
-      />
+      <div className="flex gap-0 border-b border-base-300 mb-8 overflow-x-auto">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-4 py-3 font-ui text-xs uppercase tracking-widest whitespace-nowrap transition-colors border-b-2 -mb-px ${
+              tab === t.id
+                ? 'border-primary text-base-content'
+                : 'border-transparent text-base-content/50 hover:text-base-content'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-      {loading ? <Spinner centered /> : (
-        <>
-          {editable.length > 0 && (
-            <>
-              <h2 className="font-display text-2xl tracking-wide border-b-2 border-base-300 pb-2 mb-0">Editable</h2>
-              <table className="w-full mb-8">
-                <thead>
-                  <tr className="border-b border-base-300">
-                    <th className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left py-2 pr-4 w-48">Name</th>
-                    <th className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left py-2 pr-4">Value</th>
-                    <th className="w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {editable.map((s) =>
-                    s.name === 'profile'
-                      ? <ProfileSettingRow key={s.name} setting={s} onSaved={handleSaved} />
-                      : s.ui?.type === 'rules'
-                      ? <RulesEditorRow key={s.name} setting={s} onSaved={handleSaved} readonly={isReadonly(s)} />
-                      : <SettingRow key={s.name} setting={s} onSaved={handleSaved} />
-                  )}
-                </tbody>
-              </table>
-            </>
-          )}
-
-          {readonly.length > 0 && (
-            <>
-              <h2 className="font-display text-2xl tracking-wide border-b-2 border-base-300 pb-2 mb-0 text-base-content/50">Read-only</h2>
-              <table className="w-full opacity-60">
-                <thead>
-                  <tr className="border-b border-base-300">
-                    <th className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left py-2 pr-4 w-48">Name</th>
-                    <th className="font-ui text-xs uppercase tracking-widest text-base-content/50 text-left py-2 pr-4">Value</th>
-                    <th className="w-16"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {readonly.map((s) =>
-                    s.ui?.type === 'rules'
-                      ? <RulesEditorRow key={s.name} setting={s} onSaved={handleSaved} readonly={isReadonly(s)} />
-                      : <SettingRow key={s.name} setting={s} onSaved={handleSaved} />
-                  )}
-                </tbody>
-              </table>
-            </>
-          )}
-
-          {filtered.length === 0 && (
-            <p className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No settings match.</p>
-          )}
-        </>
+      {loading ? (
+        <Spinner centered />
+      ) : (
+        <ActiveSection key={tab} settings={settings} client={client} onSaved={handleSaved} />
       )}
     </div>
   )
