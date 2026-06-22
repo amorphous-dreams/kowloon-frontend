@@ -14,6 +14,22 @@ import sizedUrl from '../../lib/sizedUrl'
 
 // ── Tab config ─────────────────────────────────────────────────────────────
 
+const VALID_TAB_IDS = new Set(['general','appearance','registration','email','moderation','content','integrations','maintenance'])
+
+function useHashTab(defaultTab) {
+  const read = () => {
+    const h = window.location.hash.slice(1)
+    return VALID_TAB_IDS.has(h) ? h : defaultTab
+  }
+  const [tab, setTab] = useState(read)
+  useEffect(() => {
+    const handler = () => setTab(read())
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [])
+  return tab
+}
+
 const TABS = [
   { id: 'general',      label: 'General' },
   { id: 'appearance',   label: 'Appearance' },
@@ -1294,7 +1310,7 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState([])
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
-  const [tab, setTab] = useState('general')
+  const tab = useHashTab('general')
 
   useEffect(() => {
     if (!client) return
@@ -1326,9 +1342,9 @@ export default function AdminSettingsPage() {
 
       <div className="flex gap-0 border-b border-base-300 mb-8 overflow-x-auto">
         {TABS.map((t) => (
-          <button
+          <a
             key={t.id}
-            onClick={() => setTab(t.id)}
+            href={`#${t.id}`}
             className={`px-4 py-3 font-ui text-xs uppercase tracking-widest whitespace-nowrap transition-colors border-b-2 -mb-px ${
               tab === t.id
                 ? 'border-primary text-base-content'
@@ -1336,7 +1352,7 @@ export default function AdminSettingsPage() {
             }`}
           >
             {t.label}
-          </button>
+          </a>
         ))}
       </div>
 
