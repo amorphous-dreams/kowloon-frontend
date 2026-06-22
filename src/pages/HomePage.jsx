@@ -78,6 +78,11 @@ function FilterBar({ activeTypes, onToggleType, onClearTypes, onRefresh, prefix 
           ↻
         </button>
       </div>
+      {activeTypes.length > 0 && (
+        <p className="pt-2 text-sm text-base-content/50 tracking-wide">
+          {activeTypes.map((type) => t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)).join(' / ')}
+        </p>
+      )}
     </div>
   )
 }
