@@ -162,11 +162,16 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-base-300">
+          <div className="mt-8 pt-6 border-t border-base-300 flex flex-col gap-3">
             <p className="font-ui text-xs uppercase tracking-widest text-base-content/40">
               {t('auth.noAccount', { defaultValue: "Don't have an account?" })}{' '}
               <Link to="/register" className="text-primary hover:opacity-70 transition-opacity">
                 {t('auth.signUp', { defaultValue: 'Create one' })}
+              </Link>
+            </p>
+            <p className="font-ui text-xs uppercase tracking-widest text-base-content/40">
+              <Link to="/" className="text-primary hover:opacity-70 transition-opacity">
+                {t('auth.backToHome', { defaultValue: 'Back to homepage' })}
               </Link>
             </p>
           </div>

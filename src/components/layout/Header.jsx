@@ -99,7 +99,7 @@ export function Header() {
 
   const handleLogout = async () => {
     await dispatch(logoutAsync())
-    navigate('/login')
+    navigate('/')
   }
 
   const avatarUrl   = user?.profile?.icon ?? null
