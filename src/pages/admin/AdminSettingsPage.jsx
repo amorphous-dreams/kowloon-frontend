@@ -14,7 +14,7 @@ import sizedUrl from '../../lib/sizedUrl'
 
 // ── Tab config ─────────────────────────────────────────────────────────────
 
-const VALID_TAB_IDS = new Set(['general','appearance','registration','email','moderation','content','integrations','maintenance'])
+const VALID_TAB_IDS = new Set(['general','appearance','registration','email','moderation','content','media','integrations','maintenance'])
 
 function useHashTab(defaultTab) {
   const read = () => {
@@ -37,6 +37,7 @@ const TABS = [
   { id: 'email',        label: 'Email' },
   { id: 'moderation',   label: 'Moderation' },
   { id: 'content',      label: 'Content' },
+  { id: 'media',        label: 'Media' },
   { id: 'integrations', label: 'Integrations' },
   { id: 'maintenance',  label: 'Maintenance' },
 ]
@@ -1179,6 +1180,78 @@ function ContentSection({ settings, client, onSaved }) {
   )
 }
 
+function MediaSection({ settings, client, onSaved }) {
+  const get = (name) => settings.find((s) => s.name === name)
+  const processorSetting  = get('mediaProcessor')
+  const urlSetting        = get('mediaProcessorUrl')
+  const secretSetting     = get('mediaProcessorSecret')
+
+  const [processor, setProcessor] = useState(processorSetting?.value ?? 'local')
+  const [url,       setUrl]       = useState(urlSetting?.value ?? '')
+  const [secret,    setSecret]    = useState(secretSetting?.value ?? '')
+  const [saving,    setSaving]    = useState(false)
+  const [saved,     setSaved]     = useState(false)
+  const [error,     setError]     = useState(null)
+
+  const dirty =
+    processor !== (processorSetting?.value ?? 'local') ||
+    url       !== (urlSetting?.value ?? '') ||
+    secret    !== (secretSetting?.value ?? '')
+
+  const save = async () => {
+    setSaving(true); setError(null); setSaved(false)
+    try {
+      await Promise.all([
+        client.admin.updateSetting({ settingId: 'mediaProcessor', value: processor }),
+        client.admin.updateSetting({ settingId: 'mediaProcessorUrl', value: url }),
+        ...(secret ? [client.admin.updateSetting({ settingId: 'mediaProcessorSecret', value: secret })] : []),
+      ])
+      onSaved('mediaProcessor', processor)
+      onSaved('mediaProcessorUrl', url)
+      setSaved(true)
+    } catch (err) {
+      setError(err?.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <SectionHeading title="Media" description="How uploaded images and videos are processed." />
+
+      <div className="flex flex-col gap-6 max-w-xl">
+        <FieldRow label="Processor" hint="Local uses Sharp + FFmpeg on this server. Remote forwards to a dedicated processor you control.">
+          <select
+            value={processor}
+            onChange={(e) => { setProcessor(e.target.value); setSaved(false) }}
+            disabled={saving}
+            className="w-full px-0 py-2 bg-transparent border-b-2 border-base-300 focus:border-primary outline-none font-ui text-sm text-base-content disabled:opacity-50"
+          >
+            <option value="local">Local (Sharp + FFmpeg)</option>
+            <option value="remote">Remote processor</option>
+          </select>
+        </FieldRow>
+
+        {processor === 'remote' && (
+          <>
+            <FieldRow label="Processor URL" hint="HTTPS endpoint that accepts media processing jobs.">
+              <TextInput value={url} onChange={(v) => { setUrl(v); setSaved(false) }}
+                placeholder="https://media.example.com" disabled={saving} type="url" />
+            </FieldRow>
+            <FieldRow label="Processor Secret" hint="Shared secret sent in the Authorization header.">
+              <PasswordInput value={secret} onChange={(e) => { setSecret(e.target.value); setSaved(false) }}
+                placeholder="Leave blank to keep existing secret" disabled={saving} />
+            </FieldRow>
+          </>
+        )}
+
+        <SaveBar saving={saving} saved={saved} error={error} onSave={save} dirty={dirty} />
+      </div>
+    </div>
+  )
+}
+
 function IntegrationsSection({ settings, client, onSaved }) {
   const setting = settings.find((s) => s.name === 'geocodingUrl')
   const [url, setUrl] = useState(setting?.value ?? '')
@@ -1301,6 +1374,7 @@ const SECTION_MAP = {
   email:        EmailSection,
   moderation:   ModerationSection,
   content:      ContentSection,
+  media:        MediaSection,
   integrations: IntegrationsSection,
   maintenance:  MaintenanceSection,
 }
