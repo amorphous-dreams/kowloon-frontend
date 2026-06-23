@@ -130,23 +130,27 @@ export function Header() {
           )
           return (
             <>
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                aria-label={t('a11y.openSidebar', { defaultValue: 'Open sidebar' })}
-                aria-expanded={drawerOpen}
-                aria-controls="mobile-sidebar-drawer"
-                className={`lg:hidden ${logoClass}`}
-              >
-                {Icon}
-                <span
-                  ref={mobileTitleRef}
-                  className={titleClass(mobileTitleWrap)}
-                  style={titleStyle(mobileTitleWrap, 13, 18)}
+              <div className="lg:hidden flex items-center gap-3 pl-4 pr-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  aria-label={t('a11y.openSidebar', { defaultValue: 'Open sidebar' })}
+                  aria-expanded={drawerOpen}
+                  aria-controls="mobile-sidebar-drawer"
+                  className="shrink-0 hover:opacity-90 transition-opacity"
                 >
-                  {serverName}
-                </span>
-              </button>
+                  {Icon}
+                </button>
+                <Link to="/" className="min-w-0 hover:opacity-90 transition-opacity">
+                  <span
+                    ref={mobileTitleRef}
+                    className={titleClass(mobileTitleWrap)}
+                    style={titleStyle(mobileTitleWrap, 13, 18)}
+                  >
+                    {serverName}
+                  </span>
+                </Link>
+              </div>
               <Link
                 to="/"
                 className={`hidden lg:flex ${logoClass}`}
@@ -398,15 +402,17 @@ export function Header() {
         }`}
       >
         <div className="flex items-center justify-between gap-3 h-16 bg-secondary px-4">
-          <span
-            ref={drawerTitleRef}
-            className={`font-display text-secondary-content min-w-0 text-left ${
-              drawerTitleWrap ? 'line-clamp-2 leading-[1.1]' : 'truncate'
-            }`}
-            style={{ fontSize: drawerTitleWrap ? '14px' : '18px' }}
-          >
-            {serverName}
-          </span>
+          <Link to="/" className="min-w-0 hover:opacity-90 transition-opacity">
+            <span
+              ref={drawerTitleRef}
+              className={`font-display text-secondary-content min-w-0 text-left ${
+                drawerTitleWrap ? 'line-clamp-2 leading-[1.1]' : 'truncate'
+              }`}
+              style={{ fontSize: drawerTitleWrap ? '14px' : '18px' }}
+            >
+              {serverName}
+            </span>
+          </Link>
           <button
             type="button"
             onClick={() => setDrawerOpen(false)}
