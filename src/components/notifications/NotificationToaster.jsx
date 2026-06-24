@@ -107,8 +107,9 @@ function Toast({ toast, onDismiss }) {
 // ── Toast queue + poll ────────────────────────────────────────────────────────
 
 export default function NotificationToaster() {
-  const client    = useClient()
-  const user      = useSelector((s) => s.auth.user)
+  const client        = useClient()
+  const user          = useSelector((s) => s.auth.user)
+  const toastsEnabled = useSelector((s) => s.auth.user?.prefs?.notifications?.toasts ?? true)
   const [toasts, setToasts] = useState([])
   const seenIds   = useRef(new Set())
   const baselined = useRef(false)
@@ -118,7 +119,7 @@ export default function NotificationToaster() {
   }, [])
 
   useEffect(() => {
-    if (!client || !user) return
+    if (!client || !user || !toastsEnabled) return
 
     const poll = async () => {
       try {
@@ -156,7 +157,7 @@ export default function NotificationToaster() {
     poll()
     const id = setInterval(poll, POLL_MS)
     return () => clearInterval(id)
-  }, [client, user])
+  }, [client, user, toastsEnabled])
 
   if (!user || toasts.length === 0) return null
 

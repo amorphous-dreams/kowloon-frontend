@@ -158,6 +158,7 @@ export default function ProfilePage() {
   // Preferences
   const [defaultTypes, setDefaultTypes] = useState(user.preferences?.defaultPostTypes ?? [])
   const [defaultPostType, setDefaultPostType] = useState(user.prefs?.defaultPostType ?? 'Note')
+  const [toastsEnabled, setToastsEnabled] = useState(user.prefs?.notifications?.toasts ?? true)
 
   // Save state
   const [saving, setSaving] = useState(false)
@@ -201,9 +202,18 @@ export default function ProfilePage() {
 
   const handleThemeSelect = (themeId) => {
     dispatch(setActiveTheme(themeId))
-    // Persist to backend silently — non-blocking
     if (client) {
       client.activities.updateProfile({ prefs: { theme: themeId } }).catch(() => {})
+    }
+  }
+
+  const handleToastsToggle = (enabled) => {
+    setToastsEnabled(enabled)
+    dispatch(patchUser({
+      prefs: { notifications: { ...user.prefs?.notifications, toasts: enabled } },
+    }))
+    if (client) {
+      client.activities.updateProfile({ prefs: { 'notifications.toasts': enabled } }).catch(() => {})
     }
   }
 
@@ -421,6 +431,27 @@ export default function ProfilePage() {
               )
             })}
           </div>
+        </Field>
+
+        <Field
+          label={t('profile.notificationToasts', { defaultValue: 'In-page notification toasts' })}
+          hint={t('profile.notificationToastsHint', { defaultValue: 'Show a brief pop-up in the corner when new notifications arrive.' })}
+        >
+          <button
+            type="button"
+            role="switch"
+            aria-checked={toastsEnabled}
+            onClick={() => handleToastsToggle(!toastsEnabled)}
+            className={`relative inline-flex items-center w-10 h-5 transition-colors focus:outline-none ${
+              toastsEnabled ? 'bg-primary' : 'bg-base-300'
+            }`}
+          >
+            <span
+              className={`absolute w-3.5 h-3.5 bg-white transition-transform ${
+                toastsEnabled ? 'translate-x-5' : 'translate-x-1'
+              }`}
+            />
+          </button>
         </Field>
       </Section>
 
