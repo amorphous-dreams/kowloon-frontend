@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Header } from './Header'
 import Sidebar from './Sidebar'
 import RightSidebar from './RightSidebar'
+import NotificationToaster from '../notifications/NotificationToaster'
 
 export default function PublicLayout() {
   const { sessionChecked } = useSelector((state) => state.auth)
@@ -29,6 +30,7 @@ export default function PublicLayout() {
         {t('a11y.skipToContent')}
       </a>
       <Header />
+      <NotificationToaster />
       <div className="flex-1 overflow-hidden px-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 h-full">
           <div className="hidden lg:block lg:col-span-3 overflow-y-auto py-6"><Sidebar /></div>
