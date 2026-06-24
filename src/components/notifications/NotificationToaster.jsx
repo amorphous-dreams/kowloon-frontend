@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { MessageSquare, Heart, UserPlus, Bell, Users, X } from 'lucide-react'
-import { useClient } from '../../lib/client'
+import { useClient } from '../../hooks/useClient'
 
 const TOAST_MS    = 6000   // auto-dismiss after 6 seconds
 const POLL_MS     = 60_000 // check for new notifications every minute
