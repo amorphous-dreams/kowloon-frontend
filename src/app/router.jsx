@@ -41,14 +41,22 @@ import AdminPostsPage      from '../pages/admin/AdminPostsPage'
 import AdminGroupsPage     from '../pages/admin/AdminGroupsPage'
 import AdminInvitesPage    from '../pages/admin/AdminInvitesPage'
 import AdminModerationPage from '../pages/admin/AdminModerationPage'
-import AdminSettingsPage   from '../pages/admin/AdminSettingsPage'
-import AdminThemesPage     from '../pages/admin/AdminThemesPage'
-import AdminPagesPage      from '../pages/admin/AdminPagesPage'
+import AdminSettingsPage        from '../pages/admin/AdminSettingsPage'
+import AdminThemesPage          from '../pages/admin/AdminThemesPage'
+import AdminPagesPage           from '../pages/admin/AdminPagesPage'
+import ForgotPasswordPage       from '../features/auth/ForgotPasswordPage'
+import ResetPasswordPage        from '../features/auth/ResetPasswordPage'
+import VerifyEmailPage          from '../features/auth/VerifyEmailPage'
+import ResendVerificationPage   from '../features/auth/ResendVerificationPage'
 
 const router = createBrowserRouter([
   // Auth pages — standalone, no layout
-  { path: '/login', element: <LoginPage /> },
-  { path: '/register', element: <RegisterPage /> },
+  { path: '/login',                element: <LoginPage /> },
+  { path: '/register',             element: <RegisterPage /> },
+  { path: '/forgot-password',      element: <ForgotPasswordPage /> },
+  { path: '/reset-password',       element: <ResetPasswordPage /> },
+  { path: '/verify-email',         element: <VerifyEmailPage /> },
+  { path: '/resend-verification',  element: <ResendVerificationPage /> },
 
   // Public routes — visible to all, content varies by auth state
   {

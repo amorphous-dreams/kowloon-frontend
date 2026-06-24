@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { loginAsync, clearError } from './authSlice'
@@ -22,12 +22,19 @@ function Field({ label, hint, children }) {
 export default function LoginPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user, sessionChecked, status, error } = useSelector((state) => state.auth)
   const { t } = useTranslation()
 
   const [serverUrl, setServerUrl] = useState(FIXED_SERVER || '')
   const [username, setUsername]   = useState('')
   const [password, setPassword]   = useState('')
+
+  const successMsg = searchParams.get('verified') === 'success'
+    ? 'Email verified! You can now sign in.'
+    : searchParams.get('reset') === 'success'
+    ? 'Password updated. Sign in with your new password.'
+    : null
 
   useEffect(() => { dispatch(clearError()) }, [dispatch])
   useEffect(() => {
@@ -105,6 +112,12 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {successMsg && (
+            <div className="mb-6 px-4 py-3 border-l-4 border-success bg-success/5">
+              <p className="font-ui text-xs uppercase tracking-widest text-success">{successMsg}</p>
+            </div>
+          )}
+
           {error && (
             <div role="alert" className="mb-6 px-4 py-3 border-l-4 border-error bg-error/5">
               <p className="font-ui text-xs uppercase tracking-widest text-error">{error}</p>
@@ -139,7 +152,19 @@ export default function LoginPage() {
               />
             </Field>
 
-            <Field label={t('auth.password', { defaultValue: 'Password' })}>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between">
+                <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">
+                  {t('auth.password', { defaultValue: 'Password' })}
+                </label>
+                <Link
+                  to="/forgot-password"
+                  tabIndex={-1}
+                  className="font-ui text-xs uppercase tracking-widest text-base-content/30 hover:text-primary transition-colors"
+                >
+                  {t('auth.forgotPassword', { defaultValue: 'Forgot?' })}
+                </Link>
+              </div>
               <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -148,7 +173,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 className="w-full px-0 py-2 bg-transparent border-b-2 border-base-300 focus:border-primary outline-none font-ui text-sm tracking-wide text-base-content placeholder:text-base-content/25 transition-colors"
               />
-            </Field>
+            </div>
 
             <button
               type="submit"
