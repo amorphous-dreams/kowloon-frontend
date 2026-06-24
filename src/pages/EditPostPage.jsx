@@ -132,8 +132,12 @@ export default function EditPostPage() {
 
   const hasTitle = postType !== 'Note'
   const hasTags  = postType !== 'Note'
-  const canSave  = !submitting && !atNoteLimit &&
-    (content.trim() || (postType === 'Event' && startDate))
+  const canSave  = !submitting && !atNoteLimit && (
+    content.trim() ||
+    postType === 'Media' ||
+    postType === 'Link' ||
+    (postType === 'Event' && startDate)
+  )
 
   const handleGeolocate = () => {
     if (!navigator.geolocation) {
