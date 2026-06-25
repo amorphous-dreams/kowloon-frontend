@@ -1,5 +1,6 @@
 // UserBookmarksPage — /users/:id/bookmarks
-// Expandable two-level tree: root folders (with subfolders) + root bookmarks.
+// Owner: flat fetch, tree built client-side.
+// Non-owner: root items fetched initially; folder children lazy-loaded on expand.
 
 import { useParams, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -57,75 +58,145 @@ function BookmarkRow({ bookmark }) {
   )
 }
 
-// ── FolderNode ────────────────────────────────────────────────────────────────
+// ── SubfolderNode ─────────────────────────────────────────────────────────────
 
-function FolderNode({ folder, bookmarks, subfolders }) {
+function SubfolderNode({ subfolder, isOwner, userId, client, bookmarks }) {
   const [open, setOpen] = useState(false)
+  const [lazyItems, setLazyItems] = useState(null)
+  const [lazyLoading, setLazyLoading] = useState(false)
   const { t } = useTranslation()
 
-  const folderBookmarks = bookmarks.filter((b) => b.parentFolder === folder.id)
-  const folderSubfolders = subfolders.filter((sf) => sf.parentFolder === folder.id)
-  const childCount = folderBookmarks.length + folderSubfolders.length
+  const handleToggle = async () => {
+    const next = !open
+    setOpen(next)
+    if (next && !isOwner && lazyItems === null) {
+      setLazyLoading(true)
+      try {
+        const res = await client.feeds.getUserBookmarks({ userId, parentFolder: subfolder.id })
+        setLazyItems(res?.orderedItems ?? res ?? [])
+      } catch {
+        setLazyItems([])
+      } finally {
+        setLazyLoading(false)
+      }
+    }
+  }
+
+  const children = isOwner
+    ? (bookmarks ?? []).filter((b) => b.parentFolder === subfolder.id)
+    : (lazyItems ?? []).filter((i) => i.type === 'Bookmark')
+
+  const count = isOwner ? children.length : (lazyItems ? lazyItems.filter(i => i.type === 'Bookmark').length : null)
 
   return (
-    <div className="border border-base-300">
+    <div className="border-t border-base-300">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-base-200 hover:bg-base-300 transition-colors text-left"
+        onClick={handleToggle}
+        className="w-full flex items-center gap-3 px-6 py-2.5 bg-base-100 hover:bg-base-200 transition-colors text-left"
       >
-        {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
-        <Folder size={14} className="shrink-0 text-base-content/60" />
-        <span className="font-ui text-sm uppercase tracking-widest font-medium flex-1">{folder.title}</span>
-        <span className="font-ui text-xs text-base-content/45">{childCount}</span>
+        {open ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
+        <Folder size={12} className="shrink-0 text-base-content/50" />
+        <span className="font-ui text-xs uppercase tracking-widest flex-1">{subfolder.title}</span>
+        {count !== null && (
+          <span className="font-ui text-xs text-base-content/40">{count}</span>
+        )}
       </button>
 
       {open && (
-        <div>
-          {folderSubfolders.map((sf) => (
-            <SubfolderNode key={sf.id} subfolder={sf} bookmarks={bookmarks} />
-          ))}
-          {folderBookmarks.length > 0 ? (
-            folderBookmarks.map((b) => <BookmarkRow key={b.id} bookmark={b} />)
-          ) : folderSubfolders.length === 0 ? (
+        <div className="pl-4">
+          {lazyLoading ? (
+            <div className="px-4 py-3"><Spinner /></div>
+          ) : children.length > 0 ? (
+            children.map((b) => <BookmarkRow key={b.id} bookmark={b} />)
+          ) : (
             <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 px-4 py-3">
               {t('bookmark.empty', { defaultValue: 'No bookmarks' })}
             </p>
-          ) : null}
+          )}
         </div>
       )}
     </div>
   )
 }
 
-// ── SubfolderNode ─────────────────────────────────────────────────────────────
+// ── FolderNode ────────────────────────────────────────────────────────────────
 
-function SubfolderNode({ subfolder, bookmarks }) {
+function FolderNode({ folder, isOwner, userId, client, bookmarks, subfolders }) {
   const [open, setOpen] = useState(false)
+  const [lazyItems, setLazyItems] = useState(null)
+  const [lazyLoading, setLazyLoading] = useState(false)
   const { t } = useTranslation()
-  const children = bookmarks.filter((b) => b.parentFolder === subfolder.id)
+
+  const handleToggle = async () => {
+    const next = !open
+    setOpen(next)
+    if (next && !isOwner && lazyItems === null) {
+      setLazyLoading(true)
+      try {
+        const res = await client.feeds.getUserBookmarks({ userId, parentFolder: folder.id })
+        setLazyItems(res?.orderedItems ?? res ?? [])
+      } catch {
+        setLazyItems([])
+      } finally {
+        setLazyLoading(false)
+      }
+    }
+  }
+
+  // Owner: derive children from the flat prop lists.
+  // Non-owner: use lazy-loaded items, split by type.
+  const folderBookmarks = isOwner
+    ? (bookmarks ?? []).filter((b) => b.parentFolder === folder.id)
+    : (lazyItems ?? []).filter((i) => i.type === 'Bookmark')
+
+  const folderSubfolders = isOwner
+    ? (subfolders ?? []).filter((sf) => sf.parentFolder === folder.id)
+    : (lazyItems ?? []).filter((i) => i.type === 'Folder')
+
+  const childCount = isOwner
+    ? folderBookmarks.length + folderSubfolders.length
+    : (lazyItems ? lazyItems.length : null)
 
   return (
-    <div className="border-t border-base-300">
+    <div className="border border-base-300">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-6 py-2.5 bg-base-100 hover:bg-base-200 transition-colors text-left"
+        onClick={handleToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-base-200 hover:bg-base-300 transition-colors text-left"
       >
-        {open ? <ChevronDown size={12} className="shrink-0" /> : <ChevronRight size={12} className="shrink-0" />}
-        <Folder size={12} className="shrink-0 text-base-content/50" />
-        <span className="font-ui text-xs uppercase tracking-widest flex-1">{subfolder.title}</span>
-        <span className="font-ui text-xs text-base-content/40">{children.length}</span>
+        {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
+        <Folder size={14} className="shrink-0 text-base-content/60" />
+        <span className="font-ui text-sm uppercase tracking-widest font-medium flex-1">{folder.title}</span>
+        {childCount !== null && (
+          <span className="font-ui text-xs text-base-content/45">{childCount}</span>
+        )}
       </button>
 
       {open && (
-        <div className="pl-4">
-          {children.length > 0 ? (
-            children.map((b) => <BookmarkRow key={b.id} bookmark={b} />)
+        <div>
+          {lazyLoading ? (
+            <div className="px-4 py-3"><Spinner /></div>
           ) : (
-            <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 px-4 py-3">
-              {t('bookmark.empty', { defaultValue: 'No bookmarks' })}
-            </p>
+            <>
+              {folderSubfolders.map((sf) => (
+                <SubfolderNode
+                  key={sf.id}
+                  subfolder={sf}
+                  isOwner={isOwner}
+                  userId={userId}
+                  client={client}
+                  bookmarks={isOwner ? bookmarks : null}
+                />
+              ))}
+              {folderBookmarks.length > 0 ? (
+                folderBookmarks.map((b) => <BookmarkRow key={b.id} bookmark={b} />)
+              ) : folderSubfolders.length === 0 ? (
+                <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 px-4 py-3">
+                  {t('bookmark.empty', { defaultValue: 'No bookmarks' })}
+                </p>
+              ) : null}
+            </>
           )}
         </div>
       )}
@@ -145,6 +216,8 @@ export default function UserBookmarksPage() {
   const [items, setItems]     = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
+
+  const isOwner = !!authUser && authUser.id === id
 
   const load = useCallback(async () => {
     if (!client) return
@@ -174,24 +247,22 @@ export default function UserBookmarksPage() {
   if (loading) return <Spinner centered />
   if (error)   return <ErrorState message={error} onRetry={load} />
 
-  // Build tree from flat list
-  const folders    = items.filter((i) => i.type === 'Folder' && !i.parentFolder)
-  const subfolders = items.filter((i) => i.type === 'Folder' && i.parentFolder)
-  const bookmarks  = items.filter((i) => i.type === 'Bookmark')
+  // Owner gets a flat list of everything; build tree client-side.
+  // Non-owner gets only root-level items; folder children are lazy-loaded.
+  const folders       = items.filter((i) => i.type === 'Folder' && !i.parentFolder)
+  const subfolders    = items.filter((i) => i.type === 'Folder' && i.parentFolder)
+  const bookmarks     = items.filter((i) => i.type === 'Bookmark')
   const rootBookmarks = bookmarks.filter((b) => !b.parentFolder)
-
-  const isOwner = authUser?.id === id
 
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Back link + heading */}
       <div className="flex flex-col gap-1">
         <Link
           to={`/users/${encodeURIComponent(id)}`}
           className="font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-primary transition-colors self-start"
         >
-          ← {user?.name ?? id}
+          {'←'} {user?.name ?? id}
         </Link>
         <h1 className="font-display text-4xl tracking-wide">
           {t('bookmark.bookmarks', { defaultValue: 'Bookmarks' })}
@@ -206,17 +277,18 @@ export default function UserBookmarksPage() {
         </p>
       ) : (
         <div className="flex flex-col gap-4">
-          {/* Folders */}
           {folders.map((f) => (
             <FolderNode
               key={f.id}
               folder={f}
+              isOwner={isOwner}
+              userId={id}
+              client={client}
               bookmarks={bookmarks}
               subfolders={subfolders}
             />
           ))}
 
-          {/* Root-level bookmarks */}
           {rootBookmarks.length > 0 && (
             <div className="flex flex-col border border-base-300">
               <div className="px-4 py-2 bg-base-200 border-b border-base-300">

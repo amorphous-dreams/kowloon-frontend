@@ -44,6 +44,7 @@ import AdminModerationPage from '../pages/admin/AdminModerationPage'
 import AdminSettingsPage        from '../pages/admin/AdminSettingsPage'
 import AdminThemesPage          from '../pages/admin/AdminThemesPage'
 import AdminPagesPage           from '../pages/admin/AdminPagesPage'
+import AdminLogsPage            from '../pages/admin/AdminLogsPage'
 import ForgotPasswordPage       from '../features/auth/ForgotPasswordPage'
 import ResetPasswordPage        from '../features/auth/ResetPasswordPage'
 import VerifyEmailPage          from '../features/auth/VerifyEmailPage'
@@ -110,6 +111,7 @@ const router = createBrowserRouter([
       { path: '/admin/themes',     element: <AdminThemesPage /> },
       { path: '/admin/settings',   element: <AdminSettingsPage /> },
       { path: '/admin/pages',      element: <AdminPagesPage /> },
+      { path: '/admin/logs',       element: <AdminLogsPage /> },
     ],
   },
 ])

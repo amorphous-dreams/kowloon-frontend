@@ -8,7 +8,7 @@ import { Navigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, FileText, Users2,
   Mail, Flag, Settings, ArrowLeft, Palette, BookOpen,
-  Menu, X,
+  Menu, X, ScrollText,
 } from 'lucide-react'
 
 const NAV = [
@@ -21,6 +21,7 @@ const NAV = [
   { to: '/admin/moderation', label: 'Moderation',   icon: Flag },
   { to: '/admin/themes',     label: 'Themes',       icon: Palette },
   { to: '/admin/settings',   label: 'Settings',     icon: Settings },
+  { to: '/admin/logs',       label: 'Logs',         icon: ScrollText },
 ]
 
 function SidebarContent() {
