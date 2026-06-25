@@ -1360,11 +1360,16 @@ function BackupJobRow({ job, client, onDelete }) {
           {jobStatusLabel(job)}
         </p>
         {job.status === 'running' && (
-          <div className="mt-1.5 w-48 h-1 bg-base-300 overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-500"
-              style={{ width: `${job.progress?.pct ?? 0}%` }}
-            />
+          <div className="mt-1.5 flex flex-col gap-1">
+            <div className="w-48 h-1 bg-base-300 overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-500"
+                style={{ width: `${job.progress?.pct ?? 0}%` }}
+              />
+            </div>
+            {job.progress?.stage && (
+              <p className="font-mono text-xs text-base-content/40">{job.progress.stage}…</p>
+            )}
           </div>
         )}
       </div>
