@@ -23,8 +23,8 @@ function lineColor(line) {
   const u = line.toUpperCase()
   if (u.includes(' ERROR:')) return 'text-error'
   if (u.includes(' WARN:'))  return 'text-warning'
-  if (u.includes(' DEBUG:')) return 'text-base-content/30'
-  return 'text-base-content/70'
+  if (u.includes(' DEBUG:')) return 'text-neutral-content/30'
+  return 'text-neutral-content/80'
 }
 
 export default function AdminLogsPage() {
@@ -178,7 +178,18 @@ export default function AdminLogsPage() {
       {/* Log output */}
       <div
         ref={scrollRef}
-        className="flex-1 bg-base-900 bg-neutral min-h-[60vh] max-h-[72vh] overflow-y-auto border-2 border-base-300 p-4 font-mono text-xs leading-relaxed"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+            e.preventDefault()
+            const sel = window.getSelection()
+            const range = document.createRange()
+            range.selectNodeContents(e.currentTarget)
+            sel.removeAllRanges()
+            sel.addRange(range)
+          }
+        }}
+        className="flex-1 bg-neutral text-neutral-content min-h-[60vh] max-h-[72vh] overflow-y-auto border-2 border-base-300 p-4 font-mono text-xs leading-relaxed outline-none"
         style={{ colorScheme: 'dark' }}
       >
         {loading ? (
