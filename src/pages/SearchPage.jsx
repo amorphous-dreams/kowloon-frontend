@@ -73,11 +73,9 @@ function groupResults(items) {
 // ── Result renderers ──────────────────────────────────────────────────────────
 
 function UserResult({ user }) {
-  return (
-    <Link
-      to={`/users/${encodeURIComponent(user.id)}`}
-      className="flex items-start gap-3 py-4 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
-    >
+  const isRemote = user.url && !user.url.startsWith(window.location.origin)
+  const inner = (
+    <>
       <UserAvatar user={user} size="md" />
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className="font-ui text-sm font-bold text-base-content">{user.displayName}</span>
@@ -88,8 +86,13 @@ function UserResult({ user }) {
           </p>
         )}
       </div>
-    </Link>
+    </>
   )
+  const cls = "flex items-start gap-3 py-4 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
+  if (isRemote) {
+    return <a href={user.url} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
+  }
+  return <Link to={`/users/${encodeURIComponent(user.id)}`} className={cls}>{inner}</Link>
 }
 
 function GroupResult({ group }) {
