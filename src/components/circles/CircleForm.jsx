@@ -105,6 +105,10 @@ function AddMemberRow({ onAdd, existingIds }) {
           onChange={(e) => { setInput(e.target.value); setResults([]); setError(null) }}
           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
           placeholder={t('circle.addMemberPlaceholder', { defaultValue: 'Name, @handle, or @user@other.server' })}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck="false"
           className="flex-1 bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary"
         />
         <button

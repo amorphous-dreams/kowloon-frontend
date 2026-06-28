@@ -26,7 +26,9 @@ export default function UserAvatar({ user, size = 'md' }) {
   }
   const isCurrentUser = !!user?.id && !!authUser?.id &&
     extractUsername(user.id) === extractUsername(authUser.id)
-  const icon = isCurrentUser ? (authUser.profile?.icon ?? user?.icon) : user?.icon
+  const icon = isCurrentUser
+    ? (authUser.profile?.icon ?? user?.profile?.icon ?? user?.icon)
+    : (user?.profile?.icon ?? user?.icon)
 
   const displayName = user?.name ?? user?.username ?? null
   const handle      = user?.id ?? null
