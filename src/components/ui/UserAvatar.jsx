@@ -17,15 +17,10 @@ export default function UserAvatar({ user, size = 'md' }) {
 
   // When the post author is the current user, prefer their live profile icon
   // over the stale icon baked into the post at creation time.
-  // IDs can be "@user@domain" (Kowloon) or "https://domain/users/user" (AP) — compare by username.
+  // Must compare full user@domain, not just username — two accounts with the
+  // same username on different servers are different people.
   const authUser = useSelector((state) => state.auth.user)
-  const extractUsername = (id) => {
-    if (!id) return null
-    if (id.startsWith('@')) return id.split('@')[1]
-    try { return new URL(id).pathname.split('/').filter(Boolean).pop() } catch { return null }
-  }
-  const isCurrentUser = !!user?.id && !!authUser?.id &&
-    extractUsername(user.id) === extractUsername(authUser.id)
+  const isCurrentUser = !!user?.id && !!authUser?.id && user.id === authUser.id
   const icon = isCurrentUser
     ? (authUser.profile?.icon ?? user?.profile?.icon ?? user?.icon)
     : (user?.profile?.icon ?? user?.icon)
