@@ -1,16 +1,20 @@
-// SearchPage — search posts, users, groups, pages, bookmarks.
+// SearchPage — search posts, users, groups, pages.
 // Reads ?q= and ?type= from URL; updates on input with debounce.
+// User results have inline action buttons (Add to Circle, View Profile, Block, Mute).
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Search, X } from 'lucide-react'
+import { Search, X, Loader } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
+import { toast } from '../app/toast'
 import PostCard from '../components/posts/PostCard'
 import CircleIcon from '../components/ui/CircleIcon'
 import UserAvatar from '../components/ui/UserAvatar'
 import Spinner from '../components/ui/Spinner'
 import EmptyState from '../components/ui/EmptyState'
+import Modal from '../components/ui/Modal'
 import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
@@ -21,10 +25,8 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-// Backend supports: posts, pages, users, groups, bookmarks (no circles)
 const SEARCH_TYPES = ['all', 'posts', 'users', 'groups', 'pages']
 
-// Map frontend type tab → searchIn key the backend understands
 const TYPE_TO_SEARCH_IN = {
   posts:  { posts: true },
   users:  { users: true },
@@ -32,68 +34,164 @@ const TYPE_TO_SEARCH_IN = {
   pages:  { pages: true },
 }
 
-/**
- * Group a flat orderedItems array (each item has _searchType) into buckets.
- * Normalizes field names to what the result renderers expect.
- */
 function groupResults(items) {
-  const buckets = { posts: [], users: [], groups: [], pages: [], bookmarks: [] }
-
+  const buckets = { posts: [], users: [], groups: [], pages: [] }
   for (const item of items) {
     const t = item._searchType
     if (t === 'Post') {
-      buckets.posts.push({
-        ...item,
-        name: item.title ?? item.name,
-        actor: item.actor ?? { id: item.actorId },
-      })
+      buckets.posts.push({ ...item, name: item.title ?? item.name, actor: item.actor ?? { id: item.actorId } })
     } else if (t === 'User') {
-      buckets.users.push({
-        ...item,
-        displayName: item.profile?.name ?? item.username ?? item.id,
-      })
+      buckets.users.push({ ...item, displayName: item.profile?.name ?? item.username ?? item.id })
     } else if (t === 'Group') {
-      buckets.groups.push({
-        ...item,
-        summary: item.description ?? item.summary,
-      })
+      buckets.groups.push({ ...item, summary: item.description ?? item.summary })
     } else if (t === 'Page') {
-      buckets.pages.push({
-        ...item,
-        name: item.title ?? item.name,
-      })
-    } else if (t === 'Bookmark') {
-      buckets.bookmarks.push(item)
+      buckets.pages.push({ ...item, name: item.title ?? item.name })
     }
   }
-
   return buckets
 }
 
-// ── Result renderers ──────────────────────────────────────────────────────────
+// ── Add-to-Circle modal ───────────────────────────────────────────────────────
 
-function UserResult({ user }) {
+function AddToCircleModal({ user, authUser, client, onClose }) {
+  const [circles, setCircles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(null)
+
+  useEffect(() => {
+    client.feeds.getUserCircles({ userId: authUser.id })
+      .then((res) => setCircles(res?.orderedItems ?? []))
+      .catch(() => setCircles([]))
+      .finally(() => setLoading(false))
+  }, [authUser.id, client])
+
+  const handleAdd = async (circle) => {
+    setAdding(circle.id)
+    try {
+      await client.activities.addToCircle({ circleId: circle.id, memberId: user.id })
+      toast.success(`${user.displayName} added to ${circle.name}`)
+      onClose()
+    } catch (err) {
+      toast.error('Failed to add to circle', { detail: err.message })
+      setAdding(null)
+    }
+  }
+
+  return (
+    <Modal open title={`Add ${user.displayName} to Circle`} onClose={onClose}>
+      {loading ? (
+        <Spinner centered />
+      ) : circles.length === 0 ? (
+        <p className="font-ui text-sm text-base-content/50 py-2">
+          No circles yet. <Link to="/circles/new" className="underline" onClick={onClose}>Create one first.</Link>
+        </p>
+      ) : (
+        <div className="flex flex-col -mx-6">
+          {circles.map((circle) => (
+            <button
+              key={circle.id}
+              onClick={() => handleAdd(circle)}
+              disabled={!!adding}
+              className="flex items-center gap-3 px-6 py-3 text-left hover:bg-base-200 transition-colors border-b border-base-300 last:border-b-0 disabled:opacity-50"
+            >
+              {adding === circle.id
+                ? <Loader size={14} className="animate-spin shrink-0 text-base-content/40" />
+                : <CircleIcon type="circle" size="sm" className="shrink-0 opacity-50" />
+              }
+              <span className="font-ui text-sm">{circle.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+// ── User result ───────────────────────────────────────────────────────────────
+
+function UserResult({ user, authUser, client }) {
   const isRemote = user.url && !user.url.startsWith(window.location.origin)
-  const inner = (
-    <>
-      <UserAvatar user={user} size="md" />
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="font-ui text-sm font-bold text-base-content">{user.displayName}</span>
-        <span className="font-ui text-xs uppercase tracking-widest text-base-content/55">{user.id}</span>
-        {user.profile?.description && (
-          <p className="font-reading text-sm text-base-content/70 leading-snug mt-0.5 line-clamp-2">
-            {user.profile.description}
-          </p>
+  const [circleModalOpen, setCircleModalOpen] = useState(false)
+
+  const handleBlock = async () => {
+    try {
+      await client.activities.block({ userId: user.id })
+      toast.success(`${user.id} blocked`)
+    } catch (err) {
+      toast.error('Block failed', { detail: err.message })
+    }
+  }
+
+  const handleMute = async () => {
+    try {
+      await client.activities.mute({ userId: user.id })
+      toast.success(`${user.id} muted`)
+    } catch (err) {
+      toast.error('Mute failed', { detail: err.message })
+    }
+  }
+
+  const profileLink = isRemote
+    ? <a href={user.url} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:border-primary hover:text-primary transition-colors">View Profile</a>
+    : <Link to={`/users/${encodeURIComponent(user.id)}`} className="px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:border-primary hover:text-primary transition-colors">View Profile</Link>
+
+  return (
+    <div className="flex flex-col gap-3 py-4 border-b border-base-300">
+      <div className="flex items-start gap-3">
+        <UserAvatar user={user} size="md" />
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="font-ui text-sm font-bold text-base-content">{user.displayName}</span>
+          <span className="font-ui text-xs uppercase tracking-widest text-base-content/50">{user.id}</span>
+          {user.profile?.description && (
+            <p className="font-reading text-sm text-base-content/70 leading-snug mt-0.5 line-clamp-2">
+              {user.profile.description}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pl-[52px]">
+        {authUser && (
+          <button
+            onClick={() => setCircleModalOpen(true)}
+            className="px-3 py-1.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors"
+          >
+            Add to Circle
+          </button>
+        )}
+        {profileLink}
+        {authUser && (
+          <>
+            <div className="w-px h-4 bg-base-300 mx-1" />
+            <button
+              onClick={handleMute}
+              className="px-3 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
+            >
+              Mute
+            </button>
+            <button
+              onClick={handleBlock}
+              className="px-3 py-1.5 font-ui text-xs uppercase tracking-widest text-error/50 hover:text-error transition-colors"
+            >
+              Block
+            </button>
+          </>
         )}
       </div>
-    </>
+
+      {circleModalOpen && authUser && (
+        <AddToCircleModal
+          user={user}
+          authUser={authUser}
+          client={client}
+          onClose={() => setCircleModalOpen(false)}
+        />
+      )}
+    </div>
   )
-  const cls = "flex items-start gap-3 py-4 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
-  if (isRemote) {
-    return <a href={user.url} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>
-  }
-  return <Link to={`/users/${encodeURIComponent(user.id)}`} className={cls}>{inner}</Link>
 }
+
+// ── Other result renderers ────────────────────────────────────────────────────
 
 function GroupResult({ group }) {
   return (
@@ -151,14 +249,15 @@ export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { t } = useTranslation()
   const client = useClient()
+  const authUser = useSelector((state) => state.auth.user)
 
   const initialQ    = searchParams.get('q') ?? ''
   const initialType = searchParams.get('type') ?? 'all'
 
-  const [query, setQuery]     = useState(initialQ)
-  const [type, setType]       = useState(initialType)
-  const [results, setResults] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [query, setQuery]         = useState(initialQ)
+  const [type, setType]           = useState(initialType)
+  const [results, setResults]     = useState(null)
+  const [loading, setLoading]     = useState(false)
   const [inputValue, setInputValue] = useState(initialQ)
 
   const search = useCallback(async (q, activeType) => {
@@ -170,13 +269,12 @@ export default function SearchPage() {
       setResults(groupResults(res?.orderedItems ?? []))
     } catch (err) {
       console.warn('[SearchPage] search failed:', err.message)
-      setResults({ posts: [], users: [], groups: [], pages: [], bookmarks: [] })
+      setResults({ posts: [], users: [], groups: [], pages: [] })
     } finally {
       setLoading(false)
     }
   }, [client])
 
-  // Debounce: update query + URL after 350ms of no typing
   useEffect(() => {
     const timer = setTimeout(() => {
       setQuery(inputValue)
@@ -210,32 +308,35 @@ export default function SearchPage() {
       <div className="flex flex-col gap-4 border-b-2 border-base-300 pb-6">
         <div className="relative">
           <Search
-            size={18}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-base-content/40"
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40"
             aria-hidden="true"
           />
           <input
             type="search"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={t('search.placeholder', { defaultValue: 'Search\u2026' })}
+            placeholder={t('search.placeholder', { defaultValue: 'Search…' })}
             autoFocus
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck="false"
             aria-label={t('search.placeholder', { defaultValue: 'Search' })}
-            className="w-full pl-12 pr-12 py-4 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-display text-3xl tracking-wide text-base-content placeholder:text-base-content/25 transition-colors"
+            className="w-full pl-9 pr-9 py-2.5 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-ui text-sm text-base-content placeholder:text-base-content/30 transition-colors"
           />
           {inputValue && (
             <button
               type="button"
               onClick={() => { setInputValue(''); setQuery('') }}
               aria-label="Clear search"
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content transition-colors"
             >
-              <X size={16} />
+              <X size={14} />
             </button>
           )}
         </div>
 
-        {/* Type filter */}
         <div className="flex items-center gap-0 flex-wrap">
           {SEARCH_TYPES.map((st) => (
             <button
@@ -253,12 +354,11 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Results */}
       {loading && <Spinner centered />}
 
       {!loading && !query.trim() && (
         <div className="py-16 text-center">
-          <Search size={32} className="mx-auto mb-4 text-base-content/20" />
+          <Search size={28} className="mx-auto mb-4 text-base-content/20" />
           <p className="font-ui text-sm uppercase tracking-widest text-base-content/40">
             {t('search.prompt', { defaultValue: 'Type to search' })}
           </p>
@@ -282,7 +382,9 @@ export default function SearchPage() {
           {(type === 'all' || type === 'users') && results.users?.length > 0 && (
             <div>
               {type === 'all' && <SectionHeader title={TYPE_LABELS.users} count={results.users.length} />}
-              {results.users.map((user) => <UserResult key={user.id} user={user} />)}
+              {results.users.map((user) => (
+                <UserResult key={user.id} user={user} authUser={authUser} client={client} />
+              ))}
             </div>
           )}
 
