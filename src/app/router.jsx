@@ -23,6 +23,7 @@ import CirclePostsPage from '../pages/CirclePostsPage'
 import PagesListPage from '../pages/PagesListPage'
 import PageDetailPage from '../pages/PageDetailPage'
 import SearchPage from '../pages/SearchPage'
+import DiscoverPage from '../pages/DiscoverPage'
 
 // Protected pages (auth required — Layout redirects to /login)
 import NewPostPage from '../pages/NewPostPage'
@@ -80,6 +81,7 @@ const router = createBrowserRouter([
       { path: '/pages', element: <PagesListPage /> },
       { path: '/pages/:id', element: <PageDetailPage /> },
       { path: '/search', element: <SearchPage /> },
+      { path: '/discover', element: <DiscoverPage /> },
     ],
   },
 

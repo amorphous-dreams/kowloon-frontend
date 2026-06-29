@@ -91,10 +91,11 @@ export function Header() {
   }, [client, user])
 
   const NAV_LINKS = [
-    { to: '/',         label: t('nav.feed')    },
-    { to: '/circles',  label: t('nav.circles') },
-    { to: '/groups',   label: t('nav.groups')  },
-    { to: '/search',   label: t('nav.search')  },
+    { to: '/',          label: t('nav.feed')     },
+    { to: '/circles',   label: t('nav.circles')  },
+    { to: '/groups',    label: t('nav.groups')   },
+    { to: '/discover',  label: t('nav.discover') },
+    { to: '/search',    label: t('nav.search')   },
   ]
 
   const handleLogout = async () => {

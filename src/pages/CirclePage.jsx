@@ -5,7 +5,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Share2, Pencil, Trash2, X, Check, UserPlus, UserMinus, Loader } from 'lucide-react'
+import { Share2, Heart, Pencil, Trash2, X, Check, UserPlus, UserMinus, Loader } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import UserAvatar from '../components/ui/UserAvatar'
 import CircleIcon from '../components/ui/CircleIcon'
@@ -173,6 +173,9 @@ export default function CirclePage() {
   const [removingId, setRemovingId] = useState(null)
   const [sharing, setSharing] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [reacted, setReacted] = useState(false)
+  const [reactCount, setReactCount] = useState(0)
+  const [reacting, setReacting] = useState(false)
 
   // Edit mode state
   const [editing, setEditing]         = useState(false)
@@ -205,6 +208,21 @@ export default function CirclePage() {
   }, [client, id])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (circle) setReactCount(circle.reactCount ?? 0)
+  }, [circle])
+
+  const handleReact = async () => {
+    if (reacting || reacted || !client) return
+    setReacting(true)
+    try {
+      await client.activities.react({ postId: circle.id, emoji: '❤️', name: 'heart' })
+      setReacted(true)
+      setReactCount((n) => n + 1)
+    } catch {}
+    setReacting(false)
+  }
 
   // Scroll-driven shadow on sticky header
   useEffect(() => {
@@ -377,8 +395,8 @@ export default function CirclePage() {
               )}
               <span>·</span>
               <span>{members.length} {t('circle.members', { defaultValue: 'members' })}</span>
-              {circle.reactCount > 0 && (
-                <><span>·</span><span>{circle.reactCount} {t('circle.reacts', { defaultValue: 'reacts' })}</span></>
+              {reactCount > 0 && (
+                <><span>·</span><span>{reactCount} {t('circle.reacts', { defaultValue: 'reacts' })}</span></>
               )}
             </div>
 
@@ -454,6 +472,20 @@ export default function CirclePage() {
                 >
                   <Share2 size={12} /> {t('circle.share')}
                 </button>
+                {isLoggedIn && (
+                  <button
+                    onClick={handleReact}
+                    disabled={reacting || reacted}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 border font-ui text-xs uppercase tracking-widest transition-colors disabled:cursor-default ${
+                      reacted
+                        ? 'border-error/40 text-error'
+                        : 'border-base-300 text-base-content/60 hover:border-error hover:text-error'
+                    }`}
+                  >
+                    <Heart size={12} fill={reacted ? 'currentColor' : 'none'} />
+                    {reactCount > 0 ? reactCount : t('circle.heart', { defaultValue: 'Heart' })}
+                  </button>
+                )}
                 {isOwner && (
                   <>
                     <button

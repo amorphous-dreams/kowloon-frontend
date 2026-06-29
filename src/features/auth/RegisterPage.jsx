@@ -46,8 +46,15 @@ export default function RegisterPage() {
 
   useEffect(() => { dispatch(clearError()) }, [dispatch])
   useEffect(() => {
-    if (sessionChecked && user) navigate('/', { replace: true })
-  }, [sessionChecked, user, navigate])
+    if (sessionChecked && user) {
+      if (status === 'succeeded') {
+        localStorage.setItem('kowloon_discover_welcomed', '1')
+        navigate('/discover', { replace: true })
+      } else {
+        navigate('/', { replace: true })
+      }
+    }
+  }, [sessionChecked, user, status, navigate])
 
   const isLoading    = status === 'loading'
   const displayError = localError || error
