@@ -3,18 +3,14 @@
 
 import ServerInfo from '../ui/ServerInfo'
 import PagesMenu from '../ui/PagesMenu'
-import PopularCircles from '../circles/PopularCircles'
-import PopularPosts from '../posts/PopularPosts'
-import ActiveGroups from '../groups/ActiveGroups'
+import DiscoverSection from './DiscoverSection'
 
 export default function Sidebar() {
   return (
     <aside className="flex flex-col gap-12">
       <ServerInfo />
       <PagesMenu />
-      <PopularCircles />
-      <PopularPosts />
-      <ActiveGroups />
+      <DiscoverSection />
     </aside>
   )
 }
