@@ -52,12 +52,24 @@ export default function GroupForm({
   const [iconPreview, setIconPreview] = useState(initialValues.iconUrl ?? null)
   const iconInputRef = useRef(null)
 
+  const [bannerFile, setBannerFile] = useState(null)
+  const [bannerPreview, setBannerPreview] = useState(initialValues.imageUrl ?? null)
+  const bannerInputRef = useRef(null)
+
   const handleIconChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (iconPreview && iconFile) URL.revokeObjectURL(iconPreview)
     setIconFile(file)
     setIconPreview(URL.createObjectURL(file))
+  }
+
+  const handleBannerChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (bannerPreview && bannerFile) URL.revokeObjectURL(bannerPreview)
+    setBannerFile(file)
+    setBannerPreview(URL.createObjectURL(file))
   }
 
   const handleSubmit = (e) => {
@@ -71,6 +83,8 @@ export default function GroupForm({
       location: locationName.trim() ? { name: locationName.trim() } : undefined,
       iconFile,
       iconUrl: iconPreview,
+      bannerFile,
+      bannerUrl: bannerPreview,
     })
   }
 
@@ -109,6 +123,37 @@ export default function GroupForm({
       {error && (
         <p className="font-ui text-sm text-error border border-error/30 px-4 py-3">{error}</p>
       )}
+
+      {/* Banner image */}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => bannerInputRef.current?.click()}
+          className="w-full cursor-pointer group relative overflow-hidden border border-base-300 hover:border-primary transition-colors"
+          style={{ aspectRatio: '3/1' }}
+          aria-label={t('group.changeBanner', { defaultValue: 'Change banner image' })}
+        >
+          {bannerPreview
+            ? <img src={bannerPreview} alt="Group banner" className="w-full h-full object-cover" />
+            : <div className="w-full h-full bg-base-200 flex items-center justify-center">
+                <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">
+                  {t('group.addBanner', { defaultValue: 'Add banner image' })}
+                </span>
+              </div>
+          }
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        </button>
+        <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+        {bannerPreview && (
+          <button
+            type="button"
+            onClick={() => { if (bannerPreview && bannerFile) URL.revokeObjectURL(bannerPreview); setBannerFile(null); setBannerPreview(null) }}
+            className="self-start font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-error transition-colors"
+          >
+            {t('group.removeBanner', { defaultValue: 'Remove banner' })}
+          </button>
+        )}
+      </div>
 
       {/* Icon + core fields */}
       <div className="flex items-start gap-6">

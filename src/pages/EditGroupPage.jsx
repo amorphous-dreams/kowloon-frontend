@@ -32,7 +32,7 @@ export default function EditGroupPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleSubmit = async ({ name, description, to, rsvpPolicy, location, iconFile, iconUrl }) => {
+  const handleSubmit = async ({ name, description, to, rsvpPolicy, location, iconFile, iconUrl, bannerFile, bannerUrl }) => {
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -48,12 +48,25 @@ export default function EditGroupPage() {
         if (uploaded?.file?.url) finalIconUrl = uploaded.file.url
       }
 
-      // 2. Update the group
+      // 2. Upload new banner if a file was selected
+      let finalImageUrl = bannerFile ? null : (bannerUrl ?? null)
+      if (bannerFile) {
+        const uploaded = await client.files.upload({
+          file: bannerFile,
+          filename: bannerFile.name,
+          contentType: bannerFile.type,
+          to: '@public',
+        })
+        if (uploaded?.file?.url) finalImageUrl = uploaded.file.url
+      }
+
+      // 3. Update the group
       await client.activities.updateGroup({
         groupId: id,
         name,
         description,
         icon: finalIconUrl ?? undefined,
+        image: finalImageUrl ?? undefined,
         to,
         membershipPolicy: rsvpPolicy,
         location,
@@ -77,6 +90,7 @@ export default function EditGroupPage() {
         description: group.description ?? '',
         to: group.to ?? '@public',
         iconUrl: group.icon ?? null,
+        imageUrl: group.image ?? null,
         location: group.location ?? undefined,
         rsvpPolicy: group.rsvpPolicy ?? 'open',
       }}

@@ -11,7 +11,7 @@ export default function NewGroupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleSubmit = async ({ name, description, to, rsvpPolicy, location, iconFile, iconUrl }) => {
+  const handleSubmit = async ({ name, description, to, rsvpPolicy, location, iconFile, iconUrl, bannerFile, bannerUrl }) => {
     setSubmitting(true)
     setError(null)
     try {
@@ -27,11 +27,24 @@ export default function NewGroupPage() {
         if (uploaded?.file?.url) finalIconUrl = uploaded.file.url
       }
 
-      // 2. Create the group
+      // 2. Upload banner if a new file was selected
+      let finalImageUrl = bannerFile ? null : (bannerUrl ?? null)
+      if (bannerFile) {
+        const uploaded = await client.files.upload({
+          file: bannerFile,
+          filename: bannerFile.name,
+          contentType: bannerFile.type,
+          to: '@public',
+        })
+        if (uploaded?.file?.url) finalImageUrl = uploaded.file.url
+      }
+
+      // 3. Create the group
       const res = await client.activities.createGroup({
         name,
         description,
         icon: finalIconUrl ?? undefined,
+        image: finalImageUrl ?? undefined,
         to,
         rsvpPolicy,
         location,

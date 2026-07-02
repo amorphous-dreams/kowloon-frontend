@@ -206,6 +206,17 @@ export default function GroupPage() {
   return (
     <div ref={containerRef} className="flex flex-col gap-8">
 
+      {/* Hero banner — scrolls away, not sticky */}
+      {group.image && (
+        <div className="-mx-0 -mt-0 w-full overflow-hidden" style={{ aspectRatio: '3/1' }}>
+          <img
+            src={sizedUrl(group.image, 1200)}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
       {/* Sticky group header */}
       <div
         className="sticky top-0 bg-base-100 z-10 flex flex-col gap-4 pt-6 pb-6 px-4 border-b-2 border-base-300"
@@ -371,7 +382,7 @@ export default function GroupPage() {
       {(isMember || isOwner) && isLoggedIn && (
         <PostComposer
           onPostCreated={() => setRefreshKey((k) => k + 1)}
-          initialValues={{ to: `group:${id}` }}
+          initialValues={{ to: id }}
           prompt={t('composer.promptGroup', { name: group?.name ?? '\u2026', defaultValue: `Write a post to ${group?.name ?? '\u2026'}\u2026` })}
         />
       )}
