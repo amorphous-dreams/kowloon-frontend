@@ -127,7 +127,7 @@ export default function CirclesPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await client.feeds.browseCircles({ sort: sortOrder, page: pageNum })
+      const res = await client.feeds.getCircles({ sort: sortOrder, page: pageNum })
       setCircles(res.orderedItems ?? [])
       setTotalItems(res.totalItems ?? 0)
       setItemsPerPage(res.itemsPerPage ?? 20)

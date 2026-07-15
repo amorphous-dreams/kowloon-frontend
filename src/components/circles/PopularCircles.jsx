@@ -1,5 +1,5 @@
 // PopularCircles — sidebar list of popular/featured circles.
-// Fetches from /circles/browse sorted by reacts.
+// Fetches from /circles sorted by reacts.
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -40,7 +40,7 @@ export default function PopularCircles() {
 
   useEffect(() => {
     if (!client) return
-    client.feeds.browseCircles({ sort: 'reacts', limit: 5 })
+    client.feeds.getCircles({ sort: 'reacts', limit: 5 })
       .then((res) => setCircles(res?.orderedItems ?? []))
       .catch(() => {})
   }, [client])

@@ -142,7 +142,7 @@ export default function DiscoverSection() {
 
   useEffect(() => {
     if (!client) return
-    client.feeds.browseCircles({ sort: 'reacts', limit: 5 })
+    client.feeds.getCircles({ sort: 'reacts', limit: 5 })
       .then((res) => setCircles(res?.orderedItems ?? []))
       .catch(() => {})
     client.feeds.getGroups({ limit: 5 })
