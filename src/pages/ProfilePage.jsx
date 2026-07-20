@@ -10,6 +10,13 @@ import CircleSelector from '../components/circles/CircleSelector'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import { setActiveTheme } from '../features/theme/themeSlice'
 import { patchUser } from '../features/auth/authSlice'
+import { useTypography } from '../lib/TypographyProvider'
+import {
+  FONTS,
+  FONT_SIZE_ORDER, FONT_SIZE_LABELS,
+  LINE_SPACING_ORDER, LINE_SPACING_LABELS,
+  COLUMN_WIDTH_ORDER, COLUMN_WIDTH_LABELS,
+} from '../lib/typography'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -77,7 +84,30 @@ function TextInput({ value, onChange, placeholder, type = 'text', readOnly = fal
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Segmented control (stepped typography prefs) ──────────────────────────────
+
+function Segmented({ options, value, onChange }) {
+  return (
+    <div className="inline-flex items-center border border-base-300 self-start">
+      {options.map(({ key, label }) => {
+        const active = value === key
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            aria-pressed={active}
+            className={`px-3.5 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
+              active ? 'bg-primary text-primary-content' : 'bg-base-100 text-base-content/60 hover:bg-base-200'
+            }`}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // ── Theme swatch card ─────────────────────────────────────────────────────────
 
@@ -141,6 +171,7 @@ export default function ProfilePage() {
   const dispatch = useDispatch()
   const client = useClient()
   const { t } = useTranslation()
+  const { typography, setTypography } = useTypography()
 
   const user = authUser ?? MOCK_USER
 
@@ -376,6 +407,77 @@ export default function ProfilePage() {
           </Field>
         </Section>
       )}
+
+      {/* Reading typography */}
+      <Section title={t('profile.reading', { defaultValue: 'Reading' })}>
+        {/* Live preview — inherits the CSS vars TypographyProvider sets globally,
+            so it updates the moment any control below changes. */}
+        <div className="reading-surface border-2 border-base-300 p-5 bg-base-100">
+          <div className="prose max-w-none">
+            <p>
+              {t('profile.readingPreview', {
+                defaultValue:
+                  'Kowloon is a place to read and write without an algorithm deciding what you see. Set the type the way you like it — this is how your posts and articles will read.',
+              })}
+            </p>
+          </div>
+        </div>
+
+        <Field
+          label={t('profile.typeface', { defaultValue: 'Typeface' })}
+          hint={t('profile.typefaceHint', { defaultValue: 'Applies to post and article body text. Changes apply immediately.' })}
+        >
+          <div className="flex flex-wrap gap-2">
+            {FONTS.map((f) => {
+              const active = typography.fontFamily === f.key
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setTypography({ fontFamily: f.key })}
+                  aria-pressed={active}
+                  style={{ fontFamily: f.stack }}
+                  className={`px-4 py-2.5 border-2 text-left transition-colors ${
+                    active ? 'border-primary' : 'border-base-300 hover:border-base-content/30'
+                  }`}
+                >
+                  <span className="block text-lg leading-tight">{f.label}</span>
+                  <span className="block font-ui text-[10px] uppercase tracking-widest text-base-content/40 mt-0.5">
+                    {f.classification}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </Field>
+
+        <Field label={t('profile.textSize', { defaultValue: 'Text size' })}>
+          <Segmented
+            value={typography.fontSize}
+            onChange={(k) => setTypography({ fontSize: k })}
+            options={FONT_SIZE_ORDER.map((key) => ({ key, label: FONT_SIZE_LABELS[key] }))}
+          />
+        </Field>
+
+        <Field label={t('profile.lineSpacing', { defaultValue: 'Line spacing' })}>
+          <Segmented
+            value={typography.lineSpacing}
+            onChange={(k) => setTypography({ lineSpacing: k })}
+            options={LINE_SPACING_ORDER.map((key) => ({ key, label: LINE_SPACING_LABELS[key] }))}
+          />
+        </Field>
+
+        <Field
+          label={t('profile.columnWidth', { defaultValue: 'Column width' })}
+          hint={t('profile.columnWidthHint', { defaultValue: 'How wide a line of text runs before it wraps.' })}
+        >
+          <Segmented
+            value={typography.columnWidth}
+            onChange={(k) => setTypography({ columnWidth: k })}
+            options={COLUMN_WIDTH_ORDER.map((key) => ({ key, label: COLUMN_WIDTH_LABELS[key] }))}
+          />
+        </Field>
+      </Section>
 
       {/* Preferences */}
       <Section title={t('profile.preferences', { defaultValue: 'Preferences' })}>

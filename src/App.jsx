@@ -5,13 +5,16 @@ import router from './app/router'
 import AuthSync from './app/AuthSync'
 import DocumentTitle from './app/DocumentTitle'
 import ToastStack from './components/ui/ToastStack'
+import { TypographyProvider } from './lib/TypographyProvider'
 
 export default function App() {
   return (
     <Provider store={store}>
       <AuthSync />
       <DocumentTitle />
-      <RouterProvider router={router} />
+      <TypographyProvider>
+        <RouterProvider router={router} />
+      </TypographyProvider>
       <ToastStack />
     </Provider>
   )

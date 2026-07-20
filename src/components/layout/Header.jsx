@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { X, Search } from 'lucide-react'
 import { logoutAsync } from '../../features/auth/authSlice'
 import { useClient } from '../../hooks/useClient'
 import useFitText from '../../hooks/useFitText'
@@ -18,19 +18,11 @@ function BellIcon() {
   )
 }
 
-function MenuIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  )
-}
-
 const navLinkClass = ({ isActive }) =>
   `flex items-center h-full px-5 font-ui text-xs uppercase tracking-widest transition-colors ${
     isActive
-      ? 'text-secondary-content border-b-4 border-primary'
-      : 'text-base-300/70 hover:text-secondary-content hover:bg-black/20'
+      ? 'text-[var(--color-header-content)] border-b-4 border-primary'
+      : 'text-[var(--color-header-content)]/60 hover:text-[var(--color-header-content)] hover:bg-black/20'
   }`
 
 export function Header() {
@@ -41,10 +33,8 @@ export function Header() {
   const client     = useClient()
   const { t }      = useTranslation()
 
-  const [menuOpen, setMenuOpen]         = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [drawerOpen, setDrawerOpen]     = useState(false)
-  const [pages, setPages]               = useState([])
   const [unreadCount, setUnreadCount]   = useState(0)
 
   const serverName = server.name || 'Kowloon'
@@ -64,22 +54,6 @@ export function Header() {
       window.removeEventListener('keydown', onKey)
     }
   }, [drawerOpen])
-
-  // Fetch pages for the mobile hamburger menu
-  useEffect(() => {
-    if (!client) return
-    client.feeds.http.get('/pages', { params: { limit: 50 } })
-      .then((res) => {
-        const items = res?.orderedItems ?? res?.items ?? []
-        const top = items.filter((p) => !p.parentId)
-        const tree = top.map((p) => ({
-          ...p,
-          children: items.filter((c) => c.parentId === p.id),
-        }))
-        setPages(tree)
-      })
-      .catch(() => {})
-  }, [client])
 
   // Poll unread notification count every 60s
   useEffect(() => {
@@ -108,13 +82,13 @@ export function Header() {
   const userInitial = user?.username?.[0]?.toUpperCase() ?? '?'
 
   return (
-    <header className="bg-secondary sticky top-0 z-50">
+    <header className="bg-[var(--color-header)] sticky top-0 z-50">
       <nav className="flex items-stretch h-16">
 
         {/* ── Logo ── desktop: home link; mobile: drawer trigger */}
         {(() => {
           const titleClass = (wrapped) =>
-            `font-display text-secondary-content min-w-0 text-left ${
+            `font-display text-[var(--color-header-content)] min-w-0 text-left ${
               wrapped ? 'line-clamp-2 leading-[1.1]' : 'truncate'
             }`
           const titleStyle = (wrapped, wrapPx, maxPx) => ({
@@ -183,7 +157,16 @@ export function Header() {
         {/* ── Right side ───────────────────────────────────────── */}
         <div className="flex items-center gap-1 ml-auto px-3">
 
-          {/* Notifications (auth'd only) */}
+          {/* Search — mobile only (desktop reaches it via the top nav) */}
+          <Link
+            to="/search"
+            aria-label={t('nav.search')}
+            className="lg:hidden flex items-center justify-center w-10 h-10 text-[var(--color-header-content)]/80 hover:text-[var(--color-header-content)] transition-colors"
+          >
+            <Search size={20} />
+          </Link>
+
+          {/* Notifications bell — desktop only (mobile uses the bottom tab) */}
           {user && (
             <>
               {/* Persistent live region — always in DOM so screen readers catch count changes */}
@@ -201,7 +184,7 @@ export function Header() {
               <Link
                 to="/notifications"
                 aria-label={t('a11y.notifications', { defaultValue: 'Notifications' })}
-                className="flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
+                className="hidden lg:flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
               >
                 <div className="indicator">
                   <BellIcon />
@@ -256,6 +239,13 @@ export function Header() {
                     {t('nav.myCircles', { defaultValue: 'My Circles' })}
                   </Link>
                 </li>
+                {user?.isServerAdmin && (
+                  <li>
+                    <Link to="/admin" className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors">
+                      {t('nav.admin', { defaultValue: 'Admin' })}
+                    </Link>
+                  </li>
+                )}
                 <li>
                   <button
                     onClick={handleLogout}
@@ -267,116 +257,22 @@ export function Header() {
               </ul>
             </div>
           ) : (
-            /* Logged-out: sign in / register — desktop only, mobile uses hamburger */
-            <div className="hidden lg:flex items-center gap-2">
+            /* Logged-out: sign in / register — shown at all widths */
+            <div className="flex items-center gap-1 sm:gap-2">
               <Link
                 to="/login"
-                className="px-4 py-2 font-ui text-xs uppercase tracking-widest text-base-300/70 hover:text-primary transition-colors"
+                className="px-3 sm:px-4 py-2 font-ui text-xs uppercase tracking-widest text-[var(--color-header-content)]/80 hover:text-[var(--color-header-content)] transition-colors"
               >
                 {t('nav.signIn')}
               </Link>
               <Link
                 to="/register"
-                className="px-4 py-2 font-ui text-xs uppercase tracking-widest bg-primary text-secondary hover:bg-base-100 transition-colors"
+                className="px-3 sm:px-4 py-2 font-ui text-xs uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 transition-colors"
               >
                 {t('nav.register')}
               </Link>
             </div>
           )}
-
-          {/* Mobile hamburger */}
-          <div className="dropdown dropdown-end lg:hidden">
-            <button
-              tabIndex={0}
-              aria-label={menuOpen ? t('a11y.closeMenu') : t('a11y.openMenu')}
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((o) => !o)}
-              onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
-              className="flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
-            >
-              <MenuIcon />
-            </button>
-            <ul
-              role="menu"
-              tabIndex={0}
-              className="dropdown-content p-0 mt-0 bg-base-100 dark:bg-neutral w-72 border-t-4 border-primary z-[1]"
-            >
-              {/* Nav links */}
-              {NAV_LINKS.map(({ to, label }) => (
-                <li key={to}>
-                  <Link
-                    to={to}
-                    className="block px-4 py-3 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-
-              {/* Pages */}
-              {pages.length > 0 && (
-                <>
-                  <li className="px-4 pt-3 pb-1 font-ui text-xs uppercase tracking-widest text-base-content/40 dark:text-white/60 border-t border-base-300 dark:border-white/10">
-                    {t('nav.pages')}
-                  </li>
-                  {pages.map((page) => (
-                    <li key={page.id}>
-                      <Link
-                        to={`/pages/${encodeURIComponent(page.slug ?? page.id)}`}
-                        className="block px-4 py-2 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                      >
-                        {page.title ?? page.name}
-                      </Link>
-                      {page.children?.map((child) => (
-                        <Link
-                          key={child.id}
-                          to={`/pages/${encodeURIComponent(child.slug ?? child.id)}`}
-                          className="block pl-8 pr-4 py-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 dark:text-white/80 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                        >
-                          {child.title ?? child.name}
-                        </Link>
-                      ))}
-                    </li>
-                  ))}
-                </>
-              )}
-
-              {/* Admin — server admins only */}
-              {user?.isServerAdmin && (
-                <li className="border-t border-base-300 dark:border-white/10 mt-2">
-                  <Link
-                    to="/admin"
-                    className="block px-4 py-3 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                  >
-                    {t('nav.admin', { defaultValue: 'Admin' })}
-                  </Link>
-                </li>
-              )}
-
-              {/* Sign in / Register — logged-out only */}
-              {!user && (
-                <>
-                  <li className="border-t border-base-300 dark:border-white/10">
-                    <Link
-                      to="/login"
-                      className="block px-4 py-3 font-ui text-sm uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
-                    >
-                      {t('nav.signIn')}
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/register"
-                      className="block px-4 py-3 font-ui text-sm uppercase tracking-widest bg-primary text-primary-content hover:opacity-90 transition-colors"
-                    >
-                      {t('nav.register')}
-                    </Link>
-                  </li>
-                </>
-              )}
-            </ul>
-          </div>
 
         </div>
       </nav>
@@ -402,11 +298,11 @@ export function Header() {
           drawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between gap-3 h-16 bg-secondary px-4">
+        <div className="flex items-center justify-between gap-3 h-16 bg-[var(--color-header)] px-4">
           <Link to="/" className="min-w-0 hover:opacity-90 transition-opacity">
             <span
               ref={drawerTitleRef}
-              className={`font-display text-secondary-content min-w-0 text-left ${
+              className={`font-display text-[var(--color-header-content)] min-w-0 text-left ${
                 drawerTitleWrap ? 'line-clamp-2 leading-[1.1]' : 'truncate'
               }`}
               style={{ fontSize: drawerTitleWrap ? '14px' : '18px' }}

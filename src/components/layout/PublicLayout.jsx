@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Header } from './Header'
 import Sidebar from './Sidebar'
 import RightSidebar from './RightSidebar'
+import BottomTabBar from './BottomTabBar'
 import NotificationToaster from '../notifications/NotificationToaster'
 
 export default function PublicLayout() {
@@ -38,6 +39,7 @@ export default function PublicLayout() {
           <div className="hidden lg:block lg:col-span-3 overflow-y-auto py-6"><RightSidebar /></div>
         </div>
       </div>
+      <BottomTabBar />
     </div>
   )
 }

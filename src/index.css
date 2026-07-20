@@ -22,46 +22,56 @@ textarea:focus-visible {
 }
 
 /* ─── Kowloon Theme ───────────────────────────────────────────────────────── */
-/* Inspired by Blue Note Records / 1950s midcentury print design.
-   High contrast, vivid accent, warm paper tones, sharp geometry.
-   These are the fallback values used when no theme is injected (i.e. "system"
-   theme in light mode). themeSlice.js overrides these via a <style> tag when
-   a specific theme is active; the dark media query below handles "system" dark. */
+/* Palette aligned with the Kowloon mobile app (July 2026 redesign): Yves Klein
+   blue header, clean white paper, near-white fields, desaturated steel-blue
+   primary, hard edges. These are the fallback values used when no theme is
+   injected (i.e. "system" theme in light mode). themeSlice.js overrides most of
+   these via a <style> tag when a specific theme is active; --color-header /
+   --color-field stay constant unless a theme explicitly overrides them, so the
+   signature blue header persists across themes. The dark media query below
+   handles "system" dark. */
 
 [data-theme="kowloon"] {
   color-scheme: light;
 
-  /* Base — warm cream paper tones */
-  --color-base-100: oklch(96% 0.018 85deg);
-  --color-base-200: oklch(91% 0.022 85deg);
-  --color-base-300: oklch(84% 0.028 85deg);
-  --color-base-content: oklch(13% 0.008 265deg);
+  /* Header — Yves Klein blue (the app's signature bar) */
+  --color-header: #002fa7;
+  --color-header-content: #ffffff;
+
+  /* Base — clean white paper */
+  --color-base-100: #ffffff;
+  --color-base-200: #f4f4f4;
+  --color-base-300: #e7e7e7;
+  --color-base-content: #1a1a20;
+
+  /* Fields — near-white, slightly warm input surface */
+  --color-field: #fcfbf7;
 
   /* Primary — desaturated steel blue */
-  --color-primary: oklch(63% 0.1 228deg);
-  --color-primary-content: oklch(97% 0.005 228deg);
+  --color-primary: #5588b1;
+  --color-primary-content: #f4f5f7;
 
-  /* Secondary — medium navy */
-  --color-secondary: oklch(42% 0.13 265deg);
-  --color-secondary-content: oklch(96% 0.018 85deg);
+  /* Secondary — medium navy/indigo */
+  --color-secondary: #393b7a;
+  --color-secondary-content: #faf4e8;
 
   /* Accent — vermillion red */
-  --color-accent: oklch(55% 0.22 25deg);
-  --color-accent-content: oklch(97% 0.005 25deg);
+  --color-accent: #c0394a;
+  --color-accent-content: #f7e8e8;
 
-  /* Neutral */
-  --color-neutral: oklch(18% 0.008 265deg);
-  --color-neutral-content: oklch(92% 0.01 85deg);
+  /* Neutral — near-black ink */
+  --color-neutral: #1a1a20;
+  --color-neutral-content: #f4f4f4;
 
   /* State */
-  --color-info: oklch(60% 0.15 230deg);
-  --color-info-content: oklch(97% 0.005 230deg);
-  --color-success: oklch(62% 0.17 145deg);
-  --color-success-content: oklch(97% 0.005 145deg);
-  --color-warning: oklch(78% 0.19 88deg);
-  --color-warning-content: oklch(13% 0.008 265deg);
-  --color-error: oklch(55% 0.22 25deg);
-  --color-error-content: oklch(97% 0.005 25deg);
+  --color-info: #3c8db8;
+  --color-info-content: #f0f6fa;
+  --color-success: #2f9956;
+  --color-success-content: #f0f8f2;
+  --color-warning: #d9b038;
+  --color-warning-content: #1a1a20;
+  --color-error: #c0394a;
+  --color-error-content: #f7e8e8;
 
   /* Post type accent colors — light defaults */
   --post-color-note:    #b76c00;
@@ -85,16 +95,17 @@ textarea:focus-visible {
   [data-theme="kowloon"] {
     color-scheme: dark;
 
-    --color-base-100: oklch(12% 0.02 265deg);
-    --color-base-200: oklch(17% 0.02 265deg);
-    --color-base-300: oklch(24% 0.02 265deg);
-    --color-base-content: oklch(90% 0.018 85deg);
-    --color-primary: oklch(63% 0.1 228deg);
-    --color-primary-content: oklch(97% 0.005 228deg);
-    --color-secondary: oklch(28% 0.14 265deg);
-    --color-secondary-content: oklch(90% 0.018 85deg);
-    --color-neutral: oklch(20% 0.012 265deg);
-    --color-neutral-content: oklch(90% 0.018 85deg);
+    --color-base-100: #16171d;
+    --color-base-200: #1f2129;
+    --color-base-300: #2c2f3a;
+    --color-base-content: #f4f4f4;
+    --color-field: #1f2129;
+    --color-primary: #5588b1;
+    --color-primary-content: #0e1116;
+    --color-secondary: #393b7a;
+    --color-secondary-content: #faf4e8;
+    --color-neutral: #1f2129;
+    --color-neutral-content: #f4f4f4;
 
     --post-color-note:    #e8920a;
     --post-color-article: #2ab4e8;
@@ -107,9 +118,9 @@ textarea:focus-visible {
 /* ─── Font Utilities ─────────────────────────────────────────────────────── */
 
 @theme {
-  --font-display: "Inter", sans-serif;
-  --font-ui: "IBM Plex Sans", system-ui, sans-serif;
-  --font-reading: "Inter", sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-ui: "Inter", system-ui, sans-serif;
+  --font-reading: "Lora", Georgia, serif;
 }
 
 @layer base {
@@ -123,7 +134,7 @@ textarea:focus-visible {
 
 @layer base {
   html {
-    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -135,17 +146,17 @@ textarea:focus-visible {
   h4,
   h5,
   h6 {
-    font-family: "Inter", sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     font-weight: 600;
     letter-spacing: -0.02em;
-    line-height: 1;
+    line-height: 1.1;
   }
 
   /* Long-form content */
   article,
   .prose,
   .font-reading {
-    font-family: "Inter", sans-serif;
+    font-family: "Lora", Georgia, serif;
     font-weight: 400;
     font-size: 1.25rem;
     line-height: 1.5;
@@ -158,7 +169,7 @@ textarea:focus-visible {
   .stat-title,
   .menu,
   .tab {
-    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     font-size: 0.75rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -227,7 +238,7 @@ textarea:focus-visible {
     position: absolute;
     left: 0;
     top: -0.15em;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Lora', Georgia, serif;
     font-size: 4rem;
     line-height: 1;
     color: var(--color-base-content);
@@ -252,9 +263,9 @@ textarea:focus-visible {
   .prose h1,
   .prose h2,
   .prose h3 {
-    font-family: "Inter", sans-serif;
-    letter-spacing: 0.03em;
-    line-height: 1;
+    font-family: "Inter", system-ui, sans-serif;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
     margin: 3em 0 1em;
   }
   .prose h1 {
@@ -268,4 +279,48 @@ textarea:focus-visible {
   .prose h3 {
     font-size: 1.75rem;
   }
+}
+
+/* ─── Self-hosted OpenDyslexic (reading typography option) ─────────────────── */
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/OpenDyslexic-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/OpenDyslexic-Bold.otf") format("opentype");
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/OpenDyslexic-Italic.otf") format("opentype");
+}
+
+/* ─── Reading surfaces ────────────────────────────────────────────────────── */
+/* Opt-in class on full-body reading content (post/article body). Consumes the
+   CSS vars set by TypographyProvider so the reader's font / size / line-spacing
+   / measure follow their account preference. Unlayered so it beats the base
+   `.prose` sizing. Falls back to the site's static reading style when the vars
+   are absent (provider not yet mounted). */
+
+.reading-surface .prose {
+  font-family: var(--reading-font, "Lora", Georgia, serif);
+  line-height: var(--reading-leading, 1.55);
+  max-width: var(--reading-measure, none);
+}
+.reading-surface .prose p,
+.reading-surface .prose ul,
+.reading-surface .prose ol,
+.reading-surface .prose blockquote {
+  font-size: var(--reading-size, 1.125rem);
+  line-height: var(--reading-leading, 1.55);
 }

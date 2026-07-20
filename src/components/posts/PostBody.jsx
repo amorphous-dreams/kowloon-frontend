@@ -502,7 +502,7 @@ export default function PostBody({ post, showFull = false }) {
     : null
 
   return (
-    <div className="font-reading text-base-content leading-relaxed">
+    <div className="reading-surface font-reading text-base-content leading-relaxed">
       {title && (
         isLink
           ? <LinkTitle post={{ ...post, name: title }} />
