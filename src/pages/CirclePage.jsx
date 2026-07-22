@@ -23,11 +23,9 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-const VISIBILITY_OPTIONS = [
-  { value: '@public', label: 'Public' },
-  { value: '@server', label: 'Server only' },
-  { value: '', label: 'Private (only you)' },
-]
+// "Private (only you)" self-addresses to the owner's actor ID, not '' — an
+// empty `to` is dropped/rejected. Built per-render below so it can use the
+// current user's ID (see visibilityOptions).
 
 // ── MemberRow ─────────────────────────────────────────────────────────────────
 
@@ -165,6 +163,11 @@ export default function CirclePage() {
   const navigate = useNavigate()
   const authUser = useSelector((state) => state.auth.user)
   const { t } = useTranslation()
+  const visibilityOptions = [
+    { value: '@public', label: 'Public' },
+    { value: '@server', label: 'Server only' },
+    { value: authUser?.id ?? '', label: 'Private (only you)' },
+  ]
 
   const [circle, setCircle]   = useState(null)
   const [members, setMembers] = useState([])
@@ -422,7 +425,7 @@ export default function CirclePage() {
                   onChange={(e) => setEditTo(e.target.value)}
                   className="bg-base-200 border border-base-300 px-3 py-1.5 font-ui text-xs focus:outline-none focus:border-primary"
                 >
-                  {VISIBILITY_OPTIONS.map((o) => (
+                  {visibilityOptions.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
