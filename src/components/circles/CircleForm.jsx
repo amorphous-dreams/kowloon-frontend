@@ -10,6 +10,7 @@
 //   embedded: bool                    — suppresses the form's own sticky title (host shell provides one)
 
 import { useState, useRef } from 'react'
+import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Loader, UserPlus, X } from 'lucide-react'
@@ -24,11 +25,10 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-const VISIBILITY_OPTIONS = [
-  { value: '@public', label: 'Public' },
-  { value: '@server', label: 'Server only' },
-  { value: '', label: 'Private (only you)' },
-]
+// "Private (only you)" is self-addressing: its value must be the owner's own
+// actor ID, not '' — an empty `to` is dropped by the client and rejected by the
+// server's Create handler (which requires `to`). Built per-render in the
+// component so it can use the current user's ID (see visibilityOptions below).
 
 // ── MemberChip ────────────────────────────────────────────────────────────────
 
@@ -186,6 +186,12 @@ export default function CircleForm({
   embedded = false,
 }) {
   const { t } = useTranslation()
+  const selfId = useSelector((s) => s.auth.user?.id) ?? ''
+  const visibilityOptions = [
+    { value: '@public', label: 'Public' },
+    { value: '@server', label: 'Server only' },
+    { value: selfId, label: 'Private (only you)' },
+  ]
 
   const [name, setName] = useState(initialValues.name ?? '')
   const [description, setDescription] = useState(initialValues.description ?? '')
@@ -301,7 +307,7 @@ export default function CircleForm({
               onChange={(e) => setTo(e.target.value)}
               className="bg-base-200 border border-base-300 px-3 py-1.5 font-ui text-sm focus:outline-none focus:border-primary"
             >
-              {VISIBILITY_OPTIONS.map((o) => (
+              {visibilityOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
