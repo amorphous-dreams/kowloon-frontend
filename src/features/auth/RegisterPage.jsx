@@ -68,6 +68,11 @@ export default function RegisterPage() {
       setLocalError(t('auth.mustAcknowledgeRules', { defaultValue: 'Please acknowledge every server rule before registering.' }))
       return
     }
+    // Username becomes the account handle (@user@domain) — must be a slug.
+    if (!/^[a-z0-9_]{2,32}$/.test(username.trim())) {
+      setLocalError(t('auth.usernameInvalid', { defaultValue: 'Username must be 2–32 characters: lowercase letters, numbers, or underscores only (no spaces or capitals). Put your full name in the display name.' }))
+      return
+    }
     dispatch(registerAsync({
       serverUrl: serverUrl.trim(),
       username: username.trim(),
@@ -175,13 +180,13 @@ export default function RegisterPage() {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                 placeholder={t('auth.usernamePlaceholder', { defaultValue: 'yourhandle' })}
                 required
                 autoComplete="username"
                 autoFocus={!!FIXED_SERVER}
-                pattern="[a-zA-Z0-9_-]+"
-                title={t('auth.usernamePattern', { defaultValue: 'Letters, numbers, _ and - only' })}
+                pattern="[a-z0-9_]{2,32}"
+                title={t('auth.usernamePattern', { defaultValue: 'Lowercase letters, numbers, and underscores only (no spaces or capitals)' })}
                 className={inputCls}
               />
             </Field>
