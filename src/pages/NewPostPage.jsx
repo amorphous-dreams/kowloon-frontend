@@ -477,7 +477,10 @@ export default function NewPostPage() {
             content={content}
             onChange={setContent}
             maxWords={postType === 'Note' ? NOTE_MAX_WORDS : undefined}
-            autoFocus
+            // Only autofocus the body for Notes. For other types the body sits
+            // below the title + type fields (URL/image/date), and focusing it
+            // scrolls those out of view. See kowloon-mobile compose.js.
+            autoFocus={postType === 'Note'}
             editorClassName="min-h-[40vh]"
           />
           {postType === 'Note' && (

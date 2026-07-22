@@ -989,7 +989,10 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
             onChange={setContent}
             maxWords={postType === 'Note' ? NOTE_MAX_WORDS : undefined}
             postType={postType}
-            autoFocus
+            // Only autofocus the body for Notes — for other types it sits below
+            // the title + type fields (URL/image/date), and focusing it scrolls
+            // those out of view.
+            autoFocus={postType === 'Note'}
             editorClassName="min-h-[40vh]"
           />
 
