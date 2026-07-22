@@ -3,9 +3,29 @@
 // Import clearClient() on logout to reset the cache.
 
 import KowloonClient from '@kowloon/client'
+import { normalizeImageFile } from './normalizeImage.js'
 
 let _client = null
 let _clientUrl = null
+
+/**
+ * Wrap client.files.upload so every image is baked upright (and size-capped)
+ * before it leaves the browser. Covers all upload call sites at once. No-op for
+ * non-image files. Idempotent — safe to call on a cached instance.
+ */
+function wrapUploadOrientation(client) {
+  if (!client?.files?.upload || client.files.__orientWrapped) return client
+  const orig = client.files.upload.bind(client.files)
+  client.files.upload = async (opts) => {
+    const file = await normalizeImageFile(opts?.file)
+    if (file && file !== opts.file) {
+      return orig({ ...opts, file, filename: file.name, contentType: file.type })
+    }
+    return orig(opts)
+  }
+  client.files.__orientWrapped = true
+  return client
+}
 
 /**
  * Resolve the API base URL using, in order:
@@ -33,7 +53,7 @@ export function getClient(serverUrl) {
   const url = resolveServerUrl(serverUrl)
   if (!url) return null
   if (_client && _clientUrl === url) return _client
-  _client = new KowloonClient({ baseUrl: url })
+  _client = wrapUploadOrientation(new KowloonClient({ baseUrl: url }))
   _clientUrl = url
   return _client
 }
