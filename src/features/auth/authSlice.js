@@ -114,6 +114,15 @@ const authSlice = createSlice({
         }
       }
     },
+    // Synchronously drop auth state when the session is already invalid (e.g. an
+    // expired token 401'd). Unlike logoutAsync it makes no server call.
+    clearAuth(state) {
+      state.user = null
+      state.token = null
+      state.status = 'idle'
+      state.error = null
+      state.sessionChecked = true
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -178,5 +187,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { setServerUrl, clearError, patchUser } = authSlice.actions
+export const { setServerUrl, clearError, patchUser, clearAuth } = authSlice.actions
 export default authSlice.reducer

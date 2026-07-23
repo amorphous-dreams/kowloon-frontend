@@ -45,6 +45,33 @@ export function resolveServerUrl(explicit) {
   )
 }
 
+// Fired by the client when a token-bearing request still 401s — the session
+// expired. Clear stale auth and bounce to login instead of leaving the UI
+// half-logged-in showing raw "Authentication required" errors (#57). Dynamic
+// imports avoid an import cycle (store/router pull in the client); the guard
+// prevents a redirect storm when several requests fail at once.
+let _handlingExpiry = false
+function handleSessionExpired() {
+  if (_handlingExpiry) return
+  _handlingExpiry = true
+  Promise.all([
+    import('../app/store.js'),
+    import('../features/auth/authSlice.js'),
+    import('../app/router.jsx'),
+  ])
+    .then(([{ store }, { clearAuth }, routerMod]) => {
+      store.dispatch(clearAuth())
+      const path = window?.location?.pathname || ''
+      if (!path.startsWith('/login')) {
+        routerMod.default.navigate('/login?expired=1')
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      setTimeout(() => { _handlingExpiry = false }, 1500)
+    })
+}
+
 /**
  * Get (or create) a KowloonClient for the given server URL.
  * Returns null if no URL can be resolved.
@@ -53,7 +80,9 @@ export function getClient(serverUrl) {
   const url = resolveServerUrl(serverUrl)
   if (!url) return null
   if (_client && _clientUrl === url) return _client
-  _client = wrapUploadOrientation(new KowloonClient({ baseUrl: url }))
+  _client = wrapUploadOrientation(
+    new KowloonClient({ baseUrl: url, onUnauthorized: handleSessionExpired })
+  )
   _clientUrl = url
   return _client
 }

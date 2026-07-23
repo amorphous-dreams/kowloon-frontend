@@ -35,6 +35,10 @@ export default function LoginPage() {
     : searchParams.get('reset') === 'success'
     ? 'Password updated. Sign in with your new password.'
     : null
+  // Set by the client's session-expiry handler when a token stopped working (#57).
+  const expiredMsg = searchParams.get('expired') === '1'
+    ? 'Your session expired. Please sign in again.'
+    : null
 
   useEffect(() => { dispatch(clearError()) }, [dispatch])
   useEffect(() => {
@@ -115,6 +119,12 @@ export default function LoginPage() {
           {successMsg && (
             <div className="mb-6 px-4 py-3 border-l-4 border-success bg-success/5">
               <p className="font-ui text-xs uppercase tracking-widest text-success">{successMsg}</p>
+            </div>
+          )}
+
+          {expiredMsg && !error && (
+            <div className="mb-6 px-4 py-3 border-l-4 border-warning bg-warning/5">
+              <p className="font-ui text-xs uppercase tracking-widest text-warning">{expiredMsg}</p>
             </div>
           )}
 
