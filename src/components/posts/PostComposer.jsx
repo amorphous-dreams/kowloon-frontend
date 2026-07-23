@@ -94,10 +94,33 @@ function addOneHourToTime(time) {
   return `${pad((h + 1) % 24)}:${pad(m)}`
 }
 
+// Split a stored datetime into local [date, time] form fields. Reads local
+// components so it round-trips with joinDateTime (which stores a UTC instant),
+// keeping event times from drifting by the viewer's offset (#63, web).
 function splitDateTime(val) {
   if (!val) return ['', '']
-  const [date, time] = val.split('T')
-  return [date || '', (time || '').slice(0, 5)]
+  const d = new Date(val)
+  if (isNaN(d.getTime())) {
+    const [date, time] = String(val).split('T')
+    return [date || '', (time || '').slice(0, 5)]
+  }
+  const pad = (n) => String(n).padStart(2, '0')
+  return [
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  ]
+}
+
+// Build a UTC ISO instant from the local date+time fields. A bare
+// "YYYY-MM-DDTHH:mm" has no zone, so the server read it as UTC and the display
+// shifted it by the viewer's offset (#63). Encoding the real instant fixes it.
+function joinDateTime(date, time) {
+  if (!date) return ''
+  const [y, mo, d] = String(date).split('-').map(Number)
+  const [h, mi] = String(time || '00:00').split(':').map(Number)
+  if (!y || !mo || !d) return time ? `${date}T${time}` : date
+  const dt = new Date(y, mo - 1, d, h || 0, mi || 0, 0, 0)
+  return isNaN(dt.getTime()) ? (time ? `${date}T${time}` : date) : dt.toISOString()
 }
 
 function DateTimeField({ dateValue, timeValue, onDateChange, onTimeChange, placeholder, ariaLabel, optional = false, borderRight = false }) {
@@ -268,8 +291,8 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const [startTimePart, setStartTimePart] = useState(() => splitDateTime(initialValues.startDate)[1])
   const [endDatePart,   setEndDatePart]   = useState(() => splitDateTime(initialValues.endDate)[0])
   const [endTimePart,   setEndTimePart]   = useState(() => splitDateTime(initialValues.endDate)[1])
-  const startDate = startDatePart ? `${startDatePart}${startTimePart ? 'T' + startTimePart : ''}` : ''
-  const endDate   = endDatePart   ? `${endDatePart}${endTimePart   ? 'T' + endTimePart   : ''}` : ''
+  const startDate = joinDateTime(startDatePart, startTimePart)
+  const endDate   = joinDateTime(endDatePart, endTimePart)
   const [tags, setTags]               = useState(initialValues.tags     ?? [])
   const [location, setLocation]       = useState(initialValues.location ?? '')
   const [attachments, setAttachments] = useState([])   // [{ file, title, alt, previewUrl }]

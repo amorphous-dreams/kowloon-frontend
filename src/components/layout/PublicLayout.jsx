@@ -1,6 +1,7 @@
 // Public layout — accessible to all users, with or without auth.
 // Shows the header (which adapts based on auth state).
 
+import AppErrorBoundary from '../ui/AppErrorBoundary'
 import { Outlet } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
@@ -35,7 +36,7 @@ export default function PublicLayout() {
       <div className="flex-1 overflow-hidden px-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 h-full">
           <div className="hidden lg:block lg:col-span-3 overflow-y-auto py-6"><Sidebar /></div>
-          <main id="main-content" className="col-span-1 lg:col-span-6 lg:px-8 overflow-y-auto py-6"><Outlet /></main>
+          <main id="main-content" className="col-span-1 lg:col-span-6 lg:px-8 overflow-y-auto py-6"><AppErrorBoundary><Outlet /></AppErrorBoundary></main>
           <div className="hidden lg:block lg:col-span-3 overflow-y-auto py-6"><RightSidebar /></div>
         </div>
       </div>

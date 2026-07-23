@@ -1,6 +1,7 @@
 // Protected layout — redirects to /login if not authenticated.
 // Shows a loading spinner while the session restore is in flight.
 
+import AppErrorBoundary from '../ui/AppErrorBoundary'
 import { Outlet, Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
@@ -38,7 +39,7 @@ export default function Layout() {
       <div className="flex-1 overflow-hidden px-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 h-full">
           <div className="hidden lg:block lg:col-span-3 overflow-y-auto py-6"><Sidebar /></div>
-          <main id="main-content" className="col-span-1 lg:col-span-6 lg:px-8 overflow-y-auto py-6"><Outlet /></main>
+          <main id="main-content" className="col-span-1 lg:col-span-6 lg:px-8 overflow-y-auto py-6"><AppErrorBoundary><Outlet /></AppErrorBoundary></main>
           <div className="hidden lg:block lg:col-span-3 overflow-y-auto py-6"><RightSidebar /></div>
         </div>
       </div>

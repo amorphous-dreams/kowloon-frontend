@@ -134,6 +134,15 @@ function SortableMediaRow({ att, index, onUpdate, onRemove, isFeatured, onSetFea
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// A <input type="datetime-local"> value ("YYYY-MM-DDTHH:mm") has no zone, so
+// sending it as-is let the server read it as UTC and the display shifted it by
+// the viewer's offset (#63). Convert to a real UTC ISO instant.
+function toIsoInstant(local) {
+  if (!local) return ''
+  const d = new Date(local) // datetime-local parses in the browser's local zone
+  return isNaN(d.getTime()) ? local : d.toISOString()
+}
+
 export default function NewPostPage() {
   const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
@@ -320,8 +329,8 @@ export default function NewPostPage() {
         title: title || undefined,
         content: content || undefined,
         href: href || undefined,
-        startTime: startDate || undefined,
-        endTime: endDate || undefined,
+        startTime: toIsoInstant(startDate) || undefined,
+        endTime: toIsoInstant(endDate) || undefined,
         tags: tags.length ? tags : undefined,
         location: location ? { type: 'Place', name: location, ...(geo ?? {}) } : undefined,
         to: audience,
