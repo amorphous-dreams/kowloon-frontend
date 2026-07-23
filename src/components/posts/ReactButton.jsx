@@ -1,6 +1,13 @@
-// ReactButton — emoji reaction picker for posts.
-// Fetches available reactions from server settings on first use (cached module-level).
-// Shows a small popup of emoji options; clicking one fires a React activity.
+// ReactButton — emoji reaction picker for posts and replies.
+// One reaction per user (matches the mobile app + server model): the button
+// shows the viewer's current emoji when they've reacted; tapping it clears the
+// reaction (emoji: null), tapping a different emoji replaces it in one step, and
+// tapping any emoji with none set adds it. All optimistic, with rollback on
+// failure. Reads post.myReact / post.reactCount, which the server already
+// returns for the authed viewer.
+//
+// Fetches the available emoji set from server settings on first use (cached
+// module-level). Shows a small popup of options above the button.
 
 import { useState, useEffect, useRef } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -17,7 +24,9 @@ async function getEmojis(client) {
   if (!fetchPromise) {
     fetchPromise = client.feeds.getServerInfo()
       .then((info) => {
-        cachedEmojis = info?.settings?.reactEmojis ?? DEFAULT_EMOJIS
+        cachedEmojis = info?.settings?.reactEmojis?.length
+          ? info.settings.reactEmojis
+          : DEFAULT_EMOJIS
         return cachedEmojis
       })
       .catch(() => {
@@ -37,15 +46,23 @@ const DEFAULT_EMOJIS = [
   { emoji: '🤬', name: 'Angry' },
 ]
 
-export default function ReactButton({ post, t }) {
+export default function ReactButton({ post, t, onReacted }) {
   const client = useClient()
   const [open, setOpen] = useState(false)
   const [emojis, setEmojis] = useState(cachedEmojis ?? DEFAULT_EMOJIS)
   const [pending, setPending] = useState(false)
-  const [localCount, setLocalCount] = useState(post?.reactCount ?? 0)
+  const [count, setCount] = useState(post?.reactCount ?? 0)
+  const [myReact, setMyReact] = useState(post?.myReact ?? null)
   const [popupBottom, setPopupBottom] = useState(0)
   const buttonRef = useRef(null)
   const popupRef = useRef(null)
+
+  // Refresh local state when a different post (or updated counts) is passed in —
+  // e.g. the parent refetched after a reaction landed.
+  useEffect(() => {
+    setCount(post?.reactCount ?? 0)
+    setMyReact(post?.myReact ?? null)
+  }, [post?.id, post?.reactCount, post?.myReact])
 
   // Load emojis from server (instant if cached)
   useEffect(() => {
@@ -85,21 +102,47 @@ export default function ReactButton({ post, t }) {
     }
   }, [open])
 
-  const handleReact = async (emoji, name) => {
+  // One reaction per user. Tapping your current emoji removes it; tapping a
+  // different one replaces it (one call); tapping any when you have none adds it.
+  const react = async (emoji, name) => {
     if (!client || pending) return
     setOpen(false)
     setPending(true)
+
+    const clearing = emoji === myReact
+    const prevReact = myReact
+    const prevCount = count
+
+    // Optimistic update.
+    if (clearing) {
+      setMyReact(null)
+      setCount((c) => Math.max(0, c - 1))
+    } else {
+      setMyReact(emoji)
+      if (!prevReact) setCount((c) => c + 1) // new reactor (replace keeps count)
+    }
+
     try {
-      const res = await client.activities.react({ postId: post.id, emoji, name })
-      // Only update local state if a new react was actually created
-      if (res?.result?.status !== 'already_reacted') {
-        setLocalCount((c) => c + 1)
-      }
+      const res = await client.activities.react({
+        postId: post.id,
+        emoji: clearing ? null : emoji,
+        name: clearing ? undefined : name || emoji,
+      })
+      onReacted?.(res)
     } catch (err) {
+      setMyReact(prevReact)
+      setCount(prevCount)
       toast.error('Reaction failed', { detail: err?.message })
     } finally {
       setPending(false)
     }
+  }
+
+  const handleButtonClick = () => {
+    // Already reacted → a plain click removes it (one reaction per user).
+    // With no reaction yet, click opens the picker to add one.
+    if (myReact) react(myReact)
+    else setOpen((o) => !o)
   }
 
   return (
@@ -107,15 +150,21 @@ export default function ReactButton({ post, t }) {
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleButtonClick}
         disabled={pending}
-        title={t('post.react')}
-        aria-label={t('post.react')}
-        className="inline-flex items-center gap-1.5 text-base text-base-content/50 hover:text-base-content transition-colors disabled:opacity-30"
+        title={myReact ? t('post.reactRemove', { defaultValue: 'Remove reaction' }) : t('post.react')}
+        aria-label={myReact ? t('post.reactRemove', { defaultValue: 'Remove reaction' }) : t('post.react')}
+        className={`inline-flex items-center gap-1.5 text-base transition-colors disabled:opacity-30 ${
+          myReact ? 'text-primary hover:text-primary/70' : 'text-base-content/50 hover:text-base-content'
+        }`}
       >
-        <FontAwesomeIcon icon={faFaceSmile} />
-        {localCount > 0 && (
-          <span className="font-ui text-xs tracking-wider">{localCount}</span>
+        {myReact ? (
+          <span className="text-base leading-none">{myReact}</span>
+        ) : (
+          <FontAwesomeIcon icon={faFaceSmile} />
+        )}
+        {count > 0 && (
+          <span className="font-ui text-xs tracking-wider">{count}</span>
         )}
       </button>
 
@@ -127,19 +176,24 @@ export default function ReactButton({ post, t }) {
           style={{ bottom: popupBottom }}
           className="fixed left-[5px] right-[5px] flex flex-wrap justify-center gap-0 bg-base-100 border-2 border-primary shadow-lg z-40"
         >
-          {emojis.map(({ emoji, name }) => (
-            <button
-              key={name}
-              type="button"
-              role="menuitem"
-              onClick={() => handleReact(emoji, name)}
-              title={name}
-              aria-label={name}
-              className="px-2.5 py-2 text-xl hover:bg-base-200 transition-colors leading-none"
-            >
-              {emoji}
-            </button>
-          ))}
+          {emojis.map(({ emoji, name }) => {
+            const active = emoji === myReact
+            return (
+              <button
+                key={name}
+                type="button"
+                role="menuitem"
+                onClick={() => react(emoji, name)}
+                title={name}
+                aria-label={name}
+                className={`px-2.5 py-2 text-xl hover:bg-base-200 transition-colors leading-none ${
+                  active ? 'bg-base-200' : ''
+                }`}
+              >
+                {emoji}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
