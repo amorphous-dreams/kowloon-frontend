@@ -6,8 +6,9 @@ import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDispatch } from 'react-redux'
-import { MapPin, ExternalLink, Users, UserPlus, UserCheck, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { MapPin, ExternalLink, Users, UserPlus, UserCheck, Pencil, Trash2, ChevronDown, ChevronUp, Inbox } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
+import { joinNeedsApproval, canJoinGroup, rsvpPolicyLabel } from '../lib/groups'
 import { useFeed } from '../hooks/useFeed'
 import PostList from '../components/posts/PostList'
 import PostComposer from '../components/posts/PostComposer'
@@ -24,13 +25,6 @@ const hexMask = {
   maskSize: 'contain',
   maskRepeat: 'no-repeat',
   maskPosition: 'center',
-}
-
-const POLICY_LABELS = {
-  open:           'Open — anyone can join',
-  serverOpen:     'Server members',
-  serverApproval: 'Approval required',
-  approvalOnly:   'By invitation',
 }
 
 const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
@@ -198,7 +192,8 @@ export default function GroupPage() {
   const isLoggedIn    = !!authUser
   const isOwner       = authUser && group.actor?.id === authUser.id
   const isMember      = joined
-  const needsApproval = group.rsvpPolicy === 'restricted'
+  const needsApproval = joinNeedsApproval(group.rsvpPolicy)
+  const canJoin       = canJoinGroup(group.rsvpPolicy)
 
   const MEMBER_PREVIEW  = 5
   const visibleMembers  = showAllMembers ? members : members.slice(0, MEMBER_PREVIEW)
@@ -259,7 +254,7 @@ export default function GroupPage() {
                 </>
               )}
               <span>·</span>
-              <span>{POLICY_LABELS[group.rsvpPolicy] ?? group.rsvpPolicy}</span>
+              <span>{rsvpPolicyLabel(group.rsvpPolicy)}</span>
             </div>
 
             {group.description && (
@@ -292,7 +287,7 @@ export default function GroupPage() {
 
           {/* Actions */}
           <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
-            {isLoggedIn && !isOwner && (
+            {isLoggedIn && !isOwner && (joined || canJoin) && (
               <button
                 onClick={handleJoinToggle}
                 className={`flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest transition-colors ${
@@ -309,8 +304,19 @@ export default function GroupPage() {
                 }
               </button>
             )}
+            {isLoggedIn && !isOwner && !joined && !canJoin && (
+              <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">
+                {t('group.inviteOnly', { defaultValue: 'Invite only' })}
+              </span>
+            )}
             {isOwner && (
               <>
+                <Link
+                  to={`/groups/${encodeURIComponent(group.id)}/pending`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+                >
+                  <Inbox size={12} /> {t('group.pending', { defaultValue: 'Pending' })}
+                </Link>
                 <Link
                   to={`/groups/${encodeURIComponent(group.id)}/edit`}
                   className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"

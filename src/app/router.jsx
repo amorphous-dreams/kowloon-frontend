@@ -31,6 +31,7 @@ import NewPostPage from '../pages/NewPostPage'
 import EditPostPage from '../pages/EditPostPage'
 import NewGroupPage from '../pages/NewGroupPage'
 import EditGroupPage from '../pages/EditGroupPage'
+import GroupPendingPage from '../pages/GroupPendingPage'
 import NewCirclePage from '../pages/NewCirclePage'
 import EditCirclePage from '../pages/EditCirclePage'
 import NotificationsPage from '../pages/NotificationsPage'
@@ -95,6 +96,7 @@ const router = createBrowserRouter([
       { path: '/posts/:id/edit', element: <EditPostPage /> },
       { path: '/groups/new', element: <NewGroupPage /> },
       { path: '/groups/:id/edit', element: <EditGroupPage /> },
+      { path: '/groups/:id/pending', element: <GroupPendingPage /> },
       { path: '/circles/new', element: <NewCirclePage /> },
       { path: '/circles/:id/edit', element: <EditCirclePage /> },
       { path: '/notifications', element: <NotificationsPage /> },
