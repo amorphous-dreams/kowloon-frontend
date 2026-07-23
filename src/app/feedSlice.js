@@ -46,6 +46,7 @@ export const savePinnedCirclesAsync = createAsyncThunk(
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY_CIRCLE = 'kowloon:feed:lastCircleId'
+const STORAGE_KEY_VIEW    = 'kowloon:feed:view'
 const STORAGE_KEY_TYPES  = 'kowloon:feed:activeTypes'
 
 function readPersistedCircleId() {
@@ -58,6 +59,24 @@ function writePersistedCircleId(id) {
   try {
     if (id) localStorage.setItem(STORAGE_KEY_CIRCLE, id)
     else    localStorage.removeItem(STORAGE_KEY_CIRCLE)
+  } catch { /* quota or private mode — fall through silently */ }
+}
+
+// The home feed "view" — matches the mobile app's viewKey:
+//   'all'          — merged public + server (getServerPosts)
+//   'mine'         — everything you've posted (getUserPosts, self)
+//   'circle:<id>…' — a circle feed (getCirclePosts)
+//   'group:<id>…'  — a joined group feed (getGroupPosts)
+function readPersistedView() {
+  if (typeof localStorage === 'undefined') return null
+  try { return localStorage.getItem(STORAGE_KEY_VIEW) || null } catch { return null }
+}
+
+function writePersistedView(v) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    if (v) localStorage.setItem(STORAGE_KEY_VIEW, v)
+    else   localStorage.removeItem(STORAGE_KEY_VIEW)
   } catch { /* quota or private mode — fall through silently */ }
 }
 
@@ -93,10 +112,12 @@ function loadPrefsFromUser(state, user, { preserveActiveTypes = false } = {}) {
 
 function resetFeedState(state) {
   state.circleId        = null
+  state.view            = 'all'
   state.activeTypes     = []
   state.defaultTypes    = []
   state.pinnedCircleIds = []
   writePersistedCircleId(null)
+  writePersistedView(null)
   writePersistedTypes(null)
 }
 
@@ -109,6 +130,7 @@ const feedSlice = createSlice({
     // type filter survive a page reload. HomePage validates the saved circle
     // against the loaded list and falls back to Following if it's gone.
     circleId: readPersistedCircleId(),
+    view: readPersistedView() ?? 'all',
     activeTypes: readPersistedTypes() ?? [],
     defaultTypes: [],     // user's saved default type filter (from profile)
     pinnedCircleIds: [],  // user-pinned circle IDs (from profile)
@@ -117,6 +139,12 @@ const feedSlice = createSlice({
     setCircle(state, action) {
       state.circleId = action.payload
       writePersistedCircleId(action.payload)
+    },
+
+    // Set the home feed view ('all' | 'mine' | circleId | groupId).
+    setView(state, action) {
+      state.view = action.payload || 'all'
+      writePersistedView(state.view === 'all' ? null : state.view)
     },
 
     toggleType(state, action) {
@@ -184,6 +212,7 @@ const feedSlice = createSlice({
 
 export const {
   setCircle,
+  setView,
   toggleType,
   clearTypes,
   resetToDefaults,
