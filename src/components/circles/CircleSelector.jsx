@@ -26,6 +26,7 @@ const hexMask = {
 
 export default function CircleSelector({
   circles = [],
+  groups = [],
   value = 'public',
   onChange,
   showAudience = false,
@@ -53,25 +54,26 @@ export default function CircleSelector({
     { id: 'server', label: t('circle.server'), summary: t('circle.serverSummary') },
   ]
 
-  // Filter circles — only apply filter at 2+ chars
-  const filtered = query.length >= 2
-    ? circles.filter((c) =>
-        c.name?.toLowerCase().includes(query.toLowerCase()) ||
-        c.summary?.toLowerCase().includes(query.toLowerCase())
-      )
-    : circles
+  // Filter circles / groups — only apply filter at 2+ chars
+  const q = query.toLowerCase()
+  const matches = (o) =>
+    o.name?.toLowerCase().includes(q) || o.summary?.toLowerCase().includes(q)
+  const filtered = query.length >= 2 ? circles.filter(matches) : circles
+  const filteredGroups = query.length >= 2 ? groups.filter(matches) : groups
 
   // Flat list of all selectable options for keyboard nav
   const allOptions = [
     ...(showAudience ? AUDIENCE_OPTIONS : []),
     ...filtered,
+    ...filteredGroups,
     ...(allowCreate ? [{ id: '__create__', label: t('circle.new') }] : []),
   ]
 
   // Resolve trigger label
   const audience = AUDIENCE_OPTIONS.find((a) => a.id === value)
   const circle   = circles.find((c) => c.id === value)
-  const label    = audience?.label ?? circle?.name ?? 'Select…'
+  const group    = groups.find((g) => g.id === value)
+  const label    = audience?.label ?? circle?.name ?? group?.name ?? 'Select…'
 
   // Close on outside click
   useEffect(() => {
@@ -286,6 +288,42 @@ export default function CircleSelector({
                         </span>
                       )}
                     </span>
+                  </button>
+                </li>
+              )
+            })}
+
+            {/* Groups the user belongs to — always addressable, below circles (#67) */}
+            {filteredGroups.length > 0 && (
+              <li
+                className="border-t-2 border-base-300 px-4 pt-2 pb-1 font-ui text-[10px] uppercase tracking-widest text-base-content/40"
+                role="presentation"
+              >
+                {t('composer.groups', { defaultValue: 'Groups' })}
+              </li>
+            )}
+            {filteredGroups.map((grp) => {
+              optionIndex++
+              const i = optionIndex
+              return (
+                <li key={grp.id} role="option" aria-selected={value === grp.id} id={`${id}-opt-${i}`}>
+                  <button
+                    ref={(el) => { optionRefs.current[i] = el }}
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => handleSelect(grp.id)}
+                    onKeyDown={(e) => handleOptionKeyDown(e, i)}
+                    className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-left transition-colors ${
+                      value === grp.id
+                        ? 'bg-secondary text-secondary-content'
+                        : 'hover:bg-base-200 text-base-content'
+                    }`}
+                  >
+                    {grp.icon
+                      ? <img src={grp.icon} alt="" className="w-5 h-5 object-cover shrink-0" style={hexMask} />
+                      : <CircleIcon type="group" size="sm" className="shrink-0 opacity-50" />
+                    }
+                    <span className="font-ui text-xs uppercase tracking-widest truncate">{grp.name}</span>
                   </button>
                 </li>
               )

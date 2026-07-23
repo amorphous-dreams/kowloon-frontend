@@ -20,6 +20,7 @@ import PostTypeSelector from './PostTypeSelector'
 import { POST_TYPES } from '../../lib/postTypes'
 import RichTextEditor from './RichTextEditor'
 import CircleSelector from '../circles/CircleSelector'
+import { useJoinedGroups } from '../../hooks/useJoinedGroups'
 import LocationField from './LocationField'
 import AudioPlayer from '../ui/AudioPlayer'
 import { ChevronDown, Plus } from 'lucide-react'
@@ -278,6 +279,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, dragHandleProps = {}, u
 export default function PostComposer({ onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt }) {
   const { user } = useSelector((state) => state.auth)
   const { items: myCircles } = useSelector((state) => state.myCircles)
+  const joinedGroups = useJoinedGroups() // groups are addressable too (#67)
   const geocodingUrl = useSelector((state) => state.server.settings?.geocodingUrl)
   const client = useClient()
   const { t } = useTranslation()
@@ -1041,7 +1043,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
 
         {/* Footer — pinned to bottom, never scrolls away */}
         <div className="flex items-center justify-between gap-3 px-3 py-2 bg-base-200 border-t-2 border-base-300 shrink-0">
-          <CircleSelector circles={myCircles} value={audience} onChange={setAudience} showAudience allowCreate direction="up" />
+          <CircleSelector circles={myCircles} groups={joinedGroups} value={audience} onChange={setAudience} showAudience allowCreate direction="up" />
           <div className="flex items-center gap-3">
             {error && <span role="alert" aria-live="assertive" className="font-ui text-xs uppercase tracking-widest text-error">{error}</span>}
             {postType === 'Note' && (

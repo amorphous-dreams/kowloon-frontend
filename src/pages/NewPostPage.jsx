@@ -18,6 +18,7 @@ import PostTypeSelector from '../components/posts/PostTypeSelector'
 import RichTextEditor from '../components/posts/RichTextEditor'
 import LocationField from '../components/posts/LocationField'
 import CircleSelector from '../components/circles/CircleSelector'
+import { useJoinedGroups } from '../hooks/useJoinedGroups'
 
 const NOTE_MAX_WORDS = 500
 const NOTE_MAX_CHARS = 5000
@@ -147,6 +148,7 @@ export default function NewPostPage() {
   const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
   const { items: myCircles } = useSelector((state) => state.myCircles)
+  const joinedGroups = useJoinedGroups() // groups are addressable too (#67)
   const geocodingUrl = useSelector((state) => state.server.settings?.geocodingUrl)
   const client = useClient()
   const { t } = useTranslation()
@@ -528,6 +530,7 @@ export default function NewPostPage() {
         <div className="flex items-center justify-between gap-4 pt-4 border-t-2 border-base-300">
           <CircleSelector
             circles={myCircles}
+            groups={joinedGroups}
             value={audience}
             onChange={setAudience}
             showAudience
