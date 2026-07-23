@@ -176,6 +176,7 @@ export default function ProfilePage() {
   const user = authUser ?? MOCK_USER
 
   const fileInputRef = useRef(null)
+  const featuredInputRef = useRef(null)
 
   // Profile fields
   const [displayName, setDisplayName] = useState(user.profile?.name ?? user.displayName ?? '')
@@ -185,6 +186,8 @@ export default function ProfilePage() {
   const [newUrl, setNewUrl]           = useState('')
   const [iconUrl, setIconUrl]         = useState(user.profile?.icon ?? '')
   const [iconPreview, setIconPreview] = useState(user.profile?.icon ?? '')
+  const [featuredUrl, setFeaturedUrl]         = useState(user.profile?.featuredImage ?? '')
+  const [featuredPreview, setFeaturedPreview] = useState(user.profile?.featuredImage ?? '')
 
   // Preferences
   const [defaultTypes, setDefaultTypes] = useState(user.preferences?.defaultPostTypes ?? [])
@@ -214,6 +217,27 @@ export default function ProfilePage() {
       }
     } catch {
       // Preview stays; save will use previous iconUrl if upload failed
+    }
+  }
+
+  const handleFeaturedFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFeaturedPreview(URL.createObjectURL(file))
+    try {
+      const res = await client.files.upload({
+        file,
+        filename: file.name,
+        contentType: file.type,
+        to: '@public',
+      })
+      if (res?.file?.id) {
+        setFeaturedUrl(client.files.serveUrl(res.file.id))
+      } else if (res?.file?.url) {
+        setFeaturedUrl(res.file.url)
+      }
+    } catch {
+      // Preview stays; save will use previous featuredUrl if upload failed
     }
   }
 
@@ -257,13 +281,14 @@ export default function ProfilePage() {
           name: displayName,
           description: bio,
           icon: iconUrl,
+          featuredImage: featuredUrl,
           urls,
           pronouns,
         },
         prefs: { defaultPostView: defaultTypes, defaultPostType },
       })
       // Update Redux store so header/avatar refresh immediately
-      const profilePatch = { name: displayName, description: bio, icon: iconUrl, urls, pronouns }
+      const profilePatch = { name: displayName, description: bio, icon: iconUrl, featuredImage: featuredUrl, urls, pronouns }
       dispatch(patchUser({ profile: profilePatch, prefs: { defaultPostView: defaultTypes, defaultPostType } }))
       // Keep client's cached user in sync so actor fields stay fresh
       if (client.auth._user) {
@@ -321,6 +346,50 @@ export default function ProfilePage() {
             accept="image/*"
             className="hidden"
             onChange={handleIconFile}
+          />
+        </div>
+      </Section>
+
+      {/* Cover image */}
+      <Section title={t('profile.coverImage', { defaultValue: 'Cover image' })}>
+        <div className="flex flex-col gap-3">
+          <div
+            className="w-full bg-base-200 border-2 border-base-300 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+            style={{ aspectRatio: '3 / 1' }}
+            onClick={() => featuredInputRef.current?.click()}
+          >
+            {featuredPreview && (
+              <img src={featuredPreview} alt="" className="w-full h-full object-cover" />
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => featuredInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 border-2 border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors self-start"
+            >
+              <Upload size={13} />
+              {t('profile.uploadCover', { defaultValue: 'Upload image' })}
+            </button>
+            {featuredPreview && (
+              <button
+                type="button"
+                onClick={() => { setFeaturedUrl(''); setFeaturedPreview('') }}
+                className="font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-error transition-colors"
+              >
+                {t('common.remove', { defaultValue: 'Remove' })}
+              </button>
+            )}
+          </div>
+          <p className="font-reading text-xs text-base-content/40 italic">
+            {t('profile.coverHint', { defaultValue: 'A wide banner for the top of your profile. 3:1 images work best.' })}
+          </p>
+          <input
+            ref={featuredInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFeaturedFile}
           />
         </div>
       </Section>

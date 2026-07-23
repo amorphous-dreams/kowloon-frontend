@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDispatch } from 'react-redux'
-import { Share2, Pencil, ExternalLink } from 'lucide-react'
+import { Share2, Pencil, ExternalLink, MapPin } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
@@ -23,39 +23,6 @@ const hexMask = {
   maskRepeat: 'no-repeat',
   maskPosition: 'center',
 }
-
-// ── Mock fallback ─────────────────────────────────────────────────────────────
-
-const MOCK_USER = {
-  id: '@jzellis@kwln.org',
-  username: 'jzellis',
-  name: 'Joshua Ellis',
-  profile: {
-    name: 'Joshua Ellis',
-    description: 'Writer, musician, technologist. Making things on the internet since 1994. Currently building Kowloon.',
-    icon: 'https://picsum.photos/seed/jzellis/400/400',
-    urls: ['https://jzellis.com', 'https://github.com/jzellis'],
-    pronouns: 'he/him',
-  },
-  postsCount: 312,
-  followersCount: 847,
-  followingCount: 214,
-}
-
-const MOCK_CIRCLES = [
-  { id: 'circle:writing@kwln.org',   name: 'Writing',         icon: 'https://picsum.photos/seed/writing55/200/200',  memberCount: 34 },
-  { id: 'circle:scifi@kwln.org',     name: 'Science Fiction', icon: 'https://picsum.photos/seed/scifi29/200/200',    memberCount: 22 },
-  { id: 'circle:localtech@kwln.org', name: 'London Tech',     icon: 'https://picsum.photos/seed/londontech/200/200', memberCount: 143 },
-]
-
-const H = (n) => new Date(Date.now() - 1000 * 60 * 60 * n).toISOString()
-
-const MOCK_POSTS = [
-  { id: 'post:1@kwln.org', type: 'Note',    source: 'Just finished reading *The Stars My Destination* for the third time. Still the best science fiction novel ever written, no notes.', published: H(1),  visibility: 'Public', attributedTo: MOCK_USER },
-  { id: 'post:2@kwln.org', type: 'Article', name: 'On the Aesthetics of Midcentury Design', source: 'Reid Miles understood that negative space is content.', published: H(10), visibility: 'Public', attributedTo: MOCK_USER },
-  { id: 'post:3@kwln.org', type: 'Media',   name: 'New track: "Wanchai Drift"', source: 'Recorded this late last night.', published: H(24), visibility: 'Public', attributedTo: MOCK_USER, attachments: [{ url: 'https://upload.wikimedia.org/wikipedia/commons/8/8c/WPGC_-_Jingle_%22Bright_New_Sound%22.ogg', mediaType: 'audio/ogg', name: 'Wanchai Drift' }] },
-  { id: 'post:4@kwln.org', type: 'Link',    name: 'The Internet We Lost', source: 'Everything I loved about the early web is still there.', href: 'https://example.com', published: H(36), visibility: 'Public', attributedTo: MOCK_USER },
-]
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -110,20 +77,12 @@ export default function UserPage() {
   const [bookmarks, setBookmarks] = useState([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
-  // follow state kept for legacy API compat but UI now uses AddToCircleButton
-  const [isFollowing, setIsFollowing] = useState(false)
 
   const containerRef = useRef(null)
   const [shadowProgress, setShadowProgress] = useState(0)
 
   const load = useCallback(async () => {
-    if (!client) {
-      setUser(MOCK_USER)
-      setPosts(MOCK_POSTS)
-      setCircles(MOCK_CIRCLES)
-      setLoading(false)
-      return
-    }
+    if (!client) return
     setLoading(true)
     setError(null)
     try {
@@ -155,10 +114,12 @@ export default function UserPage() {
           })(),
           pronouns: raw?.profile?.pronouns,
           urls: raw?.profile?.urls ?? (raw?.url ? [raw.url] : []),
+          featuredImage: (() => {
+            const f = raw?.profile?.featuredImage ?? raw?.featuredImage
+            return typeof f === 'string' ? f : (f?.url ?? null)
+          })(),
+          location: raw?.profile?.location ?? raw?.location ?? null,
         },
-        postsCount: raw?.postsCount,
-        followersCount: raw?.followersCount,
-        followingCount: raw?.followingCount,
       }
       setUser(normalized)
 
@@ -197,18 +158,6 @@ export default function UserPage() {
     return () => parent.removeEventListener('scroll', handleScroll)
   }, [])
 
-  const handleFollow = async () => {
-    if (!client) { setIsFollowing((f) => !f); return }
-    try {
-      if (isFollowing) {
-        await client.activities.unfollow({ userId: id })
-      } else {
-        await client.activities.follow({ userId: id })
-      }
-      setIsFollowing((f) => !f)
-    } catch {}
-  }
-
   if (loading) return <Spinner centered />
   if (error)   return <ErrorState message={error} onRetry={load} />
   if (!user)   return null
@@ -216,8 +165,17 @@ export default function UserPage() {
   const isOwnProfile = authUser && (authUser.id === user.id || authUser.username === user.username)
   const isLoggedIn   = !!authUser
 
+  const bannerUrl = isOwnProfile ? (authUser.profile?.featuredImage ?? user.profile?.featuredImage) : user.profile?.featuredImage
+
   return (
     <div ref={containerRef} className="flex flex-col gap-8">
+
+      {/* Cover banner — scrolls away above the sticky header */}
+      {bannerUrl && (
+        <div className="w-full overflow-hidden" style={{ aspectRatio: '3 / 1' }}>
+          <img src={sizedUrl(bannerUrl, 1200)} alt="" className="w-full h-full object-cover" />
+        </div>
+      )}
 
       {/* Sticky profile header */}
       <div
@@ -234,14 +192,12 @@ export default function UserPage() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="font-ui text-xs uppercase tracking-widest text-base-content/65">{user.handle ?? user.id}</span>
               {user.profile?.pronouns && <span className="font-ui text-xs uppercase tracking-widest text-base-content/45">{user.profile.pronouns}</span>}
+              {user.profile?.location?.name && (
+                <span className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-base-content/45">
+                  <MapPin size={10} />{user.profile.location.name}
+                </span>
+              )}
             </div>
-            {(user.postsCount != null || user.followersCount != null) && (
-              <div className="flex items-center gap-3 font-ui text-xs uppercase tracking-widest text-base-content/60">
-                {user.postsCount != null && <span><strong className="text-base-content">{user.postsCount}</strong> {t('user.posts', { defaultValue: 'posts' })}</span>}
-                {user.followersCount != null && <><span className="text-base-content/30">·</span><span><strong className="text-base-content">{user.followersCount}</strong> {t('user.followers', { defaultValue: 'followers' })}</span></>}
-                {user.followingCount != null && <><span className="text-base-content/30">·</span><span><strong className="text-base-content">{user.followingCount}</strong> {t('user.following', { defaultValue: 'following' })}</span></>}
-              </div>
-            )}
             {user.profile?.description && <p className="font-reading text-base text-base-content/80 leading-relaxed">{user.profile.description}</p>}
             {user.profile?.urls?.length > 0 && (
               <div className="flex flex-wrap gap-3">
