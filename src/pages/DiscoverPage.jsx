@@ -11,6 +11,7 @@ import { useClient } from '../hooks/useClient'
 import { toast } from '../app/toast'
 import CircleIcon from '../components/ui/CircleIcon'
 import CopyCircleMenu from '../components/circles/CopyCircleMenu'
+import RecShelf from '../components/discover/RecShelf'
 import Spinner from '../components/ui/Spinner'
 import EmptyState from '../components/ui/EmptyState'
 import sizedUrl from '../lib/sizedUrl'
@@ -175,6 +176,8 @@ export default function DiscoverPage() {
 
   const [banner, setBanner] = useState(false)
   const [query, setQuery] = useState('')
+  const [sections, setSections] = useState([])
+  const [recsLoading, setRecsLoading] = useState(true)
   const [circles, setCircles] = useState([])
   const [circlesLoading, setCirclesLoading] = useState(true)
   const [circlesError, setCirclesError] = useState(null)
@@ -193,7 +196,18 @@ export default function DiscoverPage() {
     localStorage.setItem(BANNER_KEY, '0')
   }
 
-  // Load popular circles
+  // Load the server's curated recommendation shelves.
+  useEffect(() => {
+    if (!client) return
+    setRecsLoading(true)
+    client.feeds
+      .getRecommendations()
+      .then((res) => setSections(res?.sections ?? []))
+      .catch(() => setSections([]))
+      .finally(() => setRecsLoading(false))
+  }, [client])
+
+  // Load popular circles — fallback content when a server has no curated shelves.
   useEffect(() => {
     if (!client) return
     setCirclesLoading(true)
@@ -285,31 +299,39 @@ export default function DiscoverPage() {
         </div>
       )}
 
-      {/* Popular circles */}
+      {/* Curated shelves (server recommendations); fall back to popular circles. */}
       {!showUserResults && (
-        <div className="flex flex-col gap-2">
-          <p className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
-            Popular Circles
-          </p>
-          {circlesLoading ? (
-            <Spinner />
-          ) : circlesError ? (
-            <p className="font-ui text-sm text-error">{circlesError}</p>
-          ) : circles.length === 0 ? (
-            <EmptyState message="No public circles yet. Be the first to create one." />
-          ) : (
-            <div className="flex flex-col">
-              {circles.map((circle) => (
-                <CircleCard
-                  key={circle.id}
-                  circle={circle}
-                  isLoggedIn={isLoggedIn}
-                  client={client}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        recsLoading ? (
+          <Spinner />
+        ) : sections.length > 0 ? (
+          <div className="flex flex-col">
+            {sections.map((s) => <RecShelf key={s.id} section={s} />)}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
+              Popular Circles
+            </p>
+            {circlesLoading ? (
+              <Spinner />
+            ) : circlesError ? (
+              <p className="font-ui text-sm text-error">{circlesError}</p>
+            ) : circles.length === 0 ? (
+              <EmptyState message="No public circles yet. Be the first to create one." />
+            ) : (
+              <div className="flex flex-col">
+                {circles.map((circle) => (
+                  <CircleCard
+                    key={circle.id}
+                    circle={circle}
+                    isLoggedIn={isLoggedIn}
+                    client={client}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )
       )}
     </div>
   )
