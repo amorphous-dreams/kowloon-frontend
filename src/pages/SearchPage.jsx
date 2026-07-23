@@ -25,17 +25,18 @@ const hexMask = {
   maskPosition: 'center',
 }
 
-const SEARCH_TYPES = ['all', 'posts', 'users', 'groups', 'pages']
+const SEARCH_TYPES = ['all', 'posts', 'users', 'groups', 'pages', 'bookmarks']
 
 const TYPE_TO_SEARCH_IN = {
-  posts:  { posts: true },
-  users:  { users: true },
-  groups: { groups: true },
-  pages:  { pages: true },
+  posts:     { posts: true },
+  users:     { users: true },
+  groups:    { groups: true },
+  pages:     { pages: true },
+  bookmarks: { bookmarks: true },
 }
 
 function groupResults(items) {
-  const buckets = { posts: [], users: [], groups: [], pages: [] }
+  const buckets = { posts: [], users: [], groups: [], pages: [], bookmarks: [] }
   for (const item of items) {
     const t = item._searchType
     if (t === 'Post') {
@@ -46,6 +47,8 @@ function groupResults(items) {
       buckets.groups.push({ ...item, summary: item.description ?? item.summary })
     } else if (t === 'Page') {
       buckets.pages.push({ ...item, name: item.title ?? item.name })
+    } else if (t === 'Bookmark') {
+      buckets.bookmarks.push(item)
     }
   }
   return buckets
@@ -216,6 +219,33 @@ function GroupResult({ group }) {
   )
 }
 
+function BookmarkResult({ bookmark }) {
+  const href = bookmark.href ?? bookmark.target
+  const inner = (
+    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+      <span className="font-ui text-sm font-semibold text-primary truncate">{bookmark.title}</span>
+      {bookmark.summary && (
+        <p className="font-reading text-sm text-base-content/70 leading-snug line-clamp-2">{bookmark.summary}</p>
+      )}
+      {bookmark.tags?.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {bookmark.tags.slice(0, 4).map((tag) => (
+            <span key={tag} className="font-ui text-xs uppercase tracking-widest text-base-content/50 bg-base-300 px-1.5 py-0.5">{tag}</span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+  return (
+    <div className="flex items-start gap-3 py-4 border-b border-base-300">
+      {bookmark.image && <img src={sizedUrl(bookmark.image, 200)} alt="" className="w-10 h-10 object-cover shrink-0" />}
+      {href
+        ? <a href={href} target="_blank" rel="noopener noreferrer" className="flex-1 min-w-0 hover:opacity-70 transition-opacity">{inner}</a>
+        : inner}
+    </div>
+  )
+}
+
 function PageResult({ page }) {
   return (
     <Link
@@ -299,6 +329,7 @@ export default function SearchPage() {
     users:  t('search.users',  { defaultValue: 'Users' }),
     groups: t('search.groups', { defaultValue: 'Groups' }),
     pages:  t('search.pages',  { defaultValue: 'Pages' }),
+    bookmarks: t('search.bookmarks', { defaultValue: 'Bookmarks' }),
   }
 
   return (
@@ -399,6 +430,13 @@ export default function SearchPage() {
             <div>
               {type === 'all' && <SectionHeader title={TYPE_LABELS.pages} count={results.pages.length} />}
               {results.pages.map((page) => <PageResult key={page.id} page={page} />)}
+            </div>
+          )}
+
+          {(type === 'all' || type === 'bookmarks') && results.bookmarks?.length > 0 && (
+            <div>
+              {type === 'all' && <SectionHeader title={TYPE_LABELS.bookmarks} count={results.bookmarks.length} />}
+              {results.bookmarks.map((bookmark) => <BookmarkResult key={bookmark.id} bookmark={bookmark} />)}
             </div>
           )}
 
