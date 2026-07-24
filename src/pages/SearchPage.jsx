@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Search, X, Loader } from 'lucide-react'
+import { Search, X, Loader, Globe } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import { toast } from '../app/toast'
 import PostCard from '../components/posts/PostCard'
@@ -262,6 +262,36 @@ function PageResult({ page }) {
   )
 }
 
+function stripHtml(s) {
+  return typeof s === 'string' ? s.replace(/<[^>]*>/g, '').trim() : ''
+}
+
+// Shown when the query is a bare @domain — a link to that remote server.
+function ServerResultCard({ server, domain }) {
+  const name = server?.name || domain
+  const desc = stripHtml(server?.description)
+  return (
+    <Link
+      to={`/server/${encodeURIComponent(domain)}`}
+      className="flex items-center gap-3 py-4 border-b border-base-300 hover:bg-base-200 px-2 -mx-2 transition-colors"
+    >
+      {server?.icon
+        ? <img src={server.icon} alt="" className="w-11 h-11 object-cover shrink-0" style={hexMask} />
+        : <div className="w-11 h-11 bg-secondary flex items-center justify-center shrink-0" style={hexMask}>
+            <Globe size={20} className="text-secondary-content opacity-70" />
+          </div>
+      }
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className="font-display text-xl tracking-wide leading-none">{name}</span>
+        <span className="font-ui text-xs uppercase tracking-widest text-base-content/55 mt-0.5">
+          {domain}{typeof server?.userCount === 'number' ? ` · ${server.userCount.toLocaleString()} users` : ''}
+        </span>
+        {desc && <p className="font-reading text-sm text-base-content/70 leading-snug mt-0.5 line-clamp-2">{desc}</p>}
+      </div>
+    </Link>
+  )
+}
+
 function SectionHeader({ title, count }) {
   return (
     <h2 className="font-display text-2xl tracking-wide border-b-2 border-base-300 pb-2 mb-0 mt-6 first:mt-0">
@@ -289,6 +319,14 @@ export default function SearchPage() {
   const [results, setResults]     = useState(null)
   const [loading, setLoading]     = useState(false)
   const [inputValue, setInputValue] = useState(initialQ)
+  const [serverResult, setServerResult] = useState(null)
+  const [serverLoading, setServerLoading] = useState(false)
+
+  // A bare @domain (starts with @, no second @) is a remote-server lookup —
+  // mirrors the mobile search. @user@domain has a second @ and is a user search.
+  const isServerQuery =
+    query.startsWith('@') && !query.slice(1).includes('@') && query.trim().length > 1
+  const serverDomain = isServerQuery ? query.slice(1).trim() : ''
 
   const search = useCallback(async (q, activeType) => {
     if (!q.trim()) { setResults(null); return }
@@ -320,6 +358,18 @@ export default function SearchPage() {
     if (query) search(query, type)
     else setResults(null)
   }, [query, type, search])
+
+  // Remote-server lookup when the query is a bare @domain.
+  useEffect(() => {
+    if (!client || !isServerQuery) { setServerResult(null); return }
+    let cancelled = false
+    setServerLoading(true)
+    client.feeds.getServer({ domain: serverDomain })
+      .then((res) => { if (!cancelled) setServerResult(res?.server ?? res?.item ?? res ?? null) })
+      .catch(() => { if (!cancelled) setServerResult(null) })
+      .finally(() => { if (!cancelled) setServerLoading(false) })
+    return () => { cancelled = true }
+  }, [client, serverDomain, isServerQuery])
 
   const hasResults = results && Object.values(results).some((arr) => arr.length > 0)
 
@@ -385,6 +435,20 @@ export default function SearchPage() {
         </div>
       </div>
 
+      {/* Remote-server lookup result (bare @domain) */}
+      {isServerQuery && (
+        <div className="flex flex-col gap-2">
+          <p className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">Server</p>
+          {serverLoading ? (
+            <Spinner />
+          ) : serverResult ? (
+            <ServerResultCard server={serverResult} domain={serverDomain} />
+          ) : (
+            <EmptyState message={`No Kowloon server found at ${serverDomain}.`} />
+          )}
+        </div>
+      )}
+
       {loading && <Spinner centered />}
 
       {!loading && !query.trim() && (
@@ -396,7 +460,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {!loading && query.trim() && !hasResults && results && (
+      {!loading && query.trim() && !hasResults && results && !isServerQuery && (
         <EmptyState message={t('search.noResults', { defaultValue: `No results for "${query}"` })} />
       )}
 

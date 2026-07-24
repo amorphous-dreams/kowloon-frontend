@@ -32,6 +32,7 @@ import EditPostPage from '../pages/EditPostPage'
 import NewGroupPage from '../pages/NewGroupPage'
 import EditGroupPage from '../pages/EditGroupPage'
 import GroupPendingPage from '../pages/GroupPendingPage'
+import ServerPage from '../pages/ServerPage'
 import NewCirclePage from '../pages/NewCirclePage'
 import EditCirclePage from '../pages/EditCirclePage'
 import NotificationsPage from '../pages/NotificationsPage'
@@ -85,6 +86,7 @@ const router = createBrowserRouter([
       { path: '/pages/:id', element: <PageDetailPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/discover', element: <DiscoverPage /> },
+      { path: '/server/:domain', element: <ServerPage /> },
     ],
   },
 
