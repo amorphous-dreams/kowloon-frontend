@@ -193,7 +193,7 @@ export default function ProfilePage() {
   const [defaultTypes, setDefaultTypes] = useState(user.preferences?.defaultPostTypes ?? [])
   const [defaultPostType, setDefaultPostType] = useState(user.prefs?.defaultPostType ?? 'Note')
   const [toastsEnabled, setToastsEnabled] = useState(user.prefs?.notifications?.toasts ?? true)
-  const [newPostsEnabled, setNewPostsEnabled] = useState(user.prefs?.notifications?.new_post ?? false)
+  const [newPostsEnabled, setNewPostsEnabled] = useState(user.prefs?.notifications?.new_post ?? true)
 
   // Save state
   const [saving, setSaving] = useState(false)
