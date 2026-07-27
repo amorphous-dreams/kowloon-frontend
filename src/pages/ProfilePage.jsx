@@ -193,6 +193,7 @@ export default function ProfilePage() {
   const [defaultTypes, setDefaultTypes] = useState(user.preferences?.defaultPostTypes ?? [])
   const [defaultPostType, setDefaultPostType] = useState(user.prefs?.defaultPostType ?? 'Note')
   const [toastsEnabled, setToastsEnabled] = useState(user.prefs?.notifications?.toasts ?? true)
+  const [newPostsEnabled, setNewPostsEnabled] = useState(user.prefs?.notifications?.new_post ?? false)
 
   // Save state
   const [saving, setSaving] = useState(false)
@@ -269,6 +270,16 @@ export default function ProfilePage() {
     }))
     if (client) {
       client.activities.updateProfile({ prefs: { 'notifications.toasts': enabled } }).catch(() => {})
+    }
+  }
+
+  const handleNewPostsToggle = (enabled) => {
+    setNewPostsEnabled(enabled)
+    dispatch(patchUser({
+      prefs: { notifications: { ...user.prefs?.notifications, new_post: enabled } },
+    }))
+    if (client) {
+      client.activities.updateProfile({ prefs: { 'notifications.new_post': enabled } }).catch(() => {})
     }
   }
 
@@ -620,6 +631,27 @@ export default function ProfilePage() {
             <span
               className={`absolute w-3.5 h-3.5 bg-white transition-transform ${
                 toastsEnabled ? 'translate-x-5' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </Field>
+
+        <Field
+          label={t('profile.newPostNotifications', { defaultValue: 'New-post notifications' })}
+          hint={t('profile.newPostNotificationsHint', { defaultValue: "Get notified when your feeds or your groups have new posts — at most once every 12 hours, and never while an earlier one is unread." })}
+        >
+          <button
+            type="button"
+            role="switch"
+            aria-checked={newPostsEnabled}
+            onClick={() => handleNewPostsToggle(!newPostsEnabled)}
+            className={`relative inline-flex items-center w-10 h-5 transition-colors focus:outline-none ${
+              newPostsEnabled ? 'bg-primary' : 'bg-base-300'
+            }`}
+          >
+            <span
+              className={`absolute w-3.5 h-3.5 bg-white transition-transform ${
+                newPostsEnabled ? 'translate-x-5' : 'translate-x-1'
               }`}
             />
           </button>
