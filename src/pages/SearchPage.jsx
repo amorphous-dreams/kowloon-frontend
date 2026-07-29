@@ -36,7 +36,7 @@ const TYPE_TO_SEARCH_IN = {
 }
 
 function groupResults(items) {
-  const buckets = { posts: [], users: [], groups: [], pages: [], bookmarks: [] }
+  const buckets = { posts: [], users: [], groups: [], pages: [], bookmarks: [], servers: [] }
   for (const item of items) {
     const t = item._searchType
     if (t === 'Post') {
@@ -49,6 +49,8 @@ function groupResults(items) {
       buckets.pages.push({ ...item, name: item.title ?? item.name })
     } else if (t === 'Bookmark') {
       buckets.bookmarks.push(item)
+    } else if (t === 'Server') {
+      buckets.servers.push(item)
     }
   }
   return buckets
@@ -466,6 +468,24 @@ export default function SearchPage() {
 
       {!loading && hasResults && (
         <div className="flex flex-col gap-2">
+
+          {/* Partial cached-server matches — only on the "All" tab, and never
+              the exact @domain already shown by the live lookup above. */}
+          {type === 'all' && (() => {
+            const exact = serverResult?.domain?.toLowerCase()
+            const servers = (results.servers ?? []).filter(
+              (s) => (s?.domain || '').toLowerCase() !== exact
+            )
+            if (servers.length === 0) return null
+            return (
+              <div>
+                <SectionHeader title={t('search.servers', { defaultValue: 'Servers' })} count={servers.length} />
+                {servers.map((s) => (
+                  <ServerResultCard key={s.domain} server={s} domain={s.domain} />
+                ))}
+              </div>
+            )
+          })()}
 
           {(type === 'all' || type === 'posts') && results.posts?.length > 0 && (
             <div>
