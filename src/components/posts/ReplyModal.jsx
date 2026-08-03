@@ -96,10 +96,10 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
         role="dialog"
         aria-modal="true"
         aria-label={t('post.repliesModal', { defaultValue: 'Replies' })}
-        className="fixed inset-x-2 top-4 bottom-4 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-12 sm:bottom-12 sm:w-full sm:max-w-2xl bg-base-100 border-2 border-secondary z-[90] flex flex-col"
+        className="fixed inset-x-2 top-4 bottom-4 max-h-[calc(100dvh-2rem)] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-12 sm:bottom-12 sm:max-h-[calc(100dvh-6rem)] sm:w-full sm:max-w-2xl bg-base-100 border-2 border-secondary z-[90] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-start gap-3 px-5 py-4 border-b-2 border-base-300 bg-secondary text-secondary-content">
+        <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b-2 border-base-300 bg-secondary text-secondary-content">
           <div className="shrink-0">
             <UserAvatar user={author} size="sm" />
           </div>
@@ -131,7 +131,7 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
         </div>
 
         {/* Reply list — shallow 2-level tree */}
-        <div ref={listRef} className="flex-1 overflow-y-auto px-5">
+        <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto px-5">
           {loading ? (
             <Spinner centered />
           ) : error ? (
@@ -193,7 +193,7 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
         </div>
 
         {/* Composer (sticky bottom) — replies to the post */}
-        <div className="px-5 pb-4 border-t-2 border-base-300 bg-base-100">
+        <div className="shrink-0 px-5 pb-4 pt-4 border-t-2 border-base-300 bg-base-100">
           <ReplyComposer
             postId={post?.id}
             canReply={post?.canReply}
