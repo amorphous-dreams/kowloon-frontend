@@ -62,14 +62,15 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
       const key = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`)
       dedupeRef.current = { key, text }
     }
+    const content = text
     setSubmitting(true)
     setError(null)
     try {
-      const res = await client.activities.reply({ postId, content: text, dedupeKey: dedupeRef.current.key })
+      const res = await client.activities.reply({ postId, content, dedupeKey: dedupeRef.current.key })
       setText('')
       dedupeRef.current = null
       draft.clear()
-      onSubmitted?.({ duplicated: !!res?.duplicated })
+      onSubmitted?.({ duplicated: !!res?.duplicated, result: res, content })
       if (!res?.duplicated) {
         toast.success(
           t('post.replySentToast', { defaultValue: 'Reply sent' }),

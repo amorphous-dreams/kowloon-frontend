@@ -1,59 +1,70 @@
 // GroupPostsPage — standalone feed of posts in a group, filterable by type.
+// Composer + FAB are shown to group MEMBERS (and the owner) only.
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import { useFeed } from '../hooks/useFeed'
+import { useJoinedGroups } from '../hooks/useJoinedGroups'
 import PostList from '../components/posts/PostList'
+import PostComposer from '../components/posts/PostComposer'
+import TypeFilter from '../components/posts/TypeFilter'
+import ComposeFab from '../components/posts/ComposeFab'
 import RssFeedLink from '../components/ui/RssFeedLink'
-import PostTypeIcon from '../components/ui/PostTypeIcon'
 import ErrorState from '../components/ui/ErrorState'
-
-const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
 export default function GroupPostsPage() {
   const { id } = useParams()
   const { t } = useTranslation()
   const client = useClient()
+  const user = useSelector((state) => state.auth.user)
+  const { activeTypes } = useSelector((state) => state.feed)
+  const joinedGroups = useJoinedGroups()
 
-  const [group, setGroup]         = useState(null)
-  const [activeType, setActiveType] = useState(null)
+  const groupId = decodeURIComponent(id)
+  const [group, setGroup] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [composerOpen, setComposerOpen] = useState(false)
 
   const loadGroup = useCallback(async () => {
     if (!client) return
     try {
-      const res = await client.feeds.getGroup({ groupId: decodeURIComponent(id) })
+      const res = await client.feeds.getGroup({ groupId })
       setGroup(res?.item ?? res)
     } catch {
       // non-fatal — heading falls back to "Posts"
     }
-  }, [client, id])
+  }, [client, groupId])
 
   useEffect(() => { loadGroup() }, [loadGroup])
 
+  const ownerId = group?.actorId || group?.actor?.id
+  const isOwner = !!user?.id && ownerId === user.id
+  const isMember = joinedGroups.some((g) => g.id === groupId)
+  const canPost = isOwner || isMember
+
   const fetchPosts = useCallback(async (cursor) => {
     const page = cursor ?? 1
+    // Group feeds filter by a single server-side `type` — send the first active
+    // type (matches mobile; the group route can't multi-filter). See item note.
     const res = await client.feeds.getGroupPosts({
-      groupId: decodeURIComponent(id),
+      groupId,
       page,
-      type: activeType ?? undefined,
+      type: activeTypes[0],
     })
     const items = res?.orderedItems ?? []
     const { totalItems = 0, itemsPerPage = 20 } = res ?? {}
     const fetchedPage = res?.page ?? page
     const hasMore = fetchedPage * itemsPerPage < totalItems
     return { items, nextCursor: hasMore ? fetchedPage + 1 : null, hasMore }
-  }, [client, id, activeType])
+  }, [client, groupId, activeTypes, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { items, hasMore, loading, loadingMore, error, loadMore, removeItem } = useFeed(
     client ? fetchPosts : null
   )
-
-  const handleTypeClick = (type) => {
-    setActiveType((prev) => prev === type ? null : type)
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,21 +85,8 @@ export default function GroupPostsPage() {
       </div>
 
       {/* Type filter */}
-      <div className="flex items-center gap-1 flex-wrap">
-        {POST_TYPES.map((type) => (
-          <button
-            key={type}
-            onClick={() => handleTypeClick(type)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 font-ui text-xs uppercase tracking-widest border transition-colors ${
-              activeType === type
-                ? 'bg-base-content text-base-100 border-base-content'
-                : 'border-base-300 text-base-content/60 hover:border-base-content/40 hover:text-base-content'
-            }`}
-          >
-            <PostTypeIcon type={type} size="xs" />
-            {type}
-          </button>
-        ))}
+      <div className="flex items-center justify-end border-b border-base-300 pb-3">
+        <TypeFilter />
       </div>
 
       {/* Posts */}
@@ -102,10 +100,23 @@ export default function GroupPostsPage() {
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
-          ignoreTypeFilter
         />
       )}
 
+      {/* Compose — members/owner only, via the floating hexagon FAB. */}
+      {canPost && (
+        <>
+          <PostComposer
+            hideTrigger
+            open={composerOpen}
+            onOpenChange={setComposerOpen}
+            onPostCreated={() => setRefreshKey((k) => k + 1)}
+            initialValues={{ to: groupId }}
+            prompt={t('composer.promptGroup', { name: group?.name ?? '…', defaultValue: `Write a post to ${group?.name ?? '…'}…` })}
+          />
+          <ComposeFab onClick={() => setComposerOpen(true)} />
+        </>
+      )}
     </div>
   )
 }

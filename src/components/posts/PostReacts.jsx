@@ -7,8 +7,10 @@ export default function PostReacts({ post }) {
   const summary = post?.reactSummary || post?.reactPreview
   if (!summary) return null
 
+  const total = post?.reactCount ?? 0
+
   return (
-    <div className="flex justify-end pt-2">
+    <div className="flex justify-end items-center gap-2 pt-2">
       <span
         className="font-reading text-base-content/70 leading-none tracking-[0.35em]"
         style={{ fontSize: '0.75em' }}
@@ -16,6 +18,14 @@ export default function PostReacts({ post }) {
       >
         {summary}
       </span>
+      {total > 0 && (
+        <span
+          className="font-ui text-base-content/60 leading-none"
+          style={{ fontSize: '0.75em' }}
+        >
+          {total}
+        </span>
+      )}
     </div>
   )
 }

@@ -192,6 +192,47 @@ function toIsoInstant(local) {
   return isNaN(d.getTime()) ? local : d.toISOString()
 }
 
+// ── Event date/time auto-fill (parity with PostComposer / mobile compose.js) ──
+// See project_event_datetime_logic memory: end-date follows start-date, a blank
+// start-time defaults to the next round hour, and end-time = start + 1h.
+const pad = (n) => String(n).padStart(2, '0')
+function nextRoundHour() {
+  const now = new Date()
+  const h = now.getMinutes() > 0 ? (now.getHours() + 1) % 24 : now.getHours()
+  return `${pad(h)}:00`
+}
+// Add one hour to a "YYYY-MM-DDTHH:mm" local string, rolling the date over.
+function addOneHourLocal(local) {
+  if (!local) return ''
+  const [datePart, timePart = '00:00'] = local.split('T')
+  const [y, mo, da] = datePart.split('-').map(Number)
+  const [h, mi] = timePart.split(':').map(Number)
+  const dt = new Date(y, (mo || 1) - 1, da || 1, (h || 0) + 1, mi || 0, 0, 0)
+  if (isNaN(dt.getTime())) return local
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+}
+// Shared handler: when the start datetime changes, default a bare/midnight time
+// to the next round hour and keep the end aligned (same date, +1h, never before
+// the start). Callers pass the current end value and the two setters.
+function applyStartChange(value, endValue, setStart, setEnd, hadStart) {
+  if (!value) { setStart(''); return }
+  let [datePart, timePart = ''] = value.split('T')
+  // Fresh date pick with a bare/midnight time → sensible next round hour.
+  if ((!timePart || timePart === '00:00') && !hadStart) timePart = nextRoundHour()
+  const start = `${datePart}T${timePart || '00:00'}`
+  setStart(start)
+  if (!endValue) {
+    setEnd(addOneHourLocal(start))
+    return
+  }
+  // End-date follows the start's date; keep the user's end time unless that
+  // would put the end at or before the start, in which case snap to start + 1h.
+  const endTime = endValue.split('T')[1] || start.split('T')[1]
+  let end = `${datePart}T${endTime}`
+  if (end <= start) end = addOneHourLocal(start)
+  setEnd(end)
+}
+
 export default function NewPostPage() {
   const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
@@ -237,6 +278,12 @@ export default function NewPostPage() {
   const hrefRef          = useRef(null)
   const mediaInputRef    = useRef(null)
   const artImageInputRef = useRef(null)
+
+  // Idempotency key for retry-safe submission — reused across retries of the
+  // same content so the server short-circuits duplicates on a slow network +
+  // double-tap. Regenerated when any user-visible field changes. Mirrors the
+  // PostComposer / mobile compose.js pattern.
+  const dedupeRef = useRef(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -391,6 +438,17 @@ export default function NewPostPage() {
     setSubmitting(true)
     setError(null)
     setUploadErrors({})
+    // Reuse the same dedupeKey across retries of the same content; changing any
+    // user-visible field is a "different post" and gets a fresh key.
+    const signature = JSON.stringify({
+      postType, content, title, href, tags, location, audience,
+      startDate, endDate, canReply, canReact,
+      attachmentNames: attachments.map((a) => a.file.name),
+    })
+    if (!dedupeRef.current || dedupeRef.current.signature !== signature) {
+      const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+      dedupeRef.current = { key, signature }
+    }
     try {
       let uploadedAttachments
       let uploadedFeaturedImage = featuredImage || undefined
@@ -434,6 +492,7 @@ export default function NewPostPage() {
         canReact,
         attachments: uploadedAttachments,
         featuredImage: uploadedFeaturedImage,
+        dedupeKey: dedupeRef.current.key,
       })
       const postId = res?.result?.id ?? res?.createdId
       navigate(postId ? `/posts/${encodeURIComponent(postId)}` : '/')
@@ -591,7 +650,7 @@ export default function NewPostPage() {
               <input
                 type="datetime-local"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => applyStartChange(e.target.value, endDate, setStartDate, setEndDate, !!startDate)}
                 className="w-full px-4 py-3 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-ui text-sm text-base-content transition-colors"
               />
             </Field>

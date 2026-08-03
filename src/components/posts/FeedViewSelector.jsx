@@ -10,10 +10,13 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Search, Globe, Compass } from 'lucide-react'
 import CircleIcon from '../ui/CircleIcon'
 import sizedUrl from '../../lib/sizedUrl'
+import { useClient } from '../../hooks/useClient'
+import { fetchMyCircles } from '../../features/circles/myCirclesSlice'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -42,11 +45,18 @@ export default function FeedViewSelector({
   account,
   allowCreate = false,
   onCreateCircle,
+  subject = null,
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+  const client = useClient()
+  const user = useSelector((state) => state.auth.user)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  // Locally-refreshed groups (useJoinedGroups doesn't expose a refetch), so a
+  // just-joined group appears the moment the dropdown is reopened.
+  const [freshGroups, setFreshGroups] = useState(null)
   const containerRef = useRef(null)
 
   useEffect(() => {
@@ -60,16 +70,46 @@ export default function FeedViewSelector({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  // Refetch circles (via redux) AND groups (locally) every time the dropdown
+  // opens — mirrors mobile's openDropdown so new/just-joined ones show up.
+  const refreshLists = () => {
+    if (user?.id) dispatch(fetchMyCircles())
+    const groupsCircleId = user?.groups || user?.circles?.groups
+    if (client && groupsCircleId) {
+      client.feeds
+        .getCircle({ circleId: groupsCircleId })
+        .then((res) => {
+          const c = res?.item || res?.circle || res
+          const members = Array.isArray(c?.members) ? c.members : []
+          setFreshGroups(members.filter((m) => m?.id?.startsWith?.('group:')))
+        })
+        .catch(() => {})
+    }
+  }
+
+  const toggleOpen = () => {
+    setOpen((o) => {
+      const next = !o
+      if (next) refreshLists()
+      return next
+    })
+  }
+
+  const effectiveGroups = freshGroups ?? groups
+
   const isMine = value === 'mine'
   const isCircle = typeof value === 'string' && value.startsWith('circle:')
   const isGroup = typeof value === 'string' && value.startsWith('group:')
   const activeCircle = circles.find((c) => c.id === value)
-  const activeGroup = groups.find((g) => g.id === value)
+  const activeGroup = effectiveGroups.find((g) => g.id === value)
+  // A circle/group you don't own/haven't joined, resolved by the parent.
+  const subjectForValue = subject && subject.id === value ? subject : null
 
   const currentLabel =
     (isMine && t('feed.myPosts', { defaultValue: 'My Posts' })) ||
     activeCircle?.name ||
     activeGroup?.name ||
+    subjectForValue?.name ||
     t('feed.communityPosts', { defaultValue: 'Community Posts' })
 
   const currentIcon = isMine
@@ -78,12 +118,16 @@ export default function FeedViewSelector({
       ? <HexIcon url={activeCircle.icon} type="circle" size={22} />
       : activeGroup
         ? <HexIcon url={activeGroup.icon} type="group" size={22} />
-        : <span className="inline-flex items-center justify-center w-[22px] h-[22px] shrink-0 text-primary"><Globe size={20} strokeWidth={1.75} /></span>
+        : subjectForValue
+          ? <HexIcon url={subjectForValue.icon} type={isGroup ? 'group' : 'circle'} size={22} />
+          : <span className="inline-flex items-center justify-center w-[22px] h-[22px] shrink-0 text-primary"><Globe size={20} strokeWidth={1.75} /></span>
 
   const q = query.trim().toLowerCase()
   const filteredCircles = q ? circles.filter((c) => c.name?.toLowerCase().includes(q)) : circles
-  const filteredGroups = q ? groups.filter((g) => g.name?.toLowerCase().includes(q)) : groups
-  const showSearch = circles.length + groups.length > 5
+  const filteredGroups = q ? effectiveGroups.filter((g) => g.name?.toLowerCase().includes(q)) : effectiveGroups
+  // Show the search box whenever there's anything to search (was > 5, which hid
+  // it for anyone with a handful of circles/groups).
+  const showSearch = circles.length + effectiveGroups.length > 0
 
   const select = (v) => {
     onChange?.(v)
@@ -95,7 +139,7 @@ export default function FeedViewSelector({
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         aria-haspopup="listbox"
         aria-expanded={open}
         className="flex items-center gap-2 min-w-0 max-w-full transition-colors text-base-content hover:text-primary"

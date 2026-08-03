@@ -126,11 +126,11 @@ export default function PostList({
   if (error)   return <ErrorState message={error} />
   if (!posts.length) return <EmptyState message={emptyMessage ?? t('post.empty')} />
 
-  const visible = (!ignoreTypeFilter && activeTypes.length > 0)
-    ? posts.filter((p) => activeTypes.includes(p.type))
-    : posts
-
-  if (!visible.length) return <EmptyState message={t('post.emptyFiltered')} />
+  // The server already filters by the active types (getServerPosts / getCirclePosts
+  // send them; group feeds filter server-side by the first type). Re-filtering here
+  // only made paginated pages look empty, so we render the server's page as-is and
+  // keep `activeTypes` solely to choose the Media grid presentation.
+  const visible = posts
 
   const isMediaGrid = !ignoreTypeFilter && activeTypes.length === 1 && activeTypes[0] === 'Media'
 

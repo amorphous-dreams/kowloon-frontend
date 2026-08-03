@@ -73,7 +73,7 @@ export default function Reply({ reply, onUpdated, onDeleted }) {
           >
             {actor.name ?? actor.displayName ?? actor.id}
           </Link>
-          <Timestamp date={reply.createdAt} />
+          <Timestamp date={reply.publishedAt ?? reply.createdAt} />
         </div>
 
         {editing ? (

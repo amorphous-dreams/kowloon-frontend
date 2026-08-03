@@ -2,17 +2,23 @@
 // Auth-aware: shows actions only when appropriate.
 // Props: post object
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faComment, faBookmark, faShareNodes, faPen, faTrash } from '@fortawesome/free-solid-svg-icons'
+import { faComment, faBookmark, faShareNodes } from '@fortawesome/free-solid-svg-icons'
+import {
+  MoreHorizontal, Flag, Ban, BellOff, Link as LinkIcon,
+  Copy, ExternalLink, Pencil, Trash2,
+} from 'lucide-react'
 import PostComposer from './PostComposer'
 import ReactButton from './ReactButton'
 import ReplyModal from './ReplyModal'
 import BookmarkComposer from '../bookmarks/BookmarkComposer'
 import { useClient } from '../../hooks/useClient'
+import { toast } from '../../app/toast'
 
 // ── Share helpers ────────────────────────────────────────────────────────────
 
@@ -147,52 +153,240 @@ function ShareButton({ post, t, user }) {
   )
 }
 
-// ── OwnerActions ─────────────────────────────────────────────────────────────
+// ── Post text extraction (for Copy text) ─────────────────────────────────────
 
-function OwnerActions({ post, t, onDeleted }) {
+// Prefer the Markdown source; fall back to stripping the rendered HTML. Mirrors
+// mobile PostMoreMenu.handleCopyText.
+function extractPostText(post) {
+  const raw = post?.source?.content ?? post?.textPreview ?? post?.body ?? ''
+  return String(raw)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim()
+}
+
+async function copyToClipboard(text) {
+  if (!text) return false
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// ── PostMoreMenu ─────────────────────────────────────────────────────────────
+// Ellipsis overflow menu — safety + utility actions, mirroring mobile's
+// PostMoreMenu.jsx. Owner Edit/Delete live here too. Rendered through a portal
+// (post cards clip overflow) anchored below-right of the trigger.
+
+function PostMoreMenu({ post, t, user, onDeleted }) {
   const client = useClient()
   const navigate = useNavigate()
-  const [deleting, setDeleting] = useState(false)
 
-  const editUrl = post?.id ? `/posts/${encodeURIComponent(post.id)}/edit` : null
+  const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [anchorRect, setAnchorRect] = useState(null)
+
+  const triggerRef = useRef(null)
+  const popoverRef = useRef(null)
+
+  const authorId = post?.actor?.id ?? post?.actorId ?? null
+  const isOwner = !!user?.id && !!authorId && user.id === authorId
+  const isSelf = isOwner
+  const canReport = !!user
+
+  const localUrl = post?.id
+    ? `${window.location.origin}/posts/${encodeURIComponent(post.id)}`
+    : null
+  const openUrl = post?.url ?? localUrl
+  const postText = extractPostText(post)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e) => {
+      if (popoverRef.current?.contains(e.target)) return
+      if (triggerRef.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const toggle = () => {
+    if (!open) {
+      const rect = triggerRef.current?.getBoundingClientRect()
+      if (rect) setAnchorRect(rect)
+    }
+    setOpen((v) => !v)
+  }
+
+  const authorName = post?.actor?.name ?? authorId ?? t('post.thisUser', { defaultValue: 'this user' })
+
+  const handleEdit = () => {
+    setOpen(false)
+    if (post?.id) navigate(`/posts/${encodeURIComponent(post.id)}/edit`)
+  }
 
   const handleDelete = async () => {
+    setOpen(false)
     if (!window.confirm(t('post.deleteConfirm', { defaultValue: 'Delete this post? This cannot be undone.' }))) return
     setDeleting(true)
     try {
       await client.activities.deletePost({ postId: post.id })
-      if (onDeleted) {
-        onDeleted(post.id)
-      } else {
-        navigate(-1)
-      }
-    } catch {
+      if (onDeleted) onDeleted(post.id)
+      else navigate(-1)
+    } catch (err) {
       setDeleting(false)
+      toast.error(t('post.deleteFailed', { defaultValue: 'Delete failed' }), { detail: err?.message })
     }
   }
 
+  const handleFlag = async () => {
+    setOpen(false)
+    const reason = window.prompt(t('post.flagPrompt', { defaultValue: 'Why are you reporting this post?' }))
+    if (!reason || !reason.trim()) return
+    try {
+      await client.activities.flag({ targetId: post.id, reason: reason.trim() })
+      toast.success(t('post.flagged', { defaultValue: 'Reported — a moderator will review this post.' }))
+    } catch (err) {
+      toast.error(t('post.flagFailed', { defaultValue: "Couldn't report" }), { detail: err?.message })
+    }
+  }
+
+  const handleBlock = async () => {
+    setOpen(false)
+    if (!window.confirm(t('user.blockConfirm', { defaultValue: `Block ${authorName}? They'll be removed from your circles and can't interact with you.` }))) return
+    try {
+      await client.activities.block({ userId: authorId })
+      toast.success(t('user.blocked', { defaultValue: `${authorName} blocked` }))
+    } catch (err) {
+      toast.error(t('user.blockFailed', { defaultValue: 'Block failed' }), { detail: err?.message })
+    }
+  }
+
+  const handleMute = async () => {
+    setOpen(false)
+    if (!window.confirm(t('user.muteConfirm', { defaultValue: `Mute ${authorName}? Their posts won't appear in your feeds.` }))) return
+    try {
+      await client.activities.mute({ userId: authorId })
+      toast.success(t('user.muted', { defaultValue: `${authorName} muted` }))
+    } catch (err) {
+      toast.error(t('user.muteFailed', { defaultValue: 'Mute failed' }), { detail: err?.message })
+    }
+  }
+
+  const handleCopyLink = async () => {
+    setOpen(false)
+    if (!localUrl) return
+    const ok = await copyToClipboard(localUrl)
+    if (ok) toast.success(t('post.linkCopied', { defaultValue: 'Link copied' }))
+  }
+
+  const handleCopyText = async () => {
+    setOpen(false)
+    if (!postText) return
+    const ok = await copyToClipboard(postText)
+    if (ok) toast.success(t('post.textCopied', { defaultValue: 'Text copied' }))
+  }
+
+  const handleOpenBrowser = () => {
+    setOpen(false)
+    if (!openUrl) return
+    window.open(openUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  // Build the item list (with separators), mirroring mobile.
+  const items = []
+
+  if (isOwner) {
+    items.push({ key: 'edit', Icon: Pencil, label: t('common.edit', { defaultValue: 'Edit' }), onClick: handleEdit })
+    items.push({ key: 'delete', Icon: Trash2, label: t('common.delete', { defaultValue: 'Delete' }), danger: true, disabled: deleting, onClick: handleDelete })
+  }
+
+  if (canReport) {
+    if (items.length) items.push({ key: 'sep1', sep: true })
+    items.push({ key: 'flag', Icon: Flag, label: t('post.report', { defaultValue: 'Report' }), onClick: handleFlag })
+    if (!isSelf && authorId) {
+      items.push({ key: 'block', Icon: Ban, label: t('user.blockAuthor', { defaultValue: 'Block author' }), onClick: handleBlock })
+      items.push({ key: 'mute', Icon: BellOff, label: t('user.muteAuthor', { defaultValue: 'Mute author' }), onClick: handleMute })
+    }
+  }
+
+  if (postText) {
+    if (items.some((i) => !i.sep)) items.push({ key: 'septext', sep: true })
+    items.push({ key: 'copytext', Icon: Copy, label: t('post.copyText', { defaultValue: 'Copy text' }), onClick: handleCopyText })
+  }
+
+  if (localUrl) {
+    if (items.some((i) => !i.sep)) items.push({ key: 'sep2', sep: true })
+    items.push({ key: 'copylink', Icon: LinkIcon, label: t('post.copyLink', { defaultValue: 'Copy link' }), onClick: handleCopyLink })
+  }
+  if (openUrl) {
+    items.push({ key: 'browser', Icon: ExternalLink, label: t('post.openInBrowser', { defaultValue: 'Open in browser' }), onClick: handleOpenBrowser })
+  }
+
+  // Nothing actionable — don't render the trigger.
+  if (!items.some((i) => !i.sep)) return null
+
   return (
-    <div className="flex items-center gap-4">
-      {editUrl && (
-        <Link
-          to={editUrl}
-          title={t('common.edit', { defaultValue: 'Edit' })}
-          aria-label={t('common.edit', { defaultValue: 'Edit' })}
-          className="text-base text-base-content/50 hover:text-base-content transition-colors"
-        >
-          <FontAwesomeIcon icon={faPen} />
-        </Link>
-      )}
+    <>
       <button
-        onClick={handleDelete}
-        disabled={deleting}
-        title={t('common.delete', { defaultValue: 'Delete' })}
-        aria-label={t('common.delete', { defaultValue: 'Delete' })}
-        className="text-base text-base-content/50 hover:text-error transition-colors disabled:opacity-30"
+        ref={triggerRef}
+        type="button"
+        onClick={toggle}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={t('post.moreActions', { defaultValue: 'More options' })}
+        aria-label={t('post.moreActions', { defaultValue: 'More options' })}
+        className="text-base text-base-content/50 hover:text-base-content transition-colors"
       >
-        <FontAwesomeIcon icon={faTrash} />
+        <MoreHorizontal size={18} />
       </button>
-    </div>
+
+      {open && anchorRect && createPortal(
+        <div
+          ref={popoverRef}
+          role="menu"
+          className="fixed z-[200] min-w-52 bg-base-100 border-2 border-base-300 shadow-lg flex flex-col"
+          style={{
+            top: anchorRect.bottom + 4,
+            left: Math.max(8, Math.min(anchorRect.right - 208, window.innerWidth - 216)),
+          }}
+        >
+          {items.map((item) =>
+            item.sep ? (
+              <div key={item.key} className="border-t border-base-300" />
+            ) : (
+              <button
+                key={item.key}
+                type="button"
+                role="menuitem"
+                onClick={item.onClick}
+                disabled={item.disabled}
+                className={`flex items-center gap-3 px-4 py-2.5 text-left font-ui text-xs uppercase tracking-widest transition-colors hover:bg-base-200 disabled:opacity-40 ${item.danger ? 'text-error' : 'text-base-content'}`}
+              >
+                <item.Icon size={14} className={item.danger ? 'text-error' : 'text-base-content/50'} />
+                {item.label}
+              </button>
+            ),
+          )}
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 
@@ -212,7 +406,6 @@ export default function PostToolbar({ post, onDeleted }) {
     image: post?.image ?? post?.featuredImage ?? undefined,
   } : null
 
-  const isOwner = user && post?.actor?.id && user.id === post.actor.id
   const displayedReplyCount = (post?.replyCount ?? 0) + replyOffset
 
   return (
@@ -272,8 +465,8 @@ export default function PostToolbar({ post, onDeleted }) {
         {/* Share */}
         <ShareButton post={post} t={t} user={user} />
 
-        {/* Owner actions (Edit / Delete) */}
-        {isOwner && <OwnerActions post={post} t={t} onDeleted={onDeleted} />}
+        {/* Overflow menu — report / block / mute / copy / open + owner edit/delete */}
+        <PostMoreMenu post={post} t={t} user={user} onDeleted={onDeleted} />
         </div>
       </div>
     </div>

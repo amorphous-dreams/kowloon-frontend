@@ -8,28 +8,42 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import { Markdown } from 'tiptap-markdown'
+import {
+  Bold, Italic, Underline as UnderlineIcon, Strikethrough,
+  Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code,
+  Link2, Link2Off, Undo2, Redo2,
+} from 'lucide-react'
 
 const countWords = (md) => md.trim().split(/\s+/).filter(Boolean).length
 
+// Toolbar button sets per post type. StarterKit already loads bold, italic,
+// strike, heading, bulletList, orderedList, blockquote and codeBlock (plus
+// history for undo/redo); Underline + Link are separate extensions loaded
+// below — so these are only which BUTTONS show, matching mobile's tentap
+// toolbar (bold, italic, underline, strike, headings, lists, blockquote, code,
+// link, undo/redo).
 const TOOLBAR_BUTTONS = {
-  Note:    ['bold', 'italic', 'underline'],
-  Article: ['bold', 'italic', 'underline', 'link', 'blockquote', 'h2'],
-  Media:   ['bold', 'italic', 'underline', 'link', 'blockquote'],
-  Event:   ['bold', 'italic', 'underline', 'link', 'blockquote', 'h2'],
-  Link:    ['bold', 'italic', 'underline', 'blockquote'],
+  Note:    ['bold', 'italic', 'underline', 'strike', 'bulletList', 'orderedList', 'blockquote', 'link', 'undo', 'redo'],
+  Article: ['bold', 'italic', 'underline', 'strike', 'h1', 'h2', 'h3', 'bulletList', 'orderedList', 'blockquote', 'code', 'link', 'undo', 'redo'],
+  Media:   ['bold', 'italic', 'underline', 'strike', 'bulletList', 'orderedList', 'blockquote', 'code', 'link', 'undo', 'redo'],
+  Event:   ['bold', 'italic', 'underline', 'strike', 'h1', 'h2', 'h3', 'bulletList', 'orderedList', 'blockquote', 'code', 'link', 'undo', 'redo'],
+  Link:    ['bold', 'italic', 'underline', 'strike', 'bulletList', 'orderedList', 'blockquote', 'code', 'link', 'undo', 'redo'],
 }
 
-function ToolbarButton({ onClick, active, title, children }) {
+const ICON_SIZE = 15
+
+function ToolbarButton({ onClick, active, disabled = false, title, children }) {
   return (
     <button
       type="button"
       title={title}
-      onMouseDown={(e) => { e.preventDefault(); onClick() }}
-      className={`px-4 py-2.5 font-ui text-sm uppercase tracking-widest transition-colors ${
+      disabled={disabled}
+      onMouseDown={(e) => { e.preventDefault(); if (!disabled) onClick() }}
+      className={`px-3 py-2.5 font-ui text-sm uppercase tracking-widest transition-colors flex items-center justify-center ${
         active
           ? 'bg-primary text-primary-content'
           : 'bg-base-200 text-base-content/70 hover:bg-base-300'
-      }`}
+      } ${disabled ? 'opacity-30 cursor-not-allowed hover:bg-base-200' : ''}`}
     >
       {children}
     </button>
@@ -67,51 +81,102 @@ export default function RichTextEditor({ content = '', onChange, maxWords, autoF
   if (!editor) return null
 
   const buttons = TOOLBAR_BUTTONS[postType] ?? TOOLBAR_BUTTONS.Note
-  const hasLink = buttons.includes('link')
+  const has = (b) => buttons.includes(b)
 
   return (
     <div className="border-2 border-base-300">
-      {/* Toolbar */}
-      <div className="flex gap-0 border-b-2 border-base-300 bg-base-200">
-        {buttons.includes('bold') && (
-          <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')}>
-            B
+      {/* Toolbar — wraps when the button set is wide so it never overflows. */}
+      <div className="flex flex-wrap gap-0 border-b-2 border-base-300 bg-base-200">
+        {has('undo') && (
+          <ToolbarButton
+            onClick={() => editor.chain().focus().undo().run()}
+            active={false}
+            disabled={!editor.can().undo()}
+            title={t('editor.undo', { defaultValue: 'Undo' })}
+          >
+            <Undo2 size={ICON_SIZE} />
           </ToolbarButton>
         )}
-        {buttons.includes('italic') && (
-          <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')}>
-            I
+        {has('redo') && (
+          <ToolbarButton
+            onClick={() => editor.chain().focus().redo().run()}
+            active={false}
+            disabled={!editor.can().redo()}
+            title={t('editor.redo', { defaultValue: 'Redo' })}
+          >
+            <Redo2 size={ICON_SIZE} />
           </ToolbarButton>
         )}
-        {buttons.includes('underline') && (
-          <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')}>
-            U
+        {has('bold') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title={t('editor.bold', { defaultValue: 'Bold' })}>
+            <Bold size={ICON_SIZE} />
           </ToolbarButton>
         )}
-        {buttons.includes('link') && (
+        {has('italic') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title={t('editor.italic', { defaultValue: 'Italic' })}>
+            <Italic size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('underline') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title={t('editor.underline', { defaultValue: 'Underline' })}>
+            <UnderlineIcon size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('strike') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title={t('editor.strike', { defaultValue: 'Strikethrough' })}>
+            <Strikethrough size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('h1') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title={t('editor.heading1', { defaultValue: 'Heading 1' })}>
+            <Heading1 size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('h2') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title={t('editor.heading2', { defaultValue: 'Heading 2' })}>
+            <Heading2 size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('h3') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title={t('editor.heading3', { defaultValue: 'Heading 3' })}>
+            <Heading3 size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('bulletList') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title={t('editor.bulletList', { defaultValue: 'Bullet list' })}>
+            <List size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('orderedList') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title={t('editor.orderedList', { defaultValue: 'Numbered list' })}>
+            <ListOrdered size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('blockquote') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title={t('editor.blockquote', { defaultValue: 'Blockquote' })}>
+            <Quote size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('code') && (
+          <ToolbarButton onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title={t('editor.codeBlock', { defaultValue: 'Code block' })}>
+            <Code size={ICON_SIZE} />
+          </ToolbarButton>
+        )}
+        {has('link') && (
           <ToolbarButton
             onClick={() => {
               const url = window.prompt(t('editor.enterUrl', { defaultValue: 'Enter URL' }))
               if (url) editor.chain().focus().setLink({ href: url }).run()
             }}
             active={editor.isActive('link')}
+            title={t('editor.link', { defaultValue: 'Link' })}
           >
-            {t('editor.link', { defaultValue: 'Link' })}
+            <Link2 size={ICON_SIZE} />
           </ToolbarButton>
         )}
-        {hasLink && editor.isActive('link') && (
-          <ToolbarButton onClick={() => editor.chain().focus().unsetLink().run()} active={false}>
-            {t('editor.unlink', { defaultValue: 'Unlink' })}
-          </ToolbarButton>
-        )}
-        {buttons.includes('blockquote') && (
-          <ToolbarButton onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title={t('editor.blockquote', { defaultValue: 'Blockquote' })}>
-            &ldquo;&rdquo;
-          </ToolbarButton>
-        )}
-        {buttons.includes('h2') && (
-          <ToolbarButton onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="Heading">
-            H2
+        {has('link') && editor.isActive('link') && (
+          <ToolbarButton onClick={() => editor.chain().focus().unsetLink().run()} active={false} title={t('editor.unlink', { defaultValue: 'Unlink' })}>
+            <Link2Off size={ICON_SIZE} />
           </ToolbarButton>
         )}
       </div>

@@ -39,7 +39,7 @@ export default function PostMeta({ post }) {
               </span>
           }
           <Timestamp
-            date={post?.published}
+            date={post?.published ?? post?.publishedAt ?? post?.createdAt}
             to={timestampTo}
             className="font-ui text-xs text-base-content/55 dark:text-base-content/70 !leading-[1.05] shrink-0"
           />

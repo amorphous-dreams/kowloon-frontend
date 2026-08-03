@@ -328,7 +328,7 @@ function AttachmentRow({ att, index, onUpdate, onRemove, dragHandleProps = {}, u
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function PostComposer({ onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt }) {
+export default function PostComposer({ onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt, open, onOpenChange, hideTrigger = false }) {
   const { user } = useSelector((state) => state.auth)
   const { items: myCircles } = useSelector((state) => state.myCircles)
   const joinedGroups = useJoinedGroups() // groups are addressable too (#67)
@@ -383,6 +383,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const triggerRef       = useRef(null)
   const typeDropdownRef  = useRef(null)
   const popupHostRef     = useRef(null)
+  const prevOpenRef      = useRef(open)
 
   // Idempotency key for retry-safe submission. Reused across retries of the
   // same content (e.g. mobile signal drops mid-submit) so the server's
@@ -425,6 +426,18 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
       setTimeout(() => hrefInputRef.current?.focus(), 0)
     }
   }
+
+  // Controlled-open mode: when a parent drives `open` (e.g. the floating
+  // ComposeFab), mirror its transitions onto `expanded`. We react only to
+  // CHANGES in `open` — not its steady value — so the draft-reopen effect
+  // below can still open the composer on its own without being clobbered.
+  useEffect(() => {
+    if (open === undefined) return
+    if (open !== prevOpenRef.current) {
+      prevOpenRef.current = open
+      setExpanded(open)
+    }
+  }, [open])
 
   // Collapse on outside click (collapsed state only)
   useEffect(() => {
@@ -555,6 +568,9 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     setLinkPreview(null)
     setError(null)
     onClose?.()
+    // Keep controlled parents (ComposeFab) in sync when we close ourselves.
+    prevOpenRef.current = false
+    onOpenChange?.(false)
   }
 
   const handleGeolocate = () => {
@@ -818,8 +834,9 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Split button trigger — hidden in onClose (share) mode */}
-      {!onClose && !expanded && (
+      {/* Split button trigger — hidden in onClose (share) mode and whenever the
+          composer is opened externally (hideTrigger, e.g. the ComposeFab). */}
+      {!hideTrigger && !onClose && !expanded && (
         <div className="flex justify-center mb-8">
           <div ref={typeDropdownRef} className="relative inline-flex">
             {/* Shared border frame wrapping both halves */}

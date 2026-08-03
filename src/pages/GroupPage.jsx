@@ -1,22 +1,21 @@
 // GroupPage — group detail, member list, composer, and post feed.
-// PostComposer shown for members only. Edit/Delete for owner only.
+// Compose FAB shown for members/owner only. Edit/Delete for owner only.
 
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useDispatch } from 'react-redux'
 import { MapPin, ExternalLink, Users, UserPlus, UserCheck, Pencil, Trash2, ChevronDown, ChevronUp, Inbox, Share2, Copy, Check } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import { joinNeedsApproval, canJoinGroup, rsvpPolicyLabel } from '../lib/groups'
 import { useFeed } from '../hooks/useFeed'
 import PostList from '../components/posts/PostList'
 import PostComposer from '../components/posts/PostComposer'
-import PostTypeIcon from '../components/ui/PostTypeIcon'
+import TypeFilter from '../components/posts/TypeFilter'
+import ComposeFab from '../components/posts/ComposeFab'
 import CircleIcon from '../components/ui/CircleIcon'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
-import { toggleType, clearTypes } from '../app/feedSlice'
 import sizedUrl from '../lib/sizedUrl'
 
 const hexMask = {
@@ -25,59 +24,6 @@ const hexMask = {
   maskSize: 'contain',
   maskRepeat: 'no-repeat',
   maskPosition: 'center',
-}
-
-const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
-
-// ── TypeFilter ────────────────────────────────────────────────────────────────
-
-function TypeFilter({ onRefresh }) {
-  const dispatch = useDispatch()
-  const { activeTypes } = useSelector((state) => state.feed)
-  const { t } = useTranslation()
-
-  return (
-    <div className="flex items-center gap-0 border-b border-base-300 pb-3">
-      <button
-        onClick={() => dispatch(clearTypes())}
-        className={`px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
-          activeTypes.length === 0
-            ? 'bg-primary text-primary-content'
-            : 'bg-base-200 text-base-content/60 hover:bg-base-300'
-        }`}
-      >
-        {t('feed.all')}
-      </button>
-      {POST_TYPES.map((type) => {
-        const active = activeTypes.includes(type)
-        return (
-          <button
-            key={type}
-            onClick={() => dispatch(toggleType(type))}
-            title={t(`postTypes.${type}`, { defaultValue: type })}
-            className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 ${
-              active
-                ? 'bg-primary text-primary-content'
-                : 'bg-base-200 text-base-content/60 hover:bg-base-300'
-            }`}
-          >
-            <PostTypeIcon type={type} size="sm" />
-            <span className="hidden sm:inline">
-              {t({ Note: 'feed.notes', Article: 'feed.articles', Media: 'feed.media', Event: 'feed.events', Link: 'feed.links' }[type] ?? type)}
-            </span>
-          </button>
-        )
-      })}
-      <button
-        onClick={onRefresh}
-        title={t('feed.refresh', { defaultValue: 'Refresh' })}
-        className="ml-auto px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-base-content transition-colors"
-        aria-label={t('feed.refresh', { defaultValue: 'Refresh' })}
-      >
-        ↻
-      </button>
-    </div>
-  )
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -100,6 +46,7 @@ export default function GroupPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [composerOpen, setComposerOpen] = useState(false)
 
   const containerRef = useRef(null)
   const [shadowProgress, setShadowProgress] = useState(0)
@@ -150,7 +97,9 @@ export default function GroupPage() {
     const res = await client.feeds.getGroupPosts({
       groupId: id,
       page,
-      type: activeTypes.length === 1 ? activeTypes[0] : undefined,
+      // Group feeds filter by a single server-side `type` — send the first
+      // active type (matches mobile; the group route can't multi-filter).
+      type: activeTypes[0],
     })
     const items = res?.orderedItems ?? []
     const { totalItems = 0, itemsPerPage = 20 } = res ?? {}
@@ -361,7 +310,7 @@ export default function GroupPage() {
                 >
                   <Trash2 size={12} />
                   {deleting
-                    ? t('common.deleting', { defaultValue: 'Deleting\u2026' })
+                    ? t('common.deleting', { defaultValue: 'Deleting…' })
                     : t('common.delete', { defaultValue: 'Delete' })
                   }
                 </button>
@@ -415,18 +364,11 @@ export default function GroupPage() {
         </div>
       )}
 
-      {/* Composer — members only, no audience picker */}
-      {(isMember || isOwner) && isLoggedIn && (
-        <PostComposer
-          onPostCreated={() => setRefreshKey((k) => k + 1)}
-          initialValues={{ to: id }}
-          prompt={t('composer.promptGroup', { name: group?.name ?? '\u2026', defaultValue: `Write a post to ${group?.name ?? '\u2026'}\u2026` })}
-        />
-      )}
-
       {/* Posts */}
       <div className="flex flex-col gap-4">
-        <TypeFilter onRefresh={() => setRefreshKey((k) => k + 1)} />
+        <div className="flex items-center justify-end border-b border-base-300 pb-3">
+          <TypeFilter />
+        </div>
         <PostList onDeleted={removeItem}
           posts={posts}
           loading={postsLoading}
@@ -434,9 +376,23 @@ export default function GroupPage() {
           hasMore={hasMore}
           loadingMore={loadingMore}
           onLoadMore={loadMore}
-          ignoreTypeFilter
         />
       </div>
+
+      {/* Compose — members/owner only, via the floating hexagon FAB. */}
+      {(isMember || isOwner) && isLoggedIn && (
+        <>
+          <PostComposer
+            hideTrigger
+            open={composerOpen}
+            onOpenChange={setComposerOpen}
+            onPostCreated={() => setRefreshKey((k) => k + 1)}
+            initialValues={{ to: id }}
+            prompt={t('composer.promptGroup', { name: group?.name ?? '…', defaultValue: `Write a post to ${group?.name ?? '…'}…` })}
+          />
+          <ComposeFab onClick={() => setComposerOpen(true)} />
+        </>
+      )}
 
       {/* Share this group as a Link post to your network */}
       {sharing && (

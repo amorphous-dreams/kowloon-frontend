@@ -101,12 +101,20 @@ function writePersistedTypes(types) {
 function loadPrefsFromUser(state, user, { preserveActiveTypes = false } = {}) {
   const prefs = user?.prefs ?? {}
   state.defaultTypes    = prefs.defaultPostView  ?? []
+  state.defaultView     = prefs.defaultFeedView  ?? 'all'
   state.pinnedCircleIds = prefs.pinnedCircleIds  ?? []
-  // On session restore, keep whatever filter the user had last applied.
-  // On fresh login, fall through to their saved default.
+  // On session restore, keep whatever filter/view the user had last applied.
+  // On fresh login, fall through to their saved defaults.
   if (!preserveActiveTypes) {
     state.activeTypes = prefs.defaultPostView ?? []
     writePersistedTypes(state.activeTypes.length ? state.activeTypes : null)
+    state.view = prefs.defaultFeedView ?? 'all'
+    writePersistedView(state.view === 'all' ? null : state.view)
+  } else if (!readPersistedView()) {
+    // Fresh device (nothing persisted yet): seed the view from the saved
+    // default even on a session restore, matching mobile's fallbackDefaults.
+    state.view = prefs.defaultFeedView ?? 'all'
+    writePersistedView(state.view === 'all' ? null : state.view)
   }
 }
 
@@ -115,6 +123,7 @@ function resetFeedState(state) {
   state.view            = 'all'
   state.activeTypes     = []
   state.defaultTypes    = []
+  state.defaultView     = 'all'
   state.pinnedCircleIds = []
   writePersistedCircleId(null)
   writePersistedView(null)
@@ -132,7 +141,8 @@ const feedSlice = createSlice({
     circleId: readPersistedCircleId(),
     view: readPersistedView() ?? 'all',
     activeTypes: readPersistedTypes() ?? [],
-    defaultTypes: [],     // user's saved default type filter (from profile)
+    defaultTypes: [],     // user's saved default type filter  (prefs.defaultPostView)
+    defaultView: 'all',   // user's saved default feed view     (prefs.defaultFeedView)
     pinnedCircleIds: [],  // user-pinned circle IDs (from profile)
   },
   reducers: {
@@ -157,9 +167,28 @@ const feedSlice = createSlice({
       writePersistedTypes(state.activeTypes.length ? state.activeTypes : null)
     },
 
+    // Replace the active-types selection wholesale ([] === all). The shared
+    // TypeFilter owns the solo-on-first-tap logic and dispatches the result.
+    setTypes(state, action) {
+      const next = Array.isArray(action.payload) ? action.payload : []
+      state.activeTypes = next
+      writePersistedTypes(next.length ? next : null)
+    },
+
     clearTypes(state) {
       state.activeTypes = []
       writePersistedTypes(null)
+    },
+
+    // Mark the current view / type-filter as the account default. The server
+    // write (client.activities.updateProfile) is fired by the caller; these
+    // just update the local "is default" markers so the ⋮ menu reflects it.
+    setDefaultView(state, action) {
+      state.defaultView = action.payload || 'all'
+    },
+
+    setDefaultTypes(state, action) {
+      state.defaultTypes = Array.isArray(action.payload) ? action.payload : []
     },
 
     // Restore active types back to the saved defaults
@@ -214,8 +243,11 @@ export const {
   setCircle,
   setView,
   toggleType,
+  setTypes,
   clearTypes,
   resetToDefaults,
+  setDefaultView,
+  setDefaultTypes,
   pinCircle,
   unpinCircle,
 } = feedSlice.actions
