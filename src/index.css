@@ -314,13 +314,13 @@ textarea:focus-visible {
 
 .reading-surface .prose {
   font-family: var(--reading-font, "Lora", Georgia, serif);
-  line-height: var(--reading-leading, 1.55);
+  line-height: var(--reading-leading, 1.5);
   max-width: var(--reading-measure, none);
 }
 .reading-surface .prose p,
 .reading-surface .prose ul,
 .reading-surface .prose ol,
 .reading-surface .prose blockquote {
-  font-size: var(--reading-size, 1.125rem);
-  line-height: var(--reading-leading, 1.55);
+  font-size: var(--reading-size, 1rem);
+  line-height: var(--reading-leading, 1.5);
 }

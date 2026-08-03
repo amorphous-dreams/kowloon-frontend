@@ -102,27 +102,16 @@ function ExpandButton({ onClick }) {
 function renderMediaItem(a, { large = false, onOpen = null } = {}) {
   const mt = a?.mediaType ?? ''
   if (mt.startsWith('image/')) {
-    // In the gallery (`large`), all images crop to 16:9 so cycling between
-    // portraits and landscapes doesn't reflow the layout. The lightbox shows
-    // the image at its native aspect.
-    if (large) {
-      return (
-        <div className={`relative w-full aspect-video bg-black overflow-hidden${onOpen ? ' cursor-zoom-in' : ''}`}>
-          <img
-            src={a.url}
-            alt={a.name ?? ''}
-            onClick={onOpen ?? undefined}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      )
-    }
+    // Show the image at its native aspect, only cropping when it's awkwardly
+    // tall: object-cover + a max-height cap means landscapes and mild portraits
+    // render whole, and a very tall portrait is capped and cropped (mirrors the
+    // app's imageDisplayRatio 3:4 floor). The lightbox shows the native aspect.
     return (
       <img
         src={a.url}
         alt={a.name ?? ''}
         onClick={onOpen ?? undefined}
-        className={`w-full object-cover max-h-96${onOpen ? ' cursor-zoom-in' : ''}`}
+        className={`w-full object-cover bg-black ${large ? 'max-h-[32rem]' : 'max-h-96'}${onOpen ? ' cursor-zoom-in' : ''}`}
       />
     )
   }
@@ -465,7 +454,7 @@ function MediaGallery({ attachments }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 mt-3">
+    <div className="flex flex-col gap-3 mt-3 mb-6">
       <div>
         {renderMediaItem(active, { large: true, onOpen: isLightboxable(active) ? openLightbox : null })}
       </div>

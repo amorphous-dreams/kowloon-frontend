@@ -22,15 +22,16 @@ export const FONTS = [
 ]
 
 // ---- Stepped scales --------------------------------------------------------
-// Same keys as mobile; web sizes run a touch larger than the app's phone px so
-// desktop reading stays comfortable. Default 'm' matches the site's prior
-// reading size (~1.25rem).
-export const FONT_SIZES = { xs: '1rem', s: '1.125rem', m: '1.25rem', l: '1.375rem', xl: '1.5rem' }
+// Match the mobile app's px scale exactly (mobile FONT_SIZES = 10/14/16/18/21).
+// On a phone browser, 1 CSS px and 1 app dp map to the same physical pixels, so
+// equal values read at the same size — the web previously ran larger and no
+// longer matches the app, which is the reference (kept as rem for zoom support).
+export const FONT_SIZES = { xs: '0.625rem', s: '0.875rem', m: '1rem', l: '1.125rem', xl: '1.3125rem' }
 export const FONT_SIZE_ORDER = ['xs', 's', 'm', 'l', 'xl']
 export const FONT_SIZE_LABELS = { xs: 'XS', s: 'S', m: 'M', l: 'L', xl: 'XL' }
 
-// Unitless line-height — same multipliers as the app.
-export const LINE_SPACINGS = { compact: 1.5, normal: 1.75, relaxed: 2.0 }
+// Unitless line-height — match the app's multipliers exactly (was 1.5/1.75/2.0).
+export const LINE_SPACINGS = { compact: 1.25, normal: 1.5, relaxed: 1.8 }
 export const LINE_SPACING_ORDER = ['compact', 'normal', 'relaxed']
 export const LINE_SPACING_LABELS = { compact: 'Compact', normal: 'Normal', relaxed: 'Relaxed' }
 
