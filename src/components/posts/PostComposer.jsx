@@ -907,7 +907,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           {expanded && (
             <FocusTrap focusTrapOptions={{ escapeDeactivates: false }}>
             <div
-              className="fixed inset-x-0 top-0 z-50 flex flex-col items-center justify-start pt-[10px] px-4 pb-4 lg:px-8 lg:pb-8"
+              className="fixed inset-x-0 top-0 z-50 flex flex-col"
               style={{ bottom: `${keyboardHeight}px` }}
             >
 
@@ -921,13 +921,13 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                 onClick={handleCancel}
               />
 
-      {/* Panel — overflow-hidden so content can never escape; flex body fills available space */}
+      {/* Panel — full-screen (like the app), edge-to-edge with no margins.
+          overflow-hidden so content can never escape; flex body fills the space. */}
       <motion.div
         role="dialog"
         aria-modal="true"
         aria-label={t('composer.prompt')}
-        className="relative flex flex-col w-full lg:max-w-2xl bg-base-100 overflow-hidden"
-        style={{ maxHeight: 'calc(100% - 2rem)' }}
+        className="relative flex flex-col w-full flex-1 min-h-0 bg-base-100 overflow-hidden"
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 14 }}
