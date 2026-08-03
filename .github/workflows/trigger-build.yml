@@ -15,7 +15,7 @@ jobs:
           github-token: ${{ secrets.DISPATCH_TOKEN }}
           script: |
             await github.rest.actions.createWorkflowDispatch({
-              owner: 'jzellis',
+              owner: context.repo.owner,
               repo: 'kowloon',
               workflow_id: 'docker.yml',
               ref: 'main',
