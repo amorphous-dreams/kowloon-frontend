@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDispatch } from 'react-redux'
-import { MapPin, ExternalLink, Users, UserPlus, UserCheck, Pencil, Trash2, ChevronDown, ChevronUp, Inbox } from 'lucide-react'
+import { MapPin, ExternalLink, Users, UserPlus, UserCheck, Pencil, Trash2, ChevronDown, ChevronUp, Inbox, Share2, Copy, Check } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import { joinNeedsApproval, canJoinGroup, rsvpPolicyLabel } from '../lib/groups'
 import { useFeed } from '../hooks/useFeed'
@@ -98,6 +98,8 @@ export default function GroupPage() {
   const [deleting, setDeleting] = useState(false)
   const [showAllMembers, setShowAllMembers] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [sharing, setSharing] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const containerRef = useRef(null)
   const [shadowProgress, setShadowProgress] = useState(0)
@@ -198,6 +200,17 @@ export default function GroupPage() {
   const MEMBER_PREVIEW  = 5
   const visibleMembers  = showAllMembers ? members : members.slice(0, MEMBER_PREVIEW)
 
+  // In-network share: the group's page URL on this server.
+  const shareUrl = `${window.location.origin}/groups/${encodeURIComponent(group.id)}`
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {}
+  }
+
   return (
     <div ref={containerRef} className="flex flex-col gap-8">
 
@@ -287,6 +300,24 @@ export default function GroupPage() {
 
           {/* Actions */}
           <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
+            {/* Share — post the group as a Link to your network (in-network) */}
+            {isLoggedIn && (
+              <button
+                onClick={() => setSharing(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+              >
+                <Share2 size={12} /> {t('group.share', { defaultValue: 'Share' })}
+              </button>
+            )}
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+            >
+              {copied
+                ? <><Check size={12} /> {t('group.copied', { defaultValue: 'Copied' })}</>
+                : <><Copy size={12} /> {t('group.copyLink', { defaultValue: 'Copy link' })}</>
+              }
+            </button>
             {isLoggedIn && !isOwner && (joined || canJoin) && (
               <button
                 onClick={handleJoinToggle}
@@ -406,6 +437,26 @@ export default function GroupPage() {
           ignoreTypeFilter
         />
       </div>
+
+      {/* Share this group as a Link post to your network */}
+      {sharing && (
+        <PostComposer
+          defaultOpen
+          initialValues={{
+            type: 'Link',
+            href: shareUrl,
+            title: group.name,
+            content: group.description
+              ? group.description.split('\n').map((l) => `> ${l}`).join('\n')
+              : '',
+            featuredImage: group.icon ?? null,
+            to: 'public',
+          }}
+          onClose={() => setSharing(false)}
+          onPostCreated={() => setSharing(false)}
+          prompt={t('composer.shareGroupPrompt', { defaultValue: 'Share this group…' })}
+        />
+      )}
 
     </div>
   )

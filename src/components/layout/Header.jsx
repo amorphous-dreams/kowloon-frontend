@@ -64,11 +64,20 @@ export function Header() {
     return () => clearInterval(id)
   }, [client, user])
 
+  // Live badge sync — NotificationsPage emits this on mark-read/dismiss/mark-all
+  // so the count updates instantly instead of waiting for the next 60s poll.
+  useEffect(() => {
+    const onUnread = (e) => setUnreadCount(e.detail?.count ?? 0)
+    window.addEventListener('kowloon:unread', onUnread)
+    return () => window.removeEventListener('kowloon:unread', onUnread)
+  }, [])
+
   const NAV_LINKS = [
     { to: '/',          label: t('nav.feed')     },
     { to: '/circles',   label: t('nav.circles')  },
     { to: '/groups',    label: t('nav.groups')   },
     { to: '/discover',  label: t('nav.discover') },
+    { to: '/servers',   label: t('nav.servers', { defaultValue: 'Servers' }) },
     { to: '/search',    label: t('nav.search')   },
   ]
 

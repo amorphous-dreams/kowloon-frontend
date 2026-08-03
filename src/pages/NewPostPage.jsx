@@ -1,11 +1,11 @@
 // NewPostPage — full-page post editor. Authenticated users only.
 // Type selector at top; form fields adapt to post type; CircleSelector for audience.
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { X, Upload, GripVertical } from 'lucide-react'
+import { X, Upload, GripVertical, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor, useSensor, useSensors,
 } from '@dnd-kit/core'
@@ -23,6 +23,54 @@ import { useJoinedGroups } from '../hooks/useJoinedGroups'
 const NOTE_MAX_WORDS = 500
 const NOTE_MAX_CHARS = 5000
 const countWords = (md) => md.trim().split(/\s+/).filter(Boolean).length
+
+// Map a stored prefs/audience value ('@public', '@<domain>', a circle/group id)
+// to the ids the web CircleSelector uses ('public' | 'server' | id).
+function prefAudienceToWeb(val) {
+  if (!val || val === '@public' || val === 'public') return 'public'
+  if (val === 'server' || val === '@server') return 'server'
+  if (/^@[^@]+$/.test(val)) return 'server' // bare @domain = this community
+  return val // circle / group id
+}
+
+// ── Reply/React scope ("Advanced") ───────────────────────────────────────────
+
+function ReplyReactScope({ audience, canReply, canReact, onChangeReply, onChangeReact, circles, groups }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const customized = canReply !== audience || canReact !== audience
+  return (
+    <div className="border-t-2 border-base-300 pt-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
+      >
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        {t('composer.advanced', { defaultValue: 'Advanced' })}
+        {customized && (
+          <span className="text-primary ml-1">{t('composer.customized', { defaultValue: 'Customized' })}</span>
+        )}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 mt-3">
+          <div className="flex items-center gap-3">
+            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 w-28 shrink-0">
+              {t('composer.whoCanReply', { defaultValue: 'Who can reply' })}
+            </span>
+            <CircleSelector circles={circles} groups={groups} value={canReply} onChange={onChangeReply} showAudience />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 w-28 shrink-0">
+              {t('composer.whoCanReact', { defaultValue: 'Who can react' })}
+            </span>
+            <CircleSelector circles={circles} groups={groups} value={canReact} onChange={onChangeReact} showAudience />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Small local form helpers ──────────────────────────────────────────────────
 
@@ -150,10 +198,12 @@ export default function NewPostPage() {
   const { items: myCircles } = useSelector((state) => state.myCircles)
   const joinedGroups = useJoinedGroups() // groups are addressable too (#67)
   const geocodingUrl = useSelector((state) => state.server.settings?.geocodingUrl)
+  const maxUploadSize = useSelector((state) => state.server.settings?.maxUploadSize) // MB
   const client = useClient()
   const { t } = useTranslation()
 
-  const [postType, setPostType]   = useState('Note')
+  // Composer opens on the user's composing defaults (prefs.*).
+  const [postType, setPostType]   = useState(user?.prefs?.defaultPostType ?? 'Note')
   const [title, setTitle]         = useState('')
   const [content, setContent]     = useState('')
   const [href, setHref]           = useState('')
@@ -162,7 +212,12 @@ export default function NewPostPage() {
   const [location, setLocation]   = useState('')
   const [geo, setGeo]             = useState(null)
   const [tags, setTags]           = useState([])
-  const [audience, setAudience]   = useState('public')
+  const [audience, setAudience]   = useState(prefAudienceToWeb(user?.prefs?.defaultTo))
+  // Reply/react scope — seeded from the composing prefs; tracks the audience
+  // until narrowed by hand (reset when the audience changes).
+  const [canReply, setCanReply]   = useState(prefAudienceToWeb(user?.prefs?.defaultcanReply))
+  const [canReact, setCanReact]   = useState(prefAudienceToWeb(user?.prefs?.defaultcanReact))
+  const [linkPreview, setLinkPreview] = useState(null) // { title, summary, image } from /preview
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]         = useState(null)
   const [fetchingMeta, setFetchingMeta] = useState(false)
@@ -210,21 +265,54 @@ export default function NewPostPage() {
     setPostType(newType)
   }
 
-  const handleHrefBlur = async () => {
-    if (!href || !client) return
+  // Fetch link metadata: preview card + blank-title autofill + OG image + drop
+  // the source summary into an empty body as a blockquote (matches mobile).
+  const fetchLinkMeta = async (url) => {
+    if (!url || !client) return
+    try { new URL(url) } catch { return }
     setFetchingMeta(true)
     try {
-      const meta = await client.http.get('/preview', { params: { url: href } })
+      const meta = await client.feeds.getLinkPreview({ url })
+      setLinkPreview(meta || null)
       if (meta?.title && !title) setTitle(meta.title)
-      if (meta?.summary && !content) setContent(meta.summary)
       if (meta?.image && !featuredImage) setFeaturedImage(meta.image)
+      if (meta?.summary && !content.trim()) {
+        const quoted = meta.summary.trim().split(/\n+/).map((l) => `> ${l}`).join('\n')
+        setContent(`${quoted}\n\n`)
+        setEditorKey((k) => k + 1) // RichTextEditor only reads `content` on mount
+      }
     } catch {}
     finally { setFetchingMeta(false) }
   }
 
+  // Live link preview — debounced as the URL is typed.
+  useEffect(() => {
+    if (postType !== 'Link' || !href.trim()) {
+      setLinkPreview(null)
+      return
+    }
+    const timer = setTimeout(() => fetchLinkMeta(href.trim()), 600)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [href, postType, client])
+
+  // Per-server upload ceiling (MB → bytes); Infinity until the profile loads.
+  const maxUploadBytes = maxUploadSize > 0 ? maxUploadSize * 1024 * 1024 : Infinity
+  const tooLargeMessage = (names) =>
+    t('composer.fileTooLarge', {
+      defaultValue: `${names} exceeds this server's ${maxUploadSize} MB upload limit.`,
+      names,
+      limit: maxUploadSize,
+    })
+
   const handleArtImageFile = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > maxUploadBytes) {
+      setError(tooLargeMessage(file.name))
+      e.target.value = ''
+      return
+    }
     if (artFeaturedPreview) URL.revokeObjectURL(artFeaturedPreview)
     setArtFeaturedFile(file)
     setArtFeaturedPreview(URL.createObjectURL(file))
@@ -233,10 +321,16 @@ export default function NewPostPage() {
 
   const handleFileAdd = (e) => {
     const files = Array.from(e.target.files)
-    setAttachments((prev) => [
-      ...prev,
-      ...files.map((f) => ({ file: f, title: f.name.replace(/\.[^.]+$/, ''), alt: '', previewUrl: URL.createObjectURL(f) })),
-    ])
+    const tooBig = files.filter((f) => f.size > maxUploadBytes)
+    const ok = files.filter((f) => f.size <= maxUploadBytes)
+    if (tooBig.length) setError(tooLargeMessage(tooBig.map((f) => f.name).join(', ')))
+    else setError(null)
+    if (ok.length) {
+      setAttachments((prev) => [
+        ...prev,
+        ...ok.map((f) => ({ file: f, title: f.name.replace(/\.[^.]+$/, ''), alt: '', previewUrl: URL.createObjectURL(f) })),
+      ])
+    }
     e.target.value = ''
   }
 
@@ -301,8 +395,8 @@ export default function NewPostPage() {
       let uploadedAttachments
       let uploadedFeaturedImage = featuredImage || undefined
 
-      // Upload Article featured image if a file was selected
-      if (postType === 'Article' && artFeaturedFile) {
+      // Upload Article/Event featured (hero) image if a file was selected
+      if ((postType === 'Article' || postType === 'Event') && artFeaturedFile) {
         const res = await client.files.upload({
           file: artFeaturedFile, filename: artFeaturedFile.name, contentType: artFeaturedFile.type, to: audience,
         })
@@ -336,6 +430,8 @@ export default function NewPostPage() {
         tags: tags.length ? tags : undefined,
         location: location ? { type: 'Place', name: location, ...(geo ?? {}) } : undefined,
         to: audience,
+        canReply,
+        canReact,
         attachments: uploadedAttachments,
         featuredImage: uploadedFeaturedImage,
       })
@@ -374,7 +470,7 @@ export default function NewPostPage() {
                 type="url"
                 value={href}
                 onChange={setHref}
-                onBlur={handleHrefBlur}
+                onBlur={() => fetchLinkMeta(href)}
                 placeholder={t('composer.linkUrl', { defaultValue: 'https://…' })}
                 large
               />
@@ -394,8 +490,8 @@ export default function NewPostPage() {
           </Field>
         )}
 
-        {/* Article featured image */}
-        {postType === 'Article' && (
+        {/* Article / Event featured (hero) image */}
+        {(postType === 'Article' || postType === 'Event') && (
           <Field label={t('composer.featuredImage', { defaultValue: 'Featured image (optional)' })}>
             {artFeaturedPreview ? (
               <div className="relative">
@@ -418,15 +514,44 @@ export default function NewPostPage() {
           </Field>
         )}
 
-        {/* Link og:image preview */}
-        {postType === 'Link' && featuredImage && (
-          <div className="relative">
-            <img src={featuredImage} alt="" className="w-full max-h-40 object-cover" />
-            <button type="button" onClick={() => setFeaturedImage(null)}
-              aria-label={t('composer.removeFeaturedImage', { defaultValue: 'Remove image' })}
-              className="absolute top-2 right-2 px-2 py-1 bg-black/50 text-white font-ui text-xs uppercase tracking-widest hover:bg-black/70 transition-colors">
-              ✕
-            </button>
+        {/* Link OG preview card — thumbnail + title + summary, live-fetched from
+            /preview as the URL is typed. The featured image is removable. */}
+        {postType === 'Link' && (fetchingMeta || linkPreview || featuredImage) && (
+          <div className="flex gap-3 items-start p-3 border-2 border-base-300 bg-base-200">
+            {featuredImage ? (
+              <img src={featuredImage} alt="" className="w-20 h-20 object-cover shrink-0 bg-base-300" />
+            ) : linkPreview?.image ? (
+              <img src={linkPreview.image} alt="" className="w-20 h-20 object-cover shrink-0 bg-base-300" />
+            ) : (
+              <div className="w-20 h-20 shrink-0 bg-base-300" />
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
+                  {fetchingMeta
+                    ? t('common.loading', { defaultValue: 'Loading…' })
+                    : t('composer.linkPreview', { defaultValue: 'Preview' })}
+                </span>
+                {featuredImage && (
+                  <button
+                    type="button"
+                    onClick={() => setFeaturedImage(null)}
+                    aria-label={t('composer.removeFeaturedImage', { defaultValue: 'Remove image' })}
+                    className="font-ui text-[10px] uppercase tracking-widest text-base-content/40 hover:text-error transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <p className="font-ui text-sm text-base-content mt-0.5 line-clamp-2">
+                {linkPreview?.title || title || t('composer.untitled', { defaultValue: 'Untitled' })}
+              </p>
+              {linkPreview?.summary && (
+                <p className="font-reading text-xs text-base-content/60 mt-0.5 line-clamp-2">
+                  {linkPreview.summary}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -526,13 +651,24 @@ export default function NewPostPage() {
           />
         </Field>
 
+        {/* Advanced — who can reply / react. Seeded from the audience below. */}
+        <ReplyReactScope
+          audience={audience}
+          canReply={canReply}
+          canReact={canReact}
+          onChangeReply={setCanReply}
+          onChangeReact={setCanReact}
+          circles={myCircles}
+          groups={joinedGroups}
+        />
+
         {/* Footer: audience + actions */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t-2 border-base-300">
           <CircleSelector
             circles={myCircles}
             groups={joinedGroups}
             value={audience}
-            onChange={setAudience}
+            onChange={(v) => { setAudience(v); setCanReply(v); setCanReact(v) }}
             showAudience
             allowCreate
             direction="up"

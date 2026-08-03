@@ -71,24 +71,39 @@ function AddMemberRow({ circleId, onAdded }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null)
+  const debounceRef = useRef(null)
 
-  const handleSearch = async () => {
-    const val = input.trim()
-    if (!val) return
-    setLoading(true)
-    setError(null)
-    setResults([])
-    try {
-      const res = await client.feeds.http.get('/users/search', { params: { q: val } })
-      const items = res?.orderedItems ?? []
-      if (items.length === 0) setError('No users found')
-      setResults(items)
-    } catch (err) {
-      setError(err.message || 'Search failed')
-    } finally {
+  // Debounced live type-ahead against /users/search. Suppress partial federated
+  // handles (@user@partial) until the domain has a dot — mirrors the mobile app.
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    const q = input.trim()
+    if (q.length < 2) {
+      setResults([])
       setLoading(false)
+      setError(null)
+      return
     }
-  }
+    const parts = q.replace(/^@/, '').split('@')
+    if (parts.length === 2 && !parts[1].includes('.')) return
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await client.feeds.http.get('/users/search', { params: { q } })
+        const items = res?.orderedItems ?? res?.items ?? []
+        if (items.length === 0) setError('No users found')
+        setResults(items)
+      } catch (err) {
+        setError(err.message || 'Search failed')
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 350)
+    return () => clearTimeout(debounceRef.current)
+  }, [input, client])
 
   const handleAdd = async (user) => {
     setAdding(user.id)
@@ -107,22 +122,21 @@ function AddMemberRow({ circleId, onAdded }) {
 
   return (
     <div className="flex flex-col gap-2 pb-4 border-b-2 border-primary mb-2">
-      <div className="flex gap-2">
+      <div className="relative">
         <input
           type="text"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setResults([]); setError(null) }}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
-          placeholder={t('circle.addMemberPlaceholder', { defaultValue: 'Search by name or @handle' })}
-          className="flex-1 bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary"
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={t('circle.addMemberPlaceholder', { defaultValue: 'Name, @handle, or @user@other.server' })}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck="false"
+          className="w-full bg-base-200 border border-base-300 px-3 py-2 pr-9 font-ui text-sm focus:outline-none focus:border-primary"
         />
-        <button
-          onClick={handleSearch}
-          disabled={!input.trim() || loading}
-          className="px-4 py-2 bg-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:bg-base-400 transition-colors disabled:opacity-40"
-        >
-          {loading ? <Loader size={14} className="animate-spin" /> : t('circle.search', { defaultValue: 'Search' })}
-        </button>
+        {loading && (
+          <Loader size={14} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50" />
+        )}
       </div>
 
       {error && <p className="font-ui text-xs text-error">{error}</p>}

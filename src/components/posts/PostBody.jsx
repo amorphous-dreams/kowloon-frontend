@@ -3,8 +3,8 @@
 // Props: post object
 
 import { useEffect, useState, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { Link2, Play, Music, FileText, X, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Link2, Play, Music, FileText, X, ChevronLeft, ChevronRight, Maximize2, MapPin } from 'lucide-react'
 import { marked } from 'marked'
 import AudioPlayer from '../ui/AudioPlayer'
 import sizedUrl from '../../lib/sizedUrl'
@@ -40,6 +40,45 @@ function LinkTitle({ post }) {
   )
 }
 
+
+// Geotag display — a small pin + place-name line. Rendered on Note/Article/
+// Media/Link posts (Events render their own prominent location in EventCard).
+function LocationLine({ location }) {
+  const name = location?.name
+  if (!name) return null
+  return (
+    <div className="flex items-center gap-1.5 mb-4">
+      <MapPin size={13} className="shrink-0 text-base-content/55" />
+      <span className="font-ui text-xs uppercase tracking-widest text-base-content/55 truncate">
+        {name}
+      </span>
+    </div>
+  )
+}
+
+// Route a Kowloon-item href to its in-app SPA path, or null if it's an external
+// link that should open normally. Mirrors mobile's openKowloonLink: posts /
+// circles / groups / users carry self-identifying prefixed IDs (works for any
+// server), so those route in-app regardless of host; pages use human slugs, so
+// we only treat same-origin /pages/ links as in-app.
+function kowloonRouteFromHref(href) {
+  if (!href) return null
+  let url
+  try { url = new URL(href, window.location.origin) } catch { return null }
+  let path = url.pathname
+  try { path = decodeURIComponent(path) } catch { /* keep raw on malformed input */ }
+  const sameOrigin = url.origin === window.location.origin
+  let m
+  if ((m = path.match(/^\/posts\/(post:[^/?#]+@[^/?#]+)/)))     return `/posts/${encodeURIComponent(m[1])}`
+  if ((m = path.match(/^\/groups\/(group:[^/?#]+@[^/?#]+)/)))   return `/groups/${encodeURIComponent(m[1])}`
+  if ((m = path.match(/^\/circles\/(circle:[^/?#]+@[^/?#]+)/))) return `/circles/${encodeURIComponent(m[1])}`
+  if ((m = path.match(/^\/users\/(@[^/?#]+)/)))                 return `/users/${encodeURIComponent(m[1])}`
+  // Same-origin links to any of our own SPA routes (pages, or non-prefixed ids).
+  if (sameOrigin && (m = path.match(/^\/(posts|circles|groups|users|pages)\/([^/?#]+)/))) {
+    return `/${m[1]}/${encodeURIComponent(m[2])}`
+  }
+  return null
+}
 
 // True for media types where a fullscreen lightbox makes sense.
 function isLightboxable(a) {
@@ -482,7 +521,24 @@ function Attachments({ attachments = [] }) {
 }
 
 export default function PostBody({ post, showFull = false }) {
+  const navigate = useNavigate()
   const [heroLightbox, setHeroLightbox] = useState(false)
+
+  // Intercept clicks on links inside the server-rendered HTML body: @mentions
+  // and Kowloon-item links navigate in-app (SPA) instead of triggering a full
+  // page reload; external links keep their default behaviour.
+  function handleBodyClick(e) {
+    // Only plain left-clicks — let modified clicks (open-in-new-tab) through.
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    const anchor = e.target.closest?.('a[href]')
+    if (!anchor) return
+    const route = kowloonRouteFromHref(anchor.getAttribute('href'))
+    if (route) {
+      e.preventDefault()
+      navigate(route)
+    }
+  }
+
   // body = pre-rendered HTML from server; fall back to rendering raw markdown for local/mock data
   const rawSource = post?.source?.content ?? (typeof post?.source === 'string' ? post.source : null) ?? post?.content ?? ''
   const fullHtml = post?.body ?? (rawSource ? marked.parse(rawSource) : '')
@@ -514,6 +570,9 @@ export default function PostBody({ post, showFull = false }) {
             </h1>
       )}
 
+      {/* Location — pin + place name (Events show theirs in EventCard) */}
+      <LocationLine location={post?.location} />
+
       {/* Hero image — after title, before body (non-Media types) */}
       {heroSrc && (
         <>
@@ -538,6 +597,7 @@ export default function PostBody({ post, showFull = false }) {
       {isMedia && <MediaGallery attachments={post?.attachments ?? []} />}
 
       <div
+        onClick={handleBodyClick}
         className="prose prose-lg max-w-none [&_h1]:text-xl lg:[&_h1]:text-3xl [&_h1]:mt-0 [&_h1]:mb-3 [&_h2]:text-lg lg:[&_h2]:text-xl [&_h3]:text-base lg:[&_h3]:text-lg"
         dangerouslySetInnerHTML={{ __html: html }}
       />

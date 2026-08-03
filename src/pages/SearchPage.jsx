@@ -27,34 +27,39 @@ const hexMask = {
 
 const SEARCH_TYPES = ['all', 'posts', 'users', 'groups', 'pages', 'bookmarks']
 
-const TYPE_TO_SEARCH_IN = {
-  posts:     { posts: true },
-  users:     { users: true },
-  groups:    { groups: true },
-  pages:     { pages: true },
-  bookmarks: { bookmarks: true },
+// Content types (order shown on the "All" tab). Servers are handled separately.
+const CONTENT_TYPES = ['posts', 'users', 'groups', 'pages', 'bookmarks']
+
+const ALL_PREVIEW = 5 // results shown per section on the "All" tab
+
+const itemsOf = (res) => res?.orderedItems ?? res?.items ?? []
+
+// Run a single-type, paginated search via the client's convenience methods.
+// Mirrors mobile/app/(tabs)/search.js — each type paginates independently.
+function searchByType(client, type, query, page) {
+  switch (type) {
+    case 'posts':     return client.search.searchPosts({ query, page })
+    case 'users':     return client.search.searchUsers({ query, page })
+    case 'groups':    return client.search.searchGroups({ query, page })
+    case 'pages':     return client.search.searchPages({ query, page })
+    case 'bookmarks': return client.search.searchBookmarks({ query, page })
+    default:          return Promise.resolve({ orderedItems: [], totalItems: 0 })
+  }
 }
 
-function groupResults(items) {
-  const buckets = { posts: [], users: [], groups: [], pages: [], bookmarks: [], servers: [] }
-  for (const item of items) {
-    const t = item._searchType
-    if (t === 'Post') {
-      buckets.posts.push({ ...item, name: item.title ?? item.name, actor: item.actor ?? { id: item.actorId } })
-    } else if (t === 'User') {
-      buckets.users.push({ ...item, displayName: item.profile?.name ?? item.username ?? item.id })
-    } else if (t === 'Group') {
-      buckets.groups.push({ ...item, summary: item.description ?? item.summary })
-    } else if (t === 'Page') {
-      buckets.pages.push({ ...item, name: item.title ?? item.name })
-    } else if (t === 'Bookmark') {
-      buckets.bookmarks.push(item)
-    } else if (t === 'Server') {
-      buckets.servers.push(item)
-    }
+// Normalize a raw result into the shape the renderers expect (same mapping the
+// old combined groupResults() applied, but keyed on the known result type).
+function normalizeItem(type, item) {
+  switch (type) {
+    case 'posts':  return { ...item, name: item.title ?? item.name, actor: item.actor ?? { id: item.actorId } }
+    case 'users':  return { ...item, displayName: item.profile?.name ?? item.username ?? item.id }
+    case 'groups': return { ...item, summary: item.description ?? item.summary }
+    case 'pages':  return { ...item, name: item.title ?? item.name }
+    default:       return item // bookmarks, servers
   }
-  return buckets
 }
+
+const normalizeList = (type, list) => (list || []).map((i) => normalizeItem(type, i))
 
 // ── Add-to-Circle modal ───────────────────────────────────────────────────────
 
@@ -294,15 +299,37 @@ function ServerResultCard({ server, domain }) {
   )
 }
 
-function SectionHeader({ title, count }) {
+function SectionHeader({ title, count, onSeeAll }) {
   return (
-    <h2 className="font-display text-2xl tracking-wide border-b-2 border-base-300 pb-2 mb-0 mt-6 first:mt-0">
-      {title}
-      {count > 0 && (
-        <span className="ml-2 font-ui text-sm text-base-content/40 normal-case tracking-normal">{count}</span>
+    <div className="flex items-end justify-between border-b-2 border-base-300 pb-2 mb-0 mt-6 first:mt-0">
+      <h2 className="font-display text-2xl tracking-wide">
+        {title}
+        {count > 0 && (
+          <span className="ml-2 font-ui text-sm text-base-content/40 normal-case tracking-normal">{count}</span>
+        )}
+      </h2>
+      {onSeeAll && (
+        <button
+          onClick={onSeeAll}
+          className="font-ui text-xs uppercase tracking-widest text-primary hover:text-primary/70 transition-colors pb-1"
+        >
+          See all
+        </button>
       )}
-    </h2>
+    </div>
   )
+}
+
+// Renders a single result of a given type using the type-specific card.
+function ResultItem({ type, item, authUser, client }) {
+  switch (type) {
+    case 'posts':     return <PostCard post={item} />
+    case 'users':     return <UserResult user={item} authUser={authUser} client={client} />
+    case 'groups':    return <GroupResult group={item} />
+    case 'pages':     return <PageResult page={item} />
+    case 'bookmarks': return <BookmarkResult bookmark={item} />
+    default:          return null
+  }
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -316,34 +343,30 @@ export default function SearchPage() {
   const initialQ    = searchParams.get('q') ?? ''
   const initialType = searchParams.get('type') ?? 'all'
 
-  const [query, setQuery]         = useState(initialQ)
-  const [type, setType]           = useState(initialType)
-  const [results, setResults]     = useState(null)
-  const [loading, setLoading]     = useState(false)
+  const [query, setQuery]           = useState(initialQ)
+  const [type, setType]             = useState(initialType)
   const [inputValue, setInputValue] = useState(initialQ)
-  const [serverResult, setServerResult] = useState(null)
+
+  // "All" tab: a first page of each type. Type tabs: one paginated list.
+  const [sections, setSections]   = useState({ posts: [], users: [], groups: [], pages: [], bookmarks: [] })
+  const [serverMatches, setServerMatches] = useState([]) // partial cached-server hits
+  const [list, setList]           = useState([])
+  const [page, setPage]           = useState(1)
+  const [total, setTotal]         = useState(0)
+
+  const [loading, setLoading]         = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+
+  const [serverResult, setServerResult]   = useState(null)
   const [serverLoading, setServerLoading] = useState(false)
+
+  const q = query.trim()
 
   // A bare @domain (starts with @, no second @) is a remote-server lookup —
   // mirrors the mobile search. @user@domain has a second @ and is a user search.
   const isServerQuery =
-    query.startsWith('@') && !query.slice(1).includes('@') && query.trim().length > 1
+    query.startsWith('@') && !query.slice(1).includes('@') && q.length > 1
   const serverDomain = isServerQuery ? query.slice(1).trim() : ''
-
-  const search = useCallback(async (q, activeType) => {
-    if (!q.trim()) { setResults(null); return }
-    setLoading(true)
-    try {
-      const searchIn = activeType !== 'all' ? TYPE_TO_SEARCH_IN[activeType] : undefined
-      const res = await client.search.search({ query: q, searchIn })
-      setResults(groupResults(res?.orderedItems ?? []))
-    } catch (err) {
-      console.warn('[SearchPage] search failed:', err.message)
-      setResults({ posts: [], users: [], groups: [], pages: [] })
-    } finally {
-      setLoading(false)
-    }
-  }, [client])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -356,10 +379,85 @@ export default function SearchPage() {
     return () => clearTimeout(timer)
   }, [inputValue, type, setSearchParams])
 
+  // Primary fetch — re-runs whenever the query or active tab changes.
   useEffect(() => {
-    if (query) search(query, type)
-    else setResults(null)
-  }, [query, type, search])
+    if (!client) return
+    if (!q) {
+      setSections({ posts: [], users: [], groups: [], pages: [], bookmarks: [] })
+      setServerMatches([])
+      setList([])
+      setTotal(0)
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+
+    ;(async () => {
+      try {
+        if (type === 'all') {
+          const [p, u, g, pg, b, s] = await Promise.all([
+            searchByType(client, 'posts', q, 1),
+            searchByType(client, 'users', q, 1),
+            searchByType(client, 'groups', q, 1),
+            searchByType(client, 'pages', q, 1),
+            searchByType(client, 'bookmarks', q, 1),
+            client.search.searchServers({ query: q, page: 1 }).catch(() => ({})),
+          ])
+          if (cancelled) return
+          setSections({
+            posts:     normalizeList('posts', itemsOf(p)),
+            users:     normalizeList('users', itemsOf(u)),
+            groups:    normalizeList('groups', itemsOf(g)),
+            pages:     normalizeList('pages', itemsOf(pg)),
+            bookmarks: normalizeList('bookmarks', itemsOf(b)),
+          })
+          setServerMatches(itemsOf(s))
+        } else {
+          const res = await searchByType(client, type, q, 1)
+          if (cancelled) return
+          const items = normalizeList(type, itemsOf(res))
+          setList(items)
+          setTotal(res?.totalItems ?? items.length)
+          setPage(1)
+        }
+      } catch (err) {
+        if (cancelled) return
+        console.warn('[SearchPage] search failed:', err.message)
+        setSections({ posts: [], users: [], groups: [], pages: [], bookmarks: [] })
+        setServerMatches([])
+        setList([])
+        setTotal(0)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [client, q, type])
+
+  const hasMore = type !== 'all' && list.length < total
+
+  const loadMore = useCallback(async () => {
+    if (type === 'all' || loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const next = page + 1
+      const res = await searchByType(client, type, q, next)
+      const more = normalizeList(type, itemsOf(res))
+      setList((prev) => {
+        const seen = new Set(prev.map((x) => x.id))
+        return [...prev, ...more.filter((x) => !seen.has(x.id))]
+      })
+      setTotal(res?.totalItems ?? total)
+      setPage(next)
+    } catch {
+      // keep what we have; a failed page just stops the "load more"
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [client, q, type, page, total, hasMore, loadingMore])
 
   // Remote-server lookup when the query is a bare @domain.
   useEffect(() => {
@@ -373,7 +471,15 @@ export default function SearchPage() {
     return () => { cancelled = true }
   }, [client, serverDomain, isServerQuery])
 
-  const hasResults = results && Object.values(results).some((arr) => arr.length > 0)
+  // Partial cached-server matches, minus the exact @domain shown by the live
+  // lookup above.
+  const partialServers = (serverMatches ?? []).filter(
+    (s) => (s?.domain || '').toLowerCase() !== (serverResult?.domain || '').toLowerCase()
+  )
+
+  const allEmpty =
+    partialServers.length === 0 &&
+    CONTENT_TYPES.every((ct) => (sections[ct]?.length ?? 0) === 0)
 
   const TYPE_LABELS = {
     all:    t('search.all',    { defaultValue: 'All' }),
@@ -453,7 +559,7 @@ export default function SearchPage() {
 
       {loading && <Spinner centered />}
 
-      {!loading && !query.trim() && (
+      {!loading && !q && (
         <div className="py-16 text-center">
           <Search size={28} className="mx-auto mb-4 text-base-content/20" />
           <p className="font-ui text-sm uppercase tracking-widest text-base-content/40">
@@ -462,69 +568,67 @@ export default function SearchPage() {
         </div>
       )}
 
-      {!loading && query.trim() && !hasResults && results && !isServerQuery && (
-        <EmptyState message={t('search.noResults', { defaultValue: `No results for "${query}"` })} />
-      )}
-
-      {!loading && hasResults && (
-        <div className="flex flex-col gap-2">
-
-          {/* Partial cached-server matches — only on the "All" tab, and never
-              the exact @domain already shown by the live lookup above. */}
-          {type === 'all' && (() => {
-            const exact = serverResult?.domain?.toLowerCase()
-            const servers = (results.servers ?? []).filter(
-              (s) => (s?.domain || '').toLowerCase() !== exact
-            )
-            if (servers.length === 0) return null
-            return (
+      {/* "All" tab — a first page of each type, each with a "See all" jump. */}
+      {!loading && q && type === 'all' && (
+        allEmpty && !isServerQuery ? (
+          <EmptyState message={t('search.noResults', { defaultValue: `No results for "${query}"` })} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {/* Partial cached-server matches — never the exact @domain shown by
+                the live lookup above. */}
+            {partialServers.length > 0 && (
               <div>
-                <SectionHeader title={t('search.servers', { defaultValue: 'Servers' })} count={servers.length} />
-                {servers.map((s) => (
+                <SectionHeader title={t('search.servers', { defaultValue: 'Servers' })} count={partialServers.length} />
+                {partialServers.map((s) => (
                   <ServerResultCard key={s.domain} server={s} domain={s.domain} />
                 ))}
               </div>
-            )
-          })()}
+            )}
 
-          {(type === 'all' || type === 'posts') && results.posts?.length > 0 && (
-            <div>
-              {type === 'all' && <SectionHeader title={TYPE_LABELS.posts} count={results.posts.length} />}
-              {results.posts.map((post) => <PostCard key={post.id} post={post} />)}
-            </div>
-          )}
+            {CONTENT_TYPES.map((ct) => {
+              const items = sections[ct]
+              if (!items || items.length === 0) return null
+              return (
+                <div key={ct}>
+                  <SectionHeader
+                    title={TYPE_LABELS[ct]}
+                    count={items.length}
+                    onSeeAll={items.length > ALL_PREVIEW ? () => setType(ct) : undefined}
+                  />
+                  {items.slice(0, ALL_PREVIEW).map((item) => (
+                    <ResultItem key={item.id} type={ct} item={item} authUser={authUser} client={client} />
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
 
-          {(type === 'all' || type === 'users') && results.users?.length > 0 && (
-            <div>
-              {type === 'all' && <SectionHeader title={TYPE_LABELS.users} count={results.users.length} />}
-              {results.users.map((user) => (
-                <UserResult key={user.id} user={user} authUser={authUser} client={client} />
-              ))}
-            </div>
-          )}
-
-          {(type === 'all' || type === 'groups') && results.groups?.length > 0 && (
-            <div>
-              {type === 'all' && <SectionHeader title={TYPE_LABELS.groups} count={results.groups.length} />}
-              {results.groups.map((group) => <GroupResult key={group.id} group={group} />)}
-            </div>
-          )}
-
-          {(type === 'all' || type === 'pages') && results.pages?.length > 0 && (
-            <div>
-              {type === 'all' && <SectionHeader title={TYPE_LABELS.pages} count={results.pages.length} />}
-              {results.pages.map((page) => <PageResult key={page.id} page={page} />)}
-            </div>
-          )}
-
-          {(type === 'all' || type === 'bookmarks') && results.bookmarks?.length > 0 && (
-            <div>
-              {type === 'all' && <SectionHeader title={TYPE_LABELS.bookmarks} count={results.bookmarks.length} />}
-              {results.bookmarks.map((bookmark) => <BookmarkResult key={bookmark.id} bookmark={bookmark} />)}
-            </div>
-          )}
-
-        </div>
+      {/* Single-type tab — one paginated list with "Load more". */}
+      {!loading && q && type !== 'all' && (
+        list.length === 0 && !isServerQuery ? (
+          <EmptyState message={t('search.noResults', { defaultValue: `No results for "${query}"` })} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {list.map((item) => (
+              <ResultItem key={item.id} type={type} item={item} authUser={authUser} client={client} />
+            ))}
+            {hasMore && (
+              <div className="pt-4 flex justify-center">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-6 py-2.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                >
+                  {loadingMore
+                    ? t('search.loading', { defaultValue: 'Loading…' })
+                    : t('search.loadMore', { defaultValue: 'Load more' })}
+                </button>
+              </div>
+            )}
+          </div>
+        )
       )}
 
     </div>

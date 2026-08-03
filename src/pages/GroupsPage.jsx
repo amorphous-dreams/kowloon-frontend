@@ -188,6 +188,9 @@ export default function GroupsPage() {
   const client = useClient()
   const user = useSelector((state) => state.auth.user)
 
+  // "My Groups" = groups the viewer belongs to; "Browse" = server discovery.
+  const [tab, setTab] = useState(user ? 'mine' : 'browse')
+
   const [sort, setSort] = useState('date')
   const [groups, setGroups] = useState([])
   const [page, setPage] = useState(1)
@@ -195,6 +198,25 @@ export default function GroupsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // My groups (memberships)
+  const [mine, setMine] = useState([])
+  const [mineLoading, setMineLoading] = useState(false)
+  const [mineError, setMineError] = useState(null)
+
+  const loadMine = useCallback(async () => {
+    if (!client || !user?.id) { setMine([]); return }
+    setMineLoading(true)
+    setMineError(null)
+    try {
+      const res = await client.feeds.getUserGroups({ userId: user.id })
+      setMine(res?.orderedItems ?? res?.items ?? [])
+    } catch (err) {
+      setMineError(err.message || 'Failed to load your groups.')
+    } finally {
+      setMineLoading(false)
+    }
+  }, [client, user?.id])
 
   const load = useCallback(async (sortOrder, pageNum) => {
     if (!client) {
@@ -219,7 +241,8 @@ export default function GroupsPage() {
     }
   }, [client])
 
-  useEffect(() => { load(sort, page) }, [sort, page, load])
+  useEffect(() => { if (tab === 'browse') load(sort, page) }, [tab, sort, page, load])
+  useEffect(() => { if (tab === 'mine') loadMine() }, [tab, loadMine])
 
   const handleSort = (newSort) => {
     if (newSort === sort) return
@@ -238,7 +261,7 @@ export default function GroupsPage() {
           <h1 className="font-display text-5xl tracking-wide leading-none">
             {t('groups.browse', { defaultValue: 'Groups' })}
           </h1>
-          {totalItems > 0 && !loading && (
+          {tab === 'browse' && totalItems > 0 && !loading && (
             <p className="font-ui text-sm uppercase tracking-widest text-base-content/50">
               {totalItems.toLocaleString()} {t('groups.total', { defaultValue: 'groups' })}
             </p>
@@ -254,6 +277,7 @@ export default function GroupsPage() {
               <Plus size={13} /> {t('group.new', { defaultValue: 'New Group' })}
             </Link>
           )}
+          {tab === 'browse' && (
           <div className="flex items-center gap-0 border border-base-300">
             <button
               onClick={() => handleSort('date')}
@@ -276,10 +300,56 @@ export default function GroupsPage() {
               {t('sort.popular', { defaultValue: 'Popular' })}
             </button>
           </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* My / Browse tabs — logged-in users only */}
+      {user && (
+        <div className="flex items-center gap-0 border-b border-base-300 -mt-2">
+          <button
+            onClick={() => setTab('mine')}
+            className={`px-5 py-3 font-ui text-xs uppercase tracking-widest transition-colors border-b-2 -mb-px ${
+              tab === 'mine'
+                ? 'border-primary text-base-content font-bold'
+                : 'border-transparent text-base-content/50 hover:text-base-content'
+            }`}
+          >
+            {t('groups.mine', { defaultValue: 'My Groups' })}
+          </button>
+          <button
+            onClick={() => setTab('browse')}
+            className={`px-5 py-3 font-ui text-xs uppercase tracking-widest transition-colors border-b-2 -mb-px ${
+              tab === 'browse'
+                ? 'border-primary text-base-content font-bold'
+                : 'border-transparent text-base-content/50 hover:text-base-content'
+            }`}
+          >
+            {t('groups.browseTab', { defaultValue: 'Browse' })}
+          </button>
+        </div>
+      )}
+
+      {/* My Groups */}
+      {tab === 'mine' && (
+        <>
+          {mineLoading && <Spinner centered />}
+          {!mineLoading && mineError && <ErrorState message={mineError} onRetry={loadMine} />}
+          {!mineLoading && !mineError && mine.length === 0 && (
+            <EmptyState message={t('groups.mineEmpty', { defaultValue: 'You haven’t joined any groups yet.' })} />
+          )}
+          {!mineLoading && !mineError && mine.length > 0 && (
+            <div className="flex flex-col">
+              {mine.map((group) => (
+                <GroupBrowseCard key={group.id} group={group} isLoggedIn={!!user} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Browse */}
+      {tab === 'browse' && (<>
       {loading && <Spinner centered />}
       {!loading && error && <ErrorState message={error} onRetry={() => load(sort, page)} />}
       {!loading && !error && groups.length === 0 && (
@@ -315,6 +385,7 @@ export default function GroupsPage() {
           </button>
         </div>
       )}
+      </>)}
 
     </div>
   )

@@ -55,6 +55,22 @@ function isPublicPost(post) {
   )
 }
 
+// Audience tier of a post, for gating reshares (#47), mirroring mobile's
+// PostActionBar:
+//   "public"     → @public: reshareable anywhere.
+//   "server"     → @<domain>: reshareable only to the server community.
+//   "restricted" → a circle/group/self address: not reshareable at all.
+function postAudienceTier(post) {
+  if (isPublicPost(post)) return 'public'
+  const to = String(post?.to ?? '').trim()
+  if (to.startsWith('circle:') || to.startsWith('group:')) return 'restricted'
+  // @user@domain (two @s) = addressed to a specific user (self / private).
+  if (/^@[^@\s]+@[^@\s]+$/.test(to)) return 'restricted'
+  // @domain (single @, not @public) = server / community.
+  if (/^@[a-z0-9.-]+$/i.test(to)) return 'server'
+  return 'restricted' // unknown addressing → fail closed
+}
+
 // ── ShareButton ──────────────────────────────────────────────────────────────
 
 function ShareButton({ post, t, user }) {
@@ -65,16 +81,19 @@ function ShareButton({ post, t, user }) {
   const postUrl = post.url ?? (post.id ? `/posts/${encodeURIComponent(post.id)}` : null)
   if (!postUrl) return null
 
-  // Private/server-only posts: render the icon disabled + tooltip explaining
-  // why, so users can see the constraint instead of guessing why a button is
-  // missing.
-  if (!isPublicPost(post)) {
+  const tier = postAudienceTier(post)
+
+  // Circle/group/user-addressed posts can't be reshared at all (a reshare must
+  // never leak a post to a wider audience than the original, #47). Render the
+  // icon disabled + tooltip so users see the constraint rather than a missing
+  // button.
+  if (tier === 'restricted') {
     return (
       <button
         type="button"
         disabled
-        title={t('post.shareDisabled', { defaultValue: "Private \u2014 can't be shared" })}
-        aria-label={t('post.shareDisabled', { defaultValue: "Private \u2014 can't be shared" })}
+        title={t('post.reshareRestricted', { defaultValue: "Shared with a specific circle \u2014 can't be reshared" })}
+        aria-label={t('post.reshareRestricted', { defaultValue: "Shared with a specific circle \u2014 can't be reshared" })}
         className="text-base text-base-content/20 cursor-not-allowed"
       >
         <FontAwesomeIcon icon={faShareNodes} />
@@ -86,6 +105,10 @@ function ShareButton({ post, t, user }) {
     (a) => typeof a?.mediaType === 'string' && a.mediaType.startsWith('image/'),
   )
 
+  // Public posts reshare to anyone; server-only posts cap the reshare audience
+  // to the server community so the reshare can't be widened to Public (#47).
+  const reshareAudience = tier === 'server' ? 'server' : 'public'
+
   const initialValues = {
     type: 'Link',
     href: postUrl,
@@ -95,7 +118,10 @@ function ShareButton({ post, t, user }) {
       post.featuredImage ?? post.image ?? firstImageAttachment?.url ?? null,
     tags: ['kowloon'],
     target: post.id ?? null,
-    to: 'public',
+    to: reshareAudience,
+    // Constraint carried through to the composer's audience picker (matches
+    // mobile's `constrain` param) so a Community post can't be widened.
+    ...(tier === 'server' ? { constrain: 'server' } : {}),
   }
 
   return (

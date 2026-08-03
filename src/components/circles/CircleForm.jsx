@@ -9,7 +9,7 @@
 //   onCancel: () => void              — used when embedded (e.g. inside a modal); takes precedence over cancelHref
 //   embedded: bool                    — suppresses the form's own sticky title (host shell provides one)
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -66,24 +66,40 @@ function AddMemberRow({ onAdd, existingIds }) {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const debounceRef = useRef(null)
 
-  const handleSearch = async () => {
-    const val = input.trim()
-    if (!val) return
-    setLoading(true)
-    setError(null)
-    setResults([])
-    try {
-      const res = await client.feeds.http.get('/users/search', { params: { q: val } })
-      const items = res?.orderedItems ?? []
-      if (items.length === 0) setError('No users found')
-      setResults(items)
-    } catch (err) {
-      setError(err.message || 'Search failed')
-    } finally {
+  // Debounced live type-ahead against /users/search. Suppress partial federated
+  // handles (@user@partial) until the domain part has a dot, to avoid spamming
+  // WebFinger with incomplete domains — mirrors the mobile app.
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    const q = input.trim()
+    if (q.length < 2) {
+      setResults([])
       setLoading(false)
+      setError(null)
+      return
     }
-  }
+    const parts = q.replace(/^@/, '').split('@')
+    if (parts.length === 2 && !parts[1].includes('.')) return
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await client.feeds.http.get('/users/search', { params: { q } })
+        const items = res?.orderedItems ?? res?.items ?? []
+        if (items.length === 0) setError('No users found')
+        setResults(items)
+      } catch (err) {
+        setError(err.message || 'Search failed')
+        setResults([])
+      } finally {
+        setLoading(false)
+      }
+    }, 350)
+    return () => clearTimeout(debounceRef.current)
+  }, [input, client])
 
   const handleAdd = (user) => {
     if (existingIds.has(user.id)) {
@@ -98,27 +114,21 @@ function AddMemberRow({ onAdd, existingIds }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
+      <div className="relative">
         <input
           type="text"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setResults([]); setError(null) }}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+          onChange={(e) => setInput(e.target.value)}
           placeholder={t('circle.addMemberPlaceholder', { defaultValue: 'Name, @handle, or @user@other.server' })}
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="none"
           spellCheck="false"
-          className="flex-1 bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary"
+          className="w-full bg-base-200 border border-base-300 px-3 py-2 pr-9 font-ui text-sm focus:outline-none focus:border-primary"
         />
-        <button
-          type="button"
-          onClick={handleSearch}
-          disabled={!input.trim() || loading}
-          className="px-4 py-2 bg-base-300 font-ui text-xs uppercase tracking-widest text-base-content/70 hover:bg-base-content/20 transition-colors disabled:opacity-40"
-        >
-          {loading ? <Loader size={14} className="animate-spin" /> : t('circle.lookup', { defaultValue: 'Search' })}
-        </button>
+        {loading && (
+          <Loader size={14} className="animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50" />
+        )}
       </div>
 
       {error && <p className="font-ui text-xs text-error">{error}</p>}
@@ -195,7 +205,10 @@ export default function CircleForm({
 
   const [name, setName] = useState(initialValues.name ?? '')
   const [description, setDescription] = useState(initialValues.description ?? '')
-  const [to, setTo] = useState(initialValues.to ?? '@public')
+  // Circles default to PRIVATE ("only you" = self-addressed to the owner's id),
+  // not public — a circle is a private contact list; public is an explicit
+  // opt-in (#48). Fall back to '@public' only when there's no signed-in user.
+  const [to, setTo] = useState(initialValues.to ?? (selfId || '@public'))
   const [iconFile, setIconFile] = useState(null)
   const [iconPreview, setIconPreview] = useState(initialValues.iconUrl ?? null)
   const [members, setMembers] = useState(() =>

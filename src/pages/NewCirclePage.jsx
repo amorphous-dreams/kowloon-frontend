@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { useClient } from '../hooks/useClient'
 import CircleForm from '../components/circles/CircleForm'
 import { fetchMyCircles } from '../features/circles/myCirclesSlice'
@@ -14,6 +14,7 @@ export default function NewCirclePage() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { state: routeState } = useLocation()
+  const selfId = useSelector((s) => s.auth.user?.id) ?? ''
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
@@ -65,7 +66,7 @@ export default function NewCirclePage() {
       initialValues={{
         name: initial.name ?? '',
         description: initial.description ?? '',
-        to: initial.to ?? '@public',
+        to: initial.to ?? (selfId || '@public'),
         iconUrl: initial.icon ?? null,
         members: initial.members ?? [],
       }}

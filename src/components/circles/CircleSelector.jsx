@@ -35,6 +35,7 @@ export default function CircleSelector({
   direction = 'down',
   variant = 'default', // 'default' | 'title'
   className = '',
+  constrain = null, // 'server' — cap the audience so it can't widen past the server (reshare rule #47)
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -50,7 +51,10 @@ export default function CircleSelector({
   const optionRefs   = useRef([])
 
   const AUDIENCE_OPTIONS = [
-    { id: 'public', label: t('circle.public'), summary: t('circle.publicSummary') },
+    // A server-capped reshare (#47) can't be widened back to public.
+    ...(constrain === 'server'
+      ? []
+      : [{ id: 'public', label: t('circle.public'), summary: t('circle.publicSummary') }]),
     { id: 'server', label: t('circle.server'), summary: t('circle.serverSummary') },
   ]
 

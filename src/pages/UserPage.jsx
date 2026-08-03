@@ -5,8 +5,9 @@ import { useSelector } from 'react-redux'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDispatch } from 'react-redux'
-import { Share2, Pencil, ExternalLink, MapPin } from 'lucide-react'
+import { MoreHorizontal, Pencil, ExternalLink, MapPin } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
+import { toast } from '../app/toast'
 import PostList from '../components/posts/PostList'
 import PostTypeIcon from '../components/ui/PostTypeIcon'
 import CircleIcon from '../components/ui/CircleIcon'
@@ -60,6 +61,78 @@ function CircleChip({ circle }) {
       <span className="font-ui text-xs uppercase tracking-widest text-base-content/80">{circle.name}</span>
       <span className="font-ui text-xs uppercase tracking-widest text-base-content/45">{circle.memberCount}</span>
     </Link>
+  )
+}
+
+// ── Block / mute overflow menu ────────────────────────────────────────────────
+// Mirrors the mobile ProfileActions sheet (block / mute). Add-to-circle stays as
+// its own primary button; this kebab holds the destructive actions behind a confirm.
+
+function ProfileActionsMenu({ user, client }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [open])
+
+  const handleMute = async () => {
+    setOpen(false)
+    if (!window.confirm(t('user.muteConfirm', { defaultValue: `Mute ${user.name}? Their posts won't appear in your feeds.` }))) return
+    try {
+      await client.activities.mute({ userId: user.id })
+      toast.success(t('user.muted', { defaultValue: `${user.name} muted` }))
+    } catch (err) {
+      toast.error(t('user.muteFailed', { defaultValue: 'Mute failed' }), { detail: err.message })
+    }
+  }
+
+  const handleBlock = async () => {
+    setOpen(false)
+    if (!window.confirm(t('user.blockConfirm', { defaultValue: `Block ${user.name}? They'll be removed from your circles and can't interact with you.` }))) return
+    try {
+      await client.activities.block({ userId: user.id })
+      toast.success(t('user.blocked', { defaultValue: `${user.name} blocked` }))
+    } catch (err) {
+      toast.error(t('user.blockFailed', { defaultValue: 'Block failed' }), { detail: err.message })
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        aria-label={t('user.moreActions', { defaultValue: 'More actions' })}
+        className="flex items-center justify-center p-1.5 border border-base-300 text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      {open && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full mt-1 z-30 min-w-[11rem] bg-base-100 border-2 border-primary shadow-lg flex flex-col"
+        >
+          <button
+            type="button"
+            onClick={handleMute}
+            className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-widest text-base-content hover:bg-base-200 transition-colors"
+          >
+            {t('user.mute', { defaultValue: 'Mute' })}
+          </button>
+          <button
+            type="button"
+            onClick={handleBlock}
+            className="text-left px-4 py-2.5 font-ui text-xs uppercase tracking-widest text-error hover:bg-base-200 transition-colors"
+          >
+            {t('user.block', { defaultValue: 'Block' })}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -215,11 +288,11 @@ export default function UserPage() {
           </div>
           <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
             {isLoggedIn && !isOwnProfile && (
-              <AddToCircleButton user={user} />
+              <div className="flex items-center gap-2">
+                <AddToCircleButton user={user} />
+                <ProfileActionsMenu user={user} client={client} />
+              </div>
             )}
-            <button className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
-              <Share2 size={12} /> {t('common.share', { defaultValue: 'Share' })}
-            </button>
             {isOwnProfile && (
               <Link to="/profile" className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
                 <Pencil size={12} /> {t('user.editProfile', { defaultValue: 'Edit Profile' })}

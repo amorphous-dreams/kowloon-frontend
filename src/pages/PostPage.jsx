@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import PostCard from '../components/posts/PostCard'
+import { ReactCounts } from '../components/posts/PostReacts'
 import Reply from '../components/posts/Reply'
 import ReplyComposer from '../components/posts/ReplyComposer'
 import Spinner from '../components/ui/Spinner'
@@ -107,6 +108,8 @@ export default function PostPage() {
       </Link>
 
       <PostCard post={post} onDeleted={() => navigate(-1)} showFull />
+
+      <ReactCounts post={post} />
 
       <div className="flex flex-col gap-0" id="replies">
         <div className="flex items-center justify-between border-b-2 border-base-300 pb-4 mb-2">

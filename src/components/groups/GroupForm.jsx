@@ -7,10 +7,12 @@
 //   error: string | null
 //   cancelHref: string
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { Loader, MapPin } from 'lucide-react'
+import { useClient } from '../../hooks/useClient'
 import CircleIcon from '../ui/CircleIcon'
 
 const hexMask = {
@@ -31,6 +33,7 @@ const POLICY_OPTIONS = [
   { value: 'serverOpen',     label: 'Server members only' },
   { value: 'serverApproval', label: 'Approval required' },
   { value: 'approvalOnly',   label: 'By invitation only' },
+  { value: 'inviteOnly',     label: 'Invite only — admin adds members' },
 ]
 
 export default function GroupForm({
@@ -42,6 +45,29 @@ export default function GroupForm({
   cancelHref = '/groups',
 }) {
   const { t } = useTranslation()
+  const client = useClient()
+  const userId = useSelector((s) => s.auth.user?.id)
+
+  // Load the user's own circles so a group can be scoped to one
+  // ("Restrict to a circle" → to = circle:id), matching the mobile GroupForm.
+  const [myCircles, setMyCircles] = useState([])
+  useEffect(() => {
+    if (!client || !userId) return
+    let cancelled = false
+    client.feeds
+      .getUserCircles({ userId })
+      .then((res) => {
+        const items = res?.orderedItems ?? res?.items ?? []
+        if (!cancelled) setMyCircles(items.filter((c) => c?.id && c?.type !== 'System'))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [client, userId])
+
+  const visibilityOptions = [
+    ...VISIBILITY_OPTIONS,
+    ...myCircles.map((c) => ({ value: c.id, label: `Circle: ${c.name}` })),
+  ]
 
   const [name, setName] = useState(initialValues.name ?? '')
   const [description, setDescription] = useState(initialValues.description ?? '')
@@ -228,7 +254,7 @@ export default function GroupForm({
                 onChange={(e) => setTo(e.target.value)}
                 className="bg-base-200 border border-base-300 px-3 py-1.5 font-ui text-sm focus:outline-none focus:border-primary"
               >
-                {VISIBILITY_OPTIONS.map((o) => (
+                {visibilityOptions.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>

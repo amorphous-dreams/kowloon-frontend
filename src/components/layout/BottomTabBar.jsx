@@ -40,6 +40,14 @@ export default function BottomTabBar() {
     return () => clearInterval(id)
   }, [client, user])
 
+  // Live badge sync — NotificationsPage emits this on mark-read/dismiss/mark-all
+  // so the badge updates instantly instead of waiting for the next 60s poll.
+  useEffect(() => {
+    const onUnread = (e) => setUnreadCount(e.detail?.count ?? 0)
+    window.addEventListener('kowloon:unread', onUnread)
+    return () => window.removeEventListener('kowloon:unread', onUnread)
+  }, [])
+
   const label = (key) =>
     t(`nav.${key === 'notifications' ? 'notifyShort' : key}`, {
       defaultValue: { feed: 'Feed', circles: 'Circles', groups: 'Groups', discover: 'Discover', notifications: 'Notify' }[key],

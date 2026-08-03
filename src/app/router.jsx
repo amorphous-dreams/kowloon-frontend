@@ -25,6 +25,7 @@ import PagesListPage from '../pages/PagesListPage'
 import PageDetailPage from '../pages/PageDetailPage'
 import SearchPage from '../pages/SearchPage'
 import DiscoverPage from '../pages/DiscoverPage'
+import ServersPage from '../pages/ServersPage'
 
 // Protected pages (auth required — Layout redirects to /login)
 import NewPostPage from '../pages/NewPostPage'
@@ -86,6 +87,7 @@ const router = createBrowserRouter([
       { path: '/pages/:id', element: <PageDetailPage /> },
       { path: '/search', element: <SearchPage /> },
       { path: '/discover', element: <DiscoverPage /> },
+      { path: '/servers', element: <ServersPage /> },
       { path: '/server/:domain', element: <ServerPage /> },
     ],
   },

@@ -19,3 +19,22 @@ export default function PostReacts({ post }) {
     </div>
   )
 }
+
+// ReactCounts — per-emoji breakdown with counts (e.g. 👍 5  ❤️ 2  🤬 12), shown
+// on the post detail view. Reads `post.reactCounts` ([{ emoji, count }], server-
+// sorted by count desc) which getPost returns. Mirrors mobile's ReactsBar.
+export function ReactCounts({ post }) {
+  const counts = post?.reactCounts
+  if (!Array.isArray(counts) || counts.length === 0) return null
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Reactions">
+      {counts.map(({ emoji, count }) => (
+        <span key={emoji} className="inline-flex items-center gap-1.5">
+          <span className="text-base leading-none">{emoji}</span>
+          <span className="font-ui text-sm text-base-content/60">{count}</span>
+        </span>
+      ))}
+    </div>
+  )
+}

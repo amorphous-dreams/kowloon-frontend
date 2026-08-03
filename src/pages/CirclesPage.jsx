@@ -107,6 +107,9 @@ export default function CirclesPage() {
   const client = useClient()
   const user = useSelector((state) => state.auth.user)
 
+  // "My Circles" = the owner's own circles; "Browse" = local discovery list.
+  const [tab, setTab] = useState(user ? 'mine' : 'browse')
+
   const [sort, setSort] = useState('date')
   const [circles, setCircles] = useState([])
   const [page, setPage] = useState(1)
@@ -114,6 +117,27 @@ export default function CirclesPage() {
   const [itemsPerPage, setItemsPerPage] = useState(20)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // My circles (owner-scoped)
+  const [mine, setMine] = useState([])
+  const [mineLoading, setMineLoading] = useState(false)
+  const [mineError, setMineError] = useState(null)
+
+  const loadMine = useCallback(async () => {
+    if (!client || !user?.id) { setMine([]); return }
+    setMineLoading(true)
+    setMineError(null)
+    try {
+      const res = await client.feeds.getUserCircles({ userId: user.id })
+      const items = res?.orderedItems ?? res?.items ?? []
+      // Hide system circles (Following, Groups, Blocked, Muted).
+      setMine(items.filter((c) => c?.type !== 'System'))
+    } catch (err) {
+      setMineError(err.message || 'Failed to load your circles.')
+    } finally {
+      setMineLoading(false)
+    }
+  }, [client, user?.id])
 
   const load = useCallback(async (sortOrder, pageNum) => {
     if (!client) {
@@ -139,8 +163,12 @@ export default function CirclesPage() {
   }, [client])
 
   useEffect(() => {
-    load(sort, page)
-  }, [sort, page, load])
+    if (tab === 'browse') load(sort, page)
+  }, [tab, sort, page, load])
+
+  useEffect(() => {
+    if (tab === 'mine') loadMine()
+  }, [tab, loadMine])
 
   const handleSort = (newSort) => {
     if (newSort === sort) return
@@ -160,7 +188,7 @@ export default function CirclesPage() {
           <h1 className="font-display text-5xl tracking-wide leading-none">
             {t('circles.browse', { defaultValue: 'Circles' })}
           </h1>
-          {totalItems > 0 && !loading && (
+          {tab === 'browse' && totalItems > 0 && !loading && (
             <p className="font-ui text-sm uppercase tracking-widest text-base-content/50">
               {totalItems} {t('circles.total', { defaultValue: 'circles' })}
             </p>
@@ -171,12 +199,13 @@ export default function CirclesPage() {
           {user && (
             <Link
               to="/circles/new"
-              state={{ to: '@public' }}
+              state={{ to: user?.id }}
               className="px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors"
             >
               {t('circle.create', { defaultValue: 'Create Circle' })}
             </Link>
           )}
+          {tab === 'browse' && (
           <div className="flex items-center gap-0 border border-base-300">
           <button
             onClick={() => handleSort('date')}
@@ -199,10 +228,56 @@ export default function CirclesPage() {
             {t('sort.popular', { defaultValue: 'Popular' })}
           </button>
         </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* My / Browse tabs — logged-in users only */}
+      {user && (
+        <div className="flex items-center gap-0 border-b border-base-300 -mt-2">
+          <button
+            onClick={() => setTab('mine')}
+            className={`px-5 py-3 font-ui text-xs uppercase tracking-widest transition-colors border-b-2 -mb-px ${
+              tab === 'mine'
+                ? 'border-primary text-base-content font-bold'
+                : 'border-transparent text-base-content/50 hover:text-base-content'
+            }`}
+          >
+            {t('circles.mine', { defaultValue: 'My Circles' })}
+          </button>
+          <button
+            onClick={() => setTab('browse')}
+            className={`px-5 py-3 font-ui text-xs uppercase tracking-widest transition-colors border-b-2 -mb-px ${
+              tab === 'browse'
+                ? 'border-primary text-base-content font-bold'
+                : 'border-transparent text-base-content/50 hover:text-base-content'
+            }`}
+          >
+            {t('circles.browseTab', { defaultValue: 'Browse' })}
+          </button>
+        </div>
+      )}
+
+      {/* My Circles */}
+      {tab === 'mine' && (
+        <>
+          {mineLoading && <Spinner centered />}
+          {!mineLoading && mineError && <ErrorState message={mineError} onRetry={loadMine} />}
+          {!mineLoading && !mineError && mine.length === 0 && (
+            <EmptyState message={t('circles.mineEmpty', { defaultValue: 'You haven’t created any circles yet.' })} />
+          )}
+          {!mineLoading && !mineError && mine.length > 0 && (
+            <div className="flex flex-col">
+              {mine.map((circle) => (
+                <CircleBrowseCard key={circle.id} circle={circle} isLoggedIn={!!user} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Browse */}
+      {tab === 'browse' && (<>
       {loading && <Spinner centered />}
       {!loading && error && <ErrorState message={error} onRetry={() => load(sort, page)} />}
       {!loading && !error && circles.length === 0 && (
@@ -242,6 +317,7 @@ export default function CirclesPage() {
           </button>
         </div>
       )}
+      </>)}
 
     </div>
 

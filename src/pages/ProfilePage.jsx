@@ -1,13 +1,14 @@
 // ProfilePage — edit current user's profile and preferences.
 // Sections: Avatar, Identity, Bio/Links, Preferences, Account (read-only).
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { Upload, Plus, X, Check } from 'lucide-react'
+import { PREFS, PREF_GROUPS, getPrefValue } from '@kowloon/client'
 import { useClient } from '../hooks/useClient'
 import CircleSelector from '../components/circles/CircleSelector'
-import PostTypeIcon from '../components/ui/PostTypeIcon'
+import { useJoinedGroups } from '../hooks/useJoinedGroups'
 import { setActiveTheme } from '../features/theme/themeSlice'
 import { patchUser } from '../features/auth/authSlice'
 import { useTypography } from '../lib/TypographyProvider'
@@ -25,8 +26,6 @@ const hexMask = {
   maskRepeat: 'no-repeat',
   maskPosition: 'center',
 }
-
-const POST_TYPES = ['Note', 'Article', 'Media', 'Event', 'Link']
 
 // ── Mock user (fallback when not auth'd in dev) ───────────────────────────────
 
@@ -109,6 +108,124 @@ function Segmented({ options, value, onChange }) {
   )
 }
 
+// ── Preference toggle switch ──────────────────────────────────────────────────
+
+function Toggle({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex items-center w-10 h-5 transition-colors focus:outline-none shrink-0 ${
+        checked ? 'bg-primary' : 'bg-base-300'
+      }`}
+    >
+      <span
+        className={`absolute w-3.5 h-3.5 bg-white transition-transform ${
+          checked ? 'translate-x-5' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  )
+}
+
+// ── Pill (single- / multi-select option) ──────────────────────────────────────
+
+function PrefPill({ label, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`px-3.5 py-2 font-ui text-xs uppercase tracking-widest transition-colors border ${
+        active
+          ? 'bg-primary text-primary-content border-primary'
+          : 'bg-base-100 text-base-content/60 border-base-300 hover:bg-base-200'
+      }`}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ── One preference row, rendered generically from a shared-manifest entry ──────
+
+function PrefControl({ entry, value, onChange, isAdmin, circles, groups, serverTo }) {
+  // Audience prefs store canonical `to` strings ("@public" / "@<domain>" / id).
+  // The web CircleSelector speaks 'public' / 'server' / id — map between them.
+  const toSelector = (v) => {
+    if (v == null || v === '@public') return 'public'
+    if (v === serverTo || v === '@server' || v === 'server') return 'server'
+    return v
+  }
+  const toCanonical = (v) => {
+    if (v === 'public') return '@public'
+    if (v === 'server') return serverTo
+    return v
+  }
+
+  switch (entry.type) {
+    case 'toggle':
+      return (
+        <Field label={entry.label} hint={entry.hint}>
+          <Toggle checked={!!value} onChange={onChange} />
+        </Field>
+      )
+    case 'select': {
+      // Hide admin-only options (e.g. the Admin home screen) from non-admins.
+      const options = entry.options.filter((o) => !o.adminOnly || isAdmin)
+      return (
+        <Field label={entry.label} hint={entry.hint}>
+          <div className="flex flex-wrap gap-2">
+            {options.map((o) => (
+              <PrefPill key={o.value} label={o.label} active={value === o.value} onClick={() => onChange(o.value)} />
+            ))}
+          </div>
+        </Field>
+      )
+    }
+    case 'multiselect': {
+      const arr = Array.isArray(value) ? value : []
+      return (
+        <Field label={entry.label} hint={entry.hint}>
+          <div className="flex flex-wrap gap-2">
+            {entry.options.map((o) => {
+              const active = arr.includes(o.value)
+              return (
+                <PrefPill
+                  key={o.value}
+                  label={o.label}
+                  active={active}
+                  onClick={() => {
+                    const next = active ? arr.filter((x) => x !== o.value) : [...arr, o.value]
+                    // Never allow an empty filter — keep at least one type.
+                    if (next.length) onChange(next)
+                  }}
+                />
+              )
+            })}
+          </div>
+        </Field>
+      )
+    }
+    case 'audience':
+      return (
+        <Field label={entry.label} hint={entry.hint}>
+          <CircleSelector
+            circles={circles}
+            groups={groups}
+            value={toSelector(value)}
+            onChange={(v) => onChange(toCanonical(v))}
+            showAudience
+          />
+        </Field>
+      )
+    default:
+      return null
+  }
+}
+
 // ── Theme swatch card ─────────────────────────────────────────────────────────
 
 function ThemeCard({ theme, isActive, onSelect }) {
@@ -172,8 +289,20 @@ export default function ProfilePage() {
   const client = useClient()
   const { t } = useTranslation()
   const { typography, setTypography } = useTypography()
+  const { items: myCircles } = useSelector((state) => state.myCircles)
+  const joinedGroups = useJoinedGroups()
 
   const user = authUser ?? MOCK_USER
+
+  // Canonical "server" audience value ("@<own-domain>") and admin status, used
+  // by the manifest-driven preferences below.
+  const ownDomain = (() => {
+    const m = /^@[^@]+@([^@]+)$/.exec(user.id || '')
+    if (m) return m[1]
+    try { return serverUrl ? new URL(serverUrl).host : null } catch { return null }
+  })()
+  const serverTo = ownDomain ? `@${ownDomain}` : '@public'
+  const isAdmin = !!authUser?.isServerAdmin
 
   const fileInputRef = useRef(null)
   const featuredInputRef = useRef(null)
@@ -189,11 +318,33 @@ export default function ProfilePage() {
   const [featuredUrl, setFeaturedUrl]         = useState(user.profile?.featuredImage ?? '')
   const [featuredPreview, setFeaturedPreview] = useState(user.profile?.featuredImage ?? '')
 
-  // Preferences
-  const [defaultTypes, setDefaultTypes] = useState(user.preferences?.defaultPostTypes ?? [])
-  const [defaultPostType, setDefaultPostType] = useState(user.prefs?.defaultPostType ?? 'Note')
-  const [toastsEnabled, setToastsEnabled] = useState(user.prefs?.notifications?.toasts ?? true)
-  const [newPostsEnabled, setNewPostsEnabled] = useState(user.prefs?.notifications?.new_post ?? true)
+  // Preferences — rendered generically from the shared manifest (@kowloon/client)
+  // and written live (like theme/typography), so the Save button below only
+  // covers the profile fields. `prefsRef` guards against stale bases when several
+  // prefs are edited in quick succession.
+  const [prefs, setPrefs] = useState(() => ({ ...(user.prefs || {}) }))
+  const prefsRef = useRef(prefs)
+
+  const writePref = useCallback((key, value) => {
+    const prev = prefsRef.current
+    let nextPrefs
+    let payload
+    if (key.startsWith('notifications.')) {
+      // The Update handler replaces prefs.notifications wholesale — send it whole.
+      const sub = key.slice('notifications.'.length)
+      const nextNotifs = { ...(prev.notifications || {}), [sub]: value }
+      nextPrefs = { ...prev, notifications: nextNotifs }
+      payload = { notifications: nextNotifs }
+    } else {
+      nextPrefs = { ...prev, [key]: value }
+      payload = { [key]: value }
+    }
+    prefsRef.current = nextPrefs
+    setPrefs(nextPrefs)
+    dispatch(patchUser({ prefs: nextPrefs }))
+    if (client?.auth?._user) client.auth._user.prefs = nextPrefs
+    client?.activities?.updateProfile?.({ updates: { prefs: payload } }).catch(() => {})
+  }, [client, dispatch])
 
   // Save state
   const [saving, setSaving] = useState(false)
@@ -250,36 +401,10 @@ export default function ProfilePage() {
 
   const removeUrl = (url) => setUrls(urls.filter((u) => u !== url))
 
-  const toggleDefaultType = (type) => {
-    setDefaultTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    )
-  }
-
   const handleThemeSelect = (themeId) => {
     dispatch(setActiveTheme(themeId))
     if (client) {
       client.activities.updateProfile({ prefs: { theme: themeId } }).catch(() => {})
-    }
-  }
-
-  const handleToastsToggle = (enabled) => {
-    setToastsEnabled(enabled)
-    dispatch(patchUser({
-      prefs: { notifications: { ...user.prefs?.notifications, toasts: enabled } },
-    }))
-    if (client) {
-      client.activities.updateProfile({ prefs: { 'notifications.toasts': enabled } }).catch(() => {})
-    }
-  }
-
-  const handleNewPostsToggle = (enabled) => {
-    setNewPostsEnabled(enabled)
-    dispatch(patchUser({
-      prefs: { notifications: { ...user.prefs?.notifications, new_post: enabled } },
-    }))
-    if (client) {
-      client.activities.updateProfile({ prefs: { 'notifications.new_post': enabled } }).catch(() => {})
     }
   }
 
@@ -288,19 +413,20 @@ export default function ProfilePage() {
     setError(null)
     try {
       await client.activities.updateProfile({
-        profile: {
-          name: displayName,
-          description: bio,
-          icon: iconUrl,
-          featuredImage: featuredUrl,
-          urls,
-          pronouns,
+        updates: {
+          profile: {
+            name: displayName,
+            description: bio,
+            icon: iconUrl,
+            featuredImage: featuredUrl,
+            urls,
+            pronouns,
+          },
         },
-        prefs: { defaultPostView: defaultTypes, defaultPostType },
       })
       // Update Redux store so header/avatar refresh immediately
       const profilePatch = { name: displayName, description: bio, icon: iconUrl, featuredImage: featuredUrl, urls, pronouns }
-      dispatch(patchUser({ profile: profilePatch, prefs: { defaultPostView: defaultTypes, defaultPostType } }))
+      dispatch(patchUser({ profile: profilePatch }))
       // Keep client's cached user in sync so actor fields stay fresh
       if (client.auth._user) {
         client.auth._user = {
@@ -559,104 +685,28 @@ export default function ProfilePage() {
         </Field>
       </Section>
 
-      {/* Preferences */}
-      <Section title={t('profile.preferences', { defaultValue: 'Preferences' })}>
-        <Field
-          label={t('profile.defaultPostType', { defaultValue: 'Default new-post type' })}
-          hint={t('profile.defaultPostTypeHint', { defaultValue: 'Pre-selected when you open the post composer.' })}
-        >
-          <div className="flex items-center gap-0 border border-base-300">
-            {POST_TYPES.map((type) => {
-              const active = defaultPostType === type
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setDefaultPostType(type)}
-                  title={type}
-                  className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
-                    active
-                      ? 'bg-primary text-primary-content'
-                      : 'bg-base-100 text-base-content/60 hover:bg-base-200'
-                  }`}
-                >
-                  <PostTypeIcon type={type} size="sm" />
-                  <span className="hidden sm:inline">{type}</span>
-                </button>
-              )
-            })}
-          </div>
-        </Field>
-
-        <Field
-          label={t('profile.defaultPostTypes', { defaultValue: 'Default post type filter' })}
-          hint={t('profile.defaultPostTypesHint', { defaultValue: 'When set, your feed opens with these types pre-selected.' })}
-        >
-          <div className="flex items-center gap-0 border border-base-300">
-            {POST_TYPES.map((type) => {
-              const active = defaultTypes.includes(type)
-              return (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => toggleDefaultType(type)}
-                  title={type}
-                  className={`flex items-center gap-1.5 px-3 py-2 font-ui text-xs uppercase tracking-widest transition-colors border-r border-base-300 last:border-r-0 ${
-                    active
-                      ? 'bg-primary text-primary-content'
-                      : 'bg-base-100 text-base-content/60 hover:bg-base-200'
-                  }`}
-                >
-                  <PostTypeIcon type={type} size="sm" />
-                  <span className="hidden sm:inline">{type}</span>
-                </button>
-              )
-            })}
-          </div>
-        </Field>
-
-        <Field
-          label={t('profile.notificationToasts', { defaultValue: 'In-page notification toasts' })}
-          hint={t('profile.notificationToastsHint', { defaultValue: 'Show a brief pop-up in the corner when new notifications arrive.' })}
-        >
-          <button
-            type="button"
-            role="switch"
-            aria-checked={toastsEnabled}
-            onClick={() => handleToastsToggle(!toastsEnabled)}
-            className={`relative inline-flex items-center w-10 h-5 transition-colors focus:outline-none ${
-              toastsEnabled ? 'bg-primary' : 'bg-base-300'
-            }`}
-          >
-            <span
-              className={`absolute w-3.5 h-3.5 bg-white transition-transform ${
-                toastsEnabled ? 'translate-x-5' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </Field>
-
-        <Field
-          label={t('profile.newPostNotifications', { defaultValue: 'New-post notifications' })}
-          hint={t('profile.newPostNotificationsHint', { defaultValue: "Get notified when your feeds or your groups have new posts — at most once every 12 hours, and never while an earlier one is unread." })}
-        >
-          <button
-            type="button"
-            role="switch"
-            aria-checked={newPostsEnabled}
-            onClick={() => handleNewPostsToggle(!newPostsEnabled)}
-            className={`relative inline-flex items-center w-10 h-5 transition-colors focus:outline-none ${
-              newPostsEnabled ? 'bg-primary' : 'bg-base-300'
-            }`}
-          >
-            <span
-              className={`absolute w-3.5 h-3.5 bg-white transition-transform ${
-                newPostsEnabled ? 'translate-x-5' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </Field>
-      </Section>
+      {/* Preferences — one Section per manifest group, controls rendered by type.
+          Changes are written live (no Save button needed for these). */}
+      {PREF_GROUPS.map((group) => {
+        const entries = PREFS.filter((p) => p.group === group.key)
+        if (!entries.length) return null
+        return (
+          <Section key={group.key} title={group.label}>
+            {entries.map((entry) => (
+              <PrefControl
+                key={entry.key}
+                entry={entry}
+                value={getPrefValue(prefs, entry)}
+                onChange={(v) => writePref(entry.key, v)}
+                isAdmin={isAdmin}
+                circles={myCircles}
+                groups={joinedGroups}
+                serverTo={serverTo}
+              />
+            ))}
+          </Section>
+        )
+      })}
 
       {/* Account (read-only) */}
       <Section title={t('profile.account', { defaultValue: 'Account' })}>

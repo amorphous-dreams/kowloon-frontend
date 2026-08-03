@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react'
 import { useClient } from '../hooks/useClient'
 import PostTypeSelector from '../components/posts/PostTypeSelector'
 import RichTextEditor from '../components/posts/RichTextEditor'
@@ -18,6 +18,45 @@ import ErrorState from '../components/ui/ErrorState'
 const NOTE_MAX_WORDS = 500
 const NOTE_MAX_CHARS = 5000
 const countWords = (md) => md.trim().split(/\s+/).filter(Boolean).length
+
+// ── Reply/React scope ("Advanced") ───────────────────────────────────────────
+
+function ReplyReactScope({ audience, canReply, canReact, onChangeReply, onChangeReact, circles, groups }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const customized = canReply !== audience || canReact !== audience
+  return (
+    <div className="border-t-2 border-base-300 pt-4">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 font-ui text-xs uppercase tracking-widest text-base-content/50 hover:text-base-content transition-colors"
+      >
+        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        {t('composer.advanced', { defaultValue: 'Advanced' })}
+        {customized && (
+          <span className="text-primary ml-1">{t('composer.customized', { defaultValue: 'Customized' })}</span>
+        )}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-3 mt-3">
+          <div className="flex items-center gap-3">
+            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 w-28 shrink-0">
+              {t('composer.whoCanReply', { defaultValue: 'Who can reply' })}
+            </span>
+            <CircleSelector circles={circles} groups={groups} value={canReply} onChange={onChangeReply} showAudience />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50 w-28 shrink-0">
+              {t('composer.whoCanReact', { defaultValue: 'Who can react' })}
+            </span>
+            <CircleSelector circles={circles} groups={groups} value={canReact} onChange={onChangeReact} showAudience />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ── Shared form helpers ───────────────────────────────────────────────────────
 
@@ -96,6 +135,9 @@ export default function EditPostPage() {
   const [geo, setGeo]             = useState(null)
   const [tags, setTags]           = useState([])
   const [audience, setAudience]   = useState('@public')
+  // Reply/react scope — loaded from the post; tracks the audience on change.
+  const [canReply, setCanReply]   = useState('@public')
+  const [canReact, setCanReact]   = useState('@public')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]         = useState(null)
   const [locating, setLocating]   = useState(false)
@@ -117,6 +159,9 @@ export default function EditPostPage() {
       setGeo(post.location?.lat != null ? { lat: post.location.lat, lon: post.location.lon } : null)
       setTags(Array.isArray(post.tags) ? post.tags : [])
       setAudience(post.to ?? '@public')
+      // Reply/react default to the post audience when they were left to inherit.
+      setCanReply(post.canReply ?? post.to ?? '@public')
+      setCanReact(post.canReact ?? post.to ?? '@public')
     } catch (err) {
       setLoadError(err.message || 'Failed to load post.')
     } finally {
@@ -191,6 +236,8 @@ export default function EditPostPage() {
         tags: tags.length ? tags : undefined,
         location: location ? { type: 'Place', name: location, ...(geo ?? {}) } : undefined,
         to: audience,
+        canReply,
+        canReact,
       })
       navigate(`/posts/${encodeURIComponent(id)}`)
     } catch (err) {
@@ -311,13 +358,24 @@ export default function EditPostPage() {
           />
         </Field>
 
+        {/* Advanced — who can reply / react. Seeded from the post's audience. */}
+        <ReplyReactScope
+          audience={audience}
+          canReply={canReply}
+          canReact={canReact}
+          onChangeReply={setCanReply}
+          onChangeReact={setCanReact}
+          circles={myCircles}
+          groups={joinedGroups}
+        />
+
         {/* Footer */}
         <div className="flex items-center justify-between gap-4 pt-4 border-t-2 border-base-300">
           <CircleSelector
             circles={myCircles}
             groups={joinedGroups}
             value={audience}
-            onChange={setAudience}
+            onChange={(v) => { setAudience(v); setCanReply(v); setCanReact(v) }}
             showAudience
             direction="up"
           />
