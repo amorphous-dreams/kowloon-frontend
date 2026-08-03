@@ -16,8 +16,7 @@ import { useClient } from '../../hooks/useClient'
 import { useDraft } from '../../hooks/useDraft'
 import { toast } from '../../app/toast'
 import UserAvatar from '../ui/UserAvatar'
-import PostTypeSelector from './PostTypeSelector'
-import { POST_TYPES } from '../../lib/postTypes'
+import { POST_TYPES, POST_TYPE_NAMES } from '../../lib/postTypes'
 import RichTextEditor from './RichTextEditor'
 import CircleSelector from '../circles/CircleSelector'
 import { useJoinedGroups } from '../../hooks/useJoinedGroups'
@@ -339,6 +338,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
 
   const [expanded, setExpanded]       = useState(defaultOpen)
   const [postType, setPostType]       = useState(initialValues.type ?? user?.prefs?.defaultPostType ?? 'Note')
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false)
   const [content, setContent]         = useState(initialValues.content  ?? '')
   const [title, setTitle]             = useState(initialValues.title    ?? '')
   const [href, setHref]               = useState(initialValues.href     ?? '')
@@ -436,6 +436,8 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     if (open !== prevOpenRef.current) {
       prevOpenRef.current = open
       setExpanded(open)
+      // Preset the post type chosen in the FAB's picker when opened externally.
+      if (open && initialValues.type) setPostType(initialValues.type)
     }
   }, [open])
 
@@ -562,6 +564,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     setUploadErrors({})
     setTarget(null)
     setPostType('Note')
+    setTypeMenuOpen(false)
     setAudience('public')
     setCanReply('public')
     setCanReact('public')
@@ -931,15 +934,49 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
         transition={{ duration: 0.47, ease: [0.25, 0.1, 0.25, 1] }}
       >
 
-        {/* Header */}
+        {/* Header — the type is a dropdown ("Add New [Type] ▼"), like the app.
+            This replaces the old tab row, which overflowed the mobile width and
+            hid Event, making Events uncreatable. */}
         <div className="flex items-center justify-between px-4 py-3 border-b-2 border-base-300 bg-base-200 shrink-0">
-          <h2 className="flex items-center gap-2 font-display text-xl tracking-wide">
-            <PostTypeIcon type={postType} size="sm" />
-            {t('composer.createNew', { defaultValue: 'Create New' })}{' '}
-            <span style={{ color: POST_TYPES[postType]?.color }}>
-              {t(`postTypes.${postType}`, { defaultValue: postType })}
-            </span>
-          </h2>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setTypeMenuOpen((o) => !o)}
+              aria-haspopup="listbox"
+              aria-expanded={typeMenuOpen}
+              className="flex items-center gap-2 font-display text-xl tracking-wide"
+            >
+              <PostTypeIcon type={postType} size="sm" />
+              {t('composer.addNew', { defaultValue: 'Add New' })}{' '}
+              <span style={{ color: POST_TYPES[postType]?.color }}>
+                {t(`postTypes.${postType}`, { defaultValue: postType })}
+              </span>
+              <ChevronDown size={18} className={`transition-transform ${typeMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {typeMenuOpen && (
+              <ul
+                role="listbox"
+                className="absolute left-0 top-full mt-1 z-10 w-52 bg-base-100 border-2 border-base-300 shadow-lg"
+              >
+                {POST_TYPE_NAMES.map((type) => (
+                  <li key={type}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={type === postType}
+                      onClick={() => { handleTypeChange(type); setTypeMenuOpen(false) }}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 font-ui text-xs uppercase tracking-widest text-left transition-colors hover:bg-base-200 ${type === postType ? 'bg-base-200' : ''}`}
+                    >
+                      <PostTypeIcon type={type} size="sm" />
+                      <span style={{ color: type === postType ? POST_TYPES[type]?.color : undefined }} className={type === postType ? '' : 'text-base-content/70'}>
+                        {t(`postTypes.${type}`, { defaultValue: type })}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             onClick={handleCancel}
             aria-label={t('composer.close')}
@@ -947,11 +984,6 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           >
             ✕
           </button>
-        </div>
-
-        {/* Type selector */}
-        <div className="border-b-2 border-base-300 bg-base-200 shrink-0">
-          <PostTypeSelector value={postType} onChange={handleTypeChange} />
         </div>
 
         {/* Scrollable body — min-h-0 is required for flex children to shrink correctly */}

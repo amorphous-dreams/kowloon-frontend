@@ -122,6 +122,7 @@ export default function HomePage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [showCreateCircle, setShowCreateCircle] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [composerType, setComposerType] = useState('Note')
   // Resolved circle/group behind `view` when it isn't one of your own — powers
   // the selector's label/icon fallback and the contextual Copy action.
   const [subject, setSubject] = useState(null)
@@ -289,16 +290,16 @@ export default function HomePage() {
           lastSeenAt={lastSeenAt}
         />
 
-        {/* Compose — controlled by the floating hexagon FAB (no inline trigger). */}
+        {/* Compose — controlled by the floating FAB's type picker (no inline trigger). */}
         <PostComposer
           hideTrigger
           open={composerOpen}
           onOpenChange={setComposerOpen}
           onPostCreated={() => setRefreshKey((k) => k + 1)}
-          initialValues={{ to: composerTo }}
+          initialValues={{ to: composerTo, type: composerType }}
           prompt={t('composer.prompt')}
         />
-        <ComposeFab onClick={() => setComposerOpen(true)} />
+        <ComposeFab onSelectType={(type) => { setComposerType(type); setComposerOpen(true) }} />
       </div>
     )
   }

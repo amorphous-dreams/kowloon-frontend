@@ -9,7 +9,7 @@ import PostTypeIcon from '../ui/PostTypeIcon'
 export default function PostTypeSelector({ value, onChange }) {
   const { t } = useTranslation()
   return (
-    <div className="flex gap-0">
+    <div className="flex gap-0 overflow-x-auto">
       {POST_TYPE_NAMES.map((type) => {
         const config = POST_TYPES[type]
         const active = value === type

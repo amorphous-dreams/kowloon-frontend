@@ -47,6 +47,7 @@ export default function GroupPage() {
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [composerType, setComposerType] = useState('Note')
 
   const containerRef = useRef(null)
   const [shadowProgress, setShadowProgress] = useState(0)
@@ -387,10 +388,10 @@ export default function GroupPage() {
             open={composerOpen}
             onOpenChange={setComposerOpen}
             onPostCreated={() => setRefreshKey((k) => k + 1)}
-            initialValues={{ to: id }}
+            initialValues={{ to: id, type: composerType }}
             prompt={t('composer.promptGroup', { name: group?.name ?? '…', defaultValue: `Write a post to ${group?.name ?? '…'}…` })}
           />
-          <ComposeFab onClick={() => setComposerOpen(true)} />
+          <ComposeFab onSelectType={(type) => { setComposerType(type); setComposerOpen(true) }} />
         </>
       )}
 

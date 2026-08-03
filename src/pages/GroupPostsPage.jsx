@@ -28,6 +28,7 @@ export default function GroupPostsPage() {
   const [group, setGroup] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [composerType, setComposerType] = useState('Note')
 
   const loadGroup = useCallback(async () => {
     if (!client) return
@@ -111,10 +112,10 @@ export default function GroupPostsPage() {
             open={composerOpen}
             onOpenChange={setComposerOpen}
             onPostCreated={() => setRefreshKey((k) => k + 1)}
-            initialValues={{ to: groupId }}
+            initialValues={{ to: groupId, type: composerType }}
             prompt={t('composer.promptGroup', { name: group?.name ?? '…', defaultValue: `Write a post to ${group?.name ?? '…'}…` })}
           />
-          <ComposeFab onClick={() => setComposerOpen(true)} />
+          <ComposeFab onSelectType={(type) => { setComposerType(type); setComposerOpen(true) }} />
         </>
       )}
     </div>

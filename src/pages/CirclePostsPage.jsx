@@ -27,6 +27,7 @@ export default function CirclePostsPage() {
   const [notFound, setNotFound] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [composerType, setComposerType] = useState('Note')
 
   // Load circle metadata
   useEffect(() => {
@@ -114,10 +115,10 @@ export default function CirclePostsPage() {
             open={composerOpen}
             onOpenChange={setComposerOpen}
             onPostCreated={() => setRefreshKey((k) => k + 1)}
-            initialValues={{ to: circleId }}
+            initialValues={{ to: circleId, type: composerType }}
             prompt={t('composer.promptCircle', { name: circle?.name ?? '…', defaultValue: `Write a post to ${circle?.name ?? '…'}…` })}
           />
-          <ComposeFab onClick={() => setComposerOpen(true)} />
+          <ComposeFab onSelectType={(type) => { setComposerType(type); setComposerOpen(true) }} />
         </>
       )}
     </div>
