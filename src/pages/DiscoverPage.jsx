@@ -286,11 +286,9 @@ export default function DiscoverPage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col gap-1">
-          <p className="font-ui text-xs uppercase tracking-widest text-white/50">Explore</p>
-          <h1 className="font-display text-5xl tracking-wide leading-none text-white">Discover</h1>
-        </div>
+        {/* Header — slim screen title like the app (which shows "Discover" in the
+            top bar, then goes straight to search + shelves). No oversized hero. */}
+        <h1 className="font-display text-3xl tracking-wide leading-none text-white">Discover</h1>
 
         {/* Search */}
         <div className="relative">
