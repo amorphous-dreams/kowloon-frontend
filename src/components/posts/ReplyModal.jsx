@@ -96,7 +96,7 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
         role="dialog"
         aria-modal="true"
         aria-label={t('post.repliesModal', { defaultValue: 'Replies' })}
-        className="fixed inset-x-2 top-4 bottom-4 max-h-[calc(100dvh-2rem)] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-12 sm:bottom-12 sm:max-h-[calc(100dvh-6rem)] sm:w-full sm:max-w-2xl bg-base-100 border-2 border-secondary z-[90] flex flex-col"
+        className="fixed inset-x-2 top-4 h-[calc(100svh-2rem)] sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-12 sm:bottom-12 sm:h-auto sm:max-h-[calc(100svh-6rem)] sm:w-full sm:max-w-2xl bg-base-100 border-2 border-secondary z-[90] flex flex-col"
       >
         {/* Header */}
         <div className="shrink-0 flex items-start gap-3 px-5 py-4 border-b-2 border-base-300 bg-secondary text-secondary-content">
