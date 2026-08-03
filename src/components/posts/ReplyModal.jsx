@@ -2,8 +2,12 @@
 // Opens from the timeline reply button so the user doesn't lose their scroll position.
 // Refetches replies on open; calls onReplied() after each successful submit so
 // the parent can bump its local replyCount.
+//
+// Replies render as the same shallow two-level tree as the full post page (via
+// the shared buildReplyTree), with a "Reply" affordance on first-level replies
+// only — so threading works identically here and on /posts/:id.
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { X, ArrowUpRight } from 'lucide-react'
@@ -13,6 +17,7 @@ import Spinner from '../ui/Spinner'
 import ErrorState from '../ui/ErrorState'
 import Reply from './Reply'
 import ReplyComposer from './ReplyComposer'
+import { buildReplyTree } from '../../lib/replyTree'
 
 export default function ReplyModal({ post, open, onClose, onReplied }) {
   const { t } = useTranslation()
@@ -20,6 +25,7 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
   const [replies, setReplies] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [openReplyId, setOpenReplyId] = useState(null)
   const listRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -61,6 +67,15 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
       if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
     })
   }, [load, onReplied])
+
+  const updateReply = (next) => setReplies((arr) => arr.map((r) => (r.id === next.id ? next : r)))
+  const removeReply = (id) => {
+    setReplies((arr) => arr.filter((r) => r.id !== id))
+    onReplied?.({ delta: -1 })
+  }
+
+  const rootId = post?.id
+  const tree = useMemo(() => buildReplyTree(replies, rootId), [replies, rootId])
 
   if (!open) return null
 
@@ -115,32 +130,69 @@ export default function ReplyModal({ post, open, onClose, onReplied }) {
           </button>
         </div>
 
-        {/* Reply list */}
+        {/* Reply list — shallow 2-level tree */}
         <div ref={listRef} className="flex-1 overflow-y-auto px-5">
           {loading ? (
             <Spinner centered />
           ) : error ? (
             <ErrorState message={error} onRetry={load} />
-          ) : replies.length === 0 ? (
+          ) : tree.length === 0 ? (
             <p className="font-ui text-xs uppercase tracking-widest text-base-content/40 py-8 text-center">
               {t('post.noReplies', { defaultValue: 'No replies yet.' })}
             </p>
           ) : (
-            replies.map((reply) => (
-              <Reply
-                key={reply.id}
-                reply={reply}
-                onUpdated={(next) => setReplies((arr) => arr.map((r) => r.id === next.id ? next : r))}
-                onDeleted={(id) => {
-                  setReplies((arr) => arr.filter((r) => r.id !== id))
-                  onReplied?.({ delta: -1 })
-                }}
-              />
-            ))
+            tree.map(({ reply, children }) => {
+              const composerOpen = openReplyId === reply.id
+              return (
+                <div key={reply.id}>
+                  <Reply
+                    reply={reply}
+                    onUpdated={updateReply}
+                    onDeleted={removeReply}
+                    showReply={post?.canReply !== '@none'}
+                    replyCount={reply.replyCount ?? 0}
+                    onReplyClick={() => setOpenReplyId(composerOpen ? null : reply.id)}
+                  />
+
+                  {(children.length > 0 || composerOpen) && (
+                    <div className="ml-6 md:ml-11 pl-4 border-l-2 border-base-300">
+                      {children.map((child) => (
+                        <Reply
+                          key={child.id}
+                          reply={child}
+                          onUpdated={updateReply}
+                          onDeleted={removeReply}
+                          showReply={false}
+                        />
+                      ))}
+
+                      {composerOpen && (
+                        <ReplyComposer
+                          postId={post?.id}
+                          inReplyTo={reply.id}
+                          canReply={post?.canReply}
+                          autoFocus
+                          compact
+                          placeholder={t('post.threadReplyPlaceholder', {
+                            name: reply.actor?.name ?? reply.actor?.id,
+                            defaultValue: `Reply to ${reply.actor?.name ?? 'this reply'}…`,
+                          })}
+                          onCancel={() => setOpenReplyId(null)}
+                          onSubmitted={(payload) => {
+                            handleSubmitted(payload)
+                            setOpenReplyId(null)
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })
           )}
         </div>
 
-        {/* Composer (sticky bottom) */}
+        {/* Composer (sticky bottom) — replies to the post */}
         <div className="px-5 pb-4 border-t-2 border-base-300 bg-base-100">
           <ReplyComposer
             postId={post?.id}

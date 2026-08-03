@@ -562,24 +562,41 @@ export default function PostBody({ post, showFull = false }) {
       {/* Location — pin + place name (Events show theirs in EventCard) */}
       <LocationLine location={post?.location} />
 
-      {/* Hero image — after title, before body (non-Media types) */}
+      {/* Hero image — after title, before body (non-Media types). For Link
+          posts the image is a click-through to the external URL (like the title);
+          for Article/Event featured images it opens the lightbox. */}
       {heroSrc && (
-        <>
-          <img
-            src={heroSrc}
-            alt={title ?? ''}
-            onClick={() => setHeroLightbox(true)}
-            className={`w-full object-cover mb-6 cursor-zoom-in ${isLink ? 'max-h-64' : 'max-h-[28rem]'}`}
-          />
-          {heroLightbox && (
-            <Lightbox
-              items={[{ url: heroSrc, mediaType: 'image/', name: title }]}
-              index={0}
-              onClose={() => setHeroLightbox(false)}
-              onNavigate={() => {}}
+        isLink && post?.href ? (
+          <a
+            href={post.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mb-6"
+          >
+            <img
+              src={heroSrc}
+              alt={title ?? ''}
+              className="w-full object-cover max-h-64 cursor-pointer"
             />
-          )}
-        </>
+          </a>
+        ) : (
+          <>
+            <img
+              src={heroSrc}
+              alt={title ?? ''}
+              onClick={() => setHeroLightbox(true)}
+              className="w-full object-cover mb-6 cursor-zoom-in max-h-[28rem]"
+            />
+            {heroLightbox && (
+              <Lightbox
+                items={[{ url: heroSrc, mediaType: 'image/', name: title }]}
+                index={0}
+                onClose={() => setHeroLightbox(false)}
+                onNavigate={() => {}}
+              />
+            )}
+          </>
+        )
       )}
 
       {/* Media: gallery (main viewer + thumb strip) */}

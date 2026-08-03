@@ -12,47 +12,7 @@ import Reply from '../components/posts/Reply'
 import ReplyComposer from '../components/posts/ReplyComposer'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
-
-// ── Threading ───────────────────────────────────────────────────────────────
-
-// Chronological (oldest first). Falls back to createdAt when publishedAt is
-// absent (optimistic replies only carry publishedAt).
-const byTime = (a, b) =>
-  new Date(a.publishedAt ?? a.createdAt ?? 0) - new Date(b.publishedAt ?? b.createdAt ?? 0)
-
-// Build a 2-level tree from the FLAT replies array. First-level replies have
-// `parent === postId`; second-level replies have `parent === <first-level id>`.
-// Depth is capped at 2, so any reply whose parent isn't the post OR a known
-// first-level reply (e.g. an orphan after a delete) is surfaced at the top
-// level rather than dropped. Order is chronological at every level.
-function buildReplyTree(replies, postId) {
-  const firstLevel = []
-  const childrenByParent = new Map()
-  const isFirstLevel = (r) => !r.parent || r.parent === postId
-
-  for (const r of replies) {
-    if (isFirstLevel(r)) firstLevel.push(r)
-  }
-  const firstLevelIds = new Set(firstLevel.map((r) => r.id))
-
-  for (const r of replies) {
-    if (isFirstLevel(r)) continue
-    if (firstLevelIds.has(r.parent)) {
-      const bucket = childrenByParent.get(r.parent) ?? []
-      bucket.push(r)
-      childrenByParent.set(r.parent, bucket)
-    } else {
-      // Orphan (parent no longer present) — keep it visible at the top level.
-      firstLevel.push(r)
-    }
-  }
-
-  firstLevel.sort(byTime)
-  return firstLevel.map((reply) => ({
-    reply,
-    children: (childrenByParent.get(reply.id) ?? []).sort(byTime),
-  }))
-}
+import { buildReplyTree } from '../lib/replyTree'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
