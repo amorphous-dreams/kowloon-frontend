@@ -258,7 +258,7 @@ export default function GroupsPage() {
       {/* Header */}
       <div className="flex items-end justify-between border-b-2 border-base-300 pb-4">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-5xl tracking-wide leading-none">
+          <h1 className="font-display text-3xl tracking-wide leading-none">
             {t('groups.browse', { defaultValue: 'Groups' })}
           </h1>
           {tab === 'browse' && totalItems > 0 && !loading && (

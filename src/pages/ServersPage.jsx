@@ -79,10 +79,7 @@ export default function ServersPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1 border-b-2 border-base-300 pb-4">
-        <p className="font-ui text-xs uppercase tracking-widest text-base-content/40">
-          {t('server.explore', { defaultValue: 'Explore the network' })}
-        </p>
-        <h1 className="font-display text-5xl tracking-wide leading-none">
+        <h1 className="font-display text-3xl tracking-wide leading-none">
           {t('nav.servers', { defaultValue: 'Servers' })}
         </h1>
       </div>

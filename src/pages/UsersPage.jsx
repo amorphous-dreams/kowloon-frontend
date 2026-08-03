@@ -79,7 +79,7 @@ export default function UsersPage() {
     <div className="flex flex-col gap-0">
 
       <div className="border-b-2 border-base-content pb-4 mb-2">
-        <h1 className="font-display text-5xl tracking-wide">
+        <h1 className="font-display text-3xl tracking-wide">
           {t('users.title', { defaultValue: 'Members' })}
         </h1>
       </div>

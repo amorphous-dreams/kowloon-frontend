@@ -38,7 +38,7 @@ export default function PostsPage() {
     <div className="flex flex-col gap-0">
 
       <div className="border-b-2 border-base-content pb-4 mb-4">
-        <h1 className="font-display text-5xl tracking-wide">
+        <h1 className="font-display text-3xl tracking-wide">
           {t('posts.title', { defaultValue: 'Posts' })}
         </h1>
       </div>

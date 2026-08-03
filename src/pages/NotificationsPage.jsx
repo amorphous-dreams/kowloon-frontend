@@ -239,7 +239,7 @@ export default function NotificationsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-end justify-between border-b-2 border-base-300 pb-4">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-5xl tracking-wide leading-none">{t('notif.title', { defaultValue: 'Notifications' })}</h1>
+          <h1 className="font-display text-3xl tracking-wide leading-none">{t('notif.title', { defaultValue: 'Notifications' })}</h1>
           {unreadCount > 0 && <p className="font-ui text-sm uppercase tracking-widest text-base-content/50">{unreadCount} {t('notif.unread', { defaultValue: 'unread' })}</p>}
         </div>
         {unreadCount > 0 && (
