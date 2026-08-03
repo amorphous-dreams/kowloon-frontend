@@ -1,7 +1,7 @@
 // PostPage — single post view with full content, actions, and replies.
 
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
@@ -12,6 +12,47 @@ import Reply from '../components/posts/Reply'
 import ReplyComposer from '../components/posts/ReplyComposer'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
+
+// ── Threading ───────────────────────────────────────────────────────────────
+
+// Chronological (oldest first). Falls back to createdAt when publishedAt is
+// absent (optimistic replies only carry publishedAt).
+const byTime = (a, b) =>
+  new Date(a.publishedAt ?? a.createdAt ?? 0) - new Date(b.publishedAt ?? b.createdAt ?? 0)
+
+// Build a 2-level tree from the FLAT replies array. First-level replies have
+// `parent === postId`; second-level replies have `parent === <first-level id>`.
+// Depth is capped at 2, so any reply whose parent isn't the post OR a known
+// first-level reply (e.g. an orphan after a delete) is surfaced at the top
+// level rather than dropped. Order is chronological at every level.
+function buildReplyTree(replies, postId) {
+  const firstLevel = []
+  const childrenByParent = new Map()
+  const isFirstLevel = (r) => !r.parent || r.parent === postId
+
+  for (const r of replies) {
+    if (isFirstLevel(r)) firstLevel.push(r)
+  }
+  const firstLevelIds = new Set(firstLevel.map((r) => r.id))
+
+  for (const r of replies) {
+    if (isFirstLevel(r)) continue
+    if (firstLevelIds.has(r.parent)) {
+      const bucket = childrenByParent.get(r.parent) ?? []
+      bucket.push(r)
+      childrenByParent.set(r.parent, bucket)
+    } else {
+      // Orphan (parent no longer present) — keep it visible at the top level.
+      firstLevel.push(r)
+    }
+  }
+
+  firstLevel.sort(byTime)
+  return firstLevel.map((reply) => ({
+    reply,
+    children: (childrenByParent.get(reply.id) ?? []).sort(byTime),
+  }))
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -32,6 +73,8 @@ export default function PostPage() {
   const [replies, setReplies] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
+  // Which first-level reply currently has its inline threaded composer open.
+  const [openReplyId, setOpenReplyId] = useState(null)
 
   const repliesEndRef = useRef(null)
 
@@ -85,7 +128,7 @@ export default function PostPage() {
   // Insert the just-posted reply optimistically, then reconcile a couple of
   // times to absorb the read-lag window. Does NOT call load(), so the page
   // stays put instead of collapsing to a spinner.
-  const handleReplySubmitted = useCallback(({ duplicated, content }) => {
+  const handleReplySubmitted = useCallback(({ duplicated, content, inReplyTo }) => {
     if (duplicated) return
     const optimistic = {
       id: `pending-${Date.now()}`,
@@ -96,6 +139,12 @@ export default function PostPage() {
         name: user?.profile?.name ?? user?.name,
         icon: user?.profile?.icon ?? user?.icon,
       },
+      // Slot into the tree: threaded replies hang off the first-level reply
+      // (inReplyTo); top-level replies hang off the post. Root target is always
+      // the post. Use the canonical post.id (what server replies carry) so the
+      // optimistic row buckets alongside the reconciled ones.
+      target: post?.id ?? id,
+      parent: inReplyTo ?? post?.id ?? id,
       source: { content },
       body: '',
       publishedAt: new Date().toISOString(),
@@ -104,11 +153,17 @@ export default function PostPage() {
     setTimeout(() => repliesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120)
     setTimeout(() => reconcileReplies(), 800)
     setTimeout(() => reconcileReplies(), 2500)
-  }, [user, reconcileReplies])
+  }, [user, reconcileReplies, id, post])
+
+  const rootId = post?.id ?? id
+  const tree = useMemo(() => buildReplyTree(replies, rootId), [replies, rootId])
 
   if (loading) return <Spinner centered />
   if (error)   return <ErrorState message={error} onRetry={load} />
   if (!post)   return null
+
+  const updateReply = (next) => setReplies((arr) => arr.map((r) => (r.id === next.id ? next : r)))
+  const removeReply = (rid) => setReplies((arr) => arr.filter((r) => r.id !== rid))
 
   return (
     <div className="flex flex-col gap-8">
@@ -132,16 +187,56 @@ export default function PostPage() {
           </h2>
         </div>
 
-        {replies.length > 0 ? (
+        {tree.length > 0 ? (
           <div className="border-b border-base-300">
-            {replies.map((reply) => (
-              <Reply
-                key={reply.id}
-                reply={reply}
-                onUpdated={(next) => setReplies((arr) => arr.map((r) => r.id === next.id ? next : r))}
-                onDeleted={(rid) => setReplies((arr) => arr.filter((r) => r.id !== rid))}
-              />
-            ))}
+            {tree.map(({ reply, children }) => {
+              const composerOpen = openReplyId === reply.id
+              return (
+                <div key={reply.id}>
+                  <Reply
+                    reply={reply}
+                    onUpdated={updateReply}
+                    onDeleted={removeReply}
+                    showReply={post.canReply !== '@none'}
+                    replyCount={reply.replyCount ?? 0}
+                    onReplyClick={() => setOpenReplyId(composerOpen ? null : reply.id)}
+                  />
+
+                  {(children.length > 0 || composerOpen) && (
+                    <div className="ml-6 md:ml-11 pl-4 border-l-2 border-base-300">
+                      {children.map((child) => (
+                        <Reply
+                          key={child.id}
+                          reply={child}
+                          onUpdated={updateReply}
+                          onDeleted={removeReply}
+                          showReply={false}
+                        />
+                      ))}
+
+                      {composerOpen && (
+                        <ReplyComposer
+                          postId={rootId}
+                          inReplyTo={reply.id}
+                          canReply={post.canReply}
+                          autoFocus
+                          compact
+                          placeholder={t('post.threadReplyPlaceholder', {
+                            name: reply.actor?.name ?? reply.actor?.id,
+                            defaultValue: `Reply to ${reply.actor?.name ?? 'this reply'}…`,
+                          })}
+                          onCancel={() => setOpenReplyId(null)}
+                          onSubmitted={(payload) => {
+                            handleReplySubmitted(payload)
+                            setOpenReplyId(null)
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <p className="font-ui text-sm text-base-content/40 py-6">

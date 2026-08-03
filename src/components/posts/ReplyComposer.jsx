@@ -4,13 +4,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Send } from 'lucide-react'
+import { Send, X } from 'lucide-react'
 import UserAvatar from '../ui/UserAvatar'
 import { useClient } from '../../hooks/useClient'
 import { useDraft } from '../../hooks/useDraft'
 import { toast } from '../../app/toast'
 
-export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus = false }) {
+// `inReplyTo` (a first-level reply id) turns this into a threaded reply that
+// answers a reply instead of the post; omit it for a top-level reply. `compact`
+// tightens the layout for inline use beneath a reply. `onCancel`, when given,
+// renders a dismiss control (used by the inline threaded composer).
+export default function ReplyComposer({ postId, inReplyTo, canReply, onSubmitted, onCancel, autoFocus = false, compact = false, placeholder }) {
   const { t } = useTranslation()
   const user = useSelector((state) => state.auth.user)
   const client = useClient()
@@ -22,9 +26,11 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
   // caused by network blips. Regenerated when the user edits the text.
   const dedupeRef = useRef(null)
 
-  // Draft persistence keyed by the parent post so each thread has its own
-  // unsaved-reply slot.
-  const draftKey = user && postId ? `reply:${user.id}:${postId}` : null
+  // Draft persistence keyed by the parent post (and the reply being answered,
+  // if threaded) so each composer has its own unsaved-reply slot.
+  const draftKey = user && postId
+    ? `reply:${user.id}:${postId}${inReplyTo ? `:${inReplyTo}` : ''}`
+    : null
   const draft = useDraft(draftKey)
   const restoredRef = useRef(false)
 
@@ -66,11 +72,11 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
     setSubmitting(true)
     setError(null)
     try {
-      const res = await client.activities.reply({ postId, content, dedupeKey: dedupeRef.current.key })
+      const res = await client.activities.reply({ postId, inReplyTo, content, dedupeKey: dedupeRef.current.key })
       setText('')
       dedupeRef.current = null
       draft.clear()
-      onSubmitted?.({ duplicated: !!res?.duplicated, result: res, content })
+      onSubmitted?.({ duplicated: !!res?.duplicated, result: res, content, inReplyTo })
       if (!res?.duplicated) {
         toast.success(
           t('post.replySentToast', { defaultValue: 'Reply sent' }),
@@ -86,7 +92,7 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-3 pt-4">
+    <form onSubmit={handleSubmit} className={`flex gap-3 ${compact ? 'pt-3' : 'pt-4'}`}>
       <div className="shrink-0">
         <UserAvatar user={user} size="sm" />
       </div>
@@ -94,10 +100,10 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={t('post.replyPlaceholder', { defaultValue: 'Write a reply…' })}
-          rows={3}
+          placeholder={placeholder ?? t('post.replyPlaceholder', { defaultValue: 'Write a reply…' })}
+          rows={compact ? 2 : 3}
           autoFocus={autoFocus}
-          className="w-full px-4 py-3 bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-reading text-sm text-base-content placeholder:text-base-content/30 resize-none transition-colors"
+          className={`w-full bg-base-100 border-2 border-base-300 focus:border-primary outline-none font-reading text-sm text-base-content placeholder:text-base-content/30 resize-none transition-colors ${compact ? 'px-3 py-2' : 'px-4 py-3'}`}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit(e) }}
         />
         <div className="flex items-center justify-between gap-3">
@@ -106,6 +112,16 @@ export default function ReplyComposer({ postId, canReply, onSubmitted, autoFocus
           </span>
           <div className="flex items-center gap-3">
             {error && <span className="font-ui text-xs uppercase tracking-widest text-error">{error}</span>}
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="inline-flex items-center gap-1 px-3 py-2 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:text-base-content transition-colors"
+              >
+                <X size={12} />
+                {t('common.cancel', { defaultValue: 'Cancel' })}
+              </button>
+            )}
             <button
               type="submit"
               disabled={!text.trim() || submitting}

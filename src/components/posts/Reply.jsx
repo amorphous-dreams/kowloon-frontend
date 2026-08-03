@@ -4,13 +4,16 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Pen, Trash, Send, X } from 'lucide-react'
+import { Pen, Trash, Send, X, MessageSquare } from 'lucide-react'
 import UserAvatar from '../ui/UserAvatar'
 import Timestamp from '../ui/Timestamp'
 import ReactButton from './ReactButton'
 import { useClient } from '../../hooks/useClient'
 
-export default function Reply({ reply, onUpdated, onDeleted }) {
+// `showReply` gates the threaded-reply affordance — first-level replies only,
+// since threading is capped at 2 levels. `onReplyClick` toggles the inline
+// composer (owned by PostPage). `replyCount` renders a subtle "N replies" hint.
+export default function Reply({ reply, onUpdated, onDeleted, showReply = false, onReplyClick, replyCount = 0 }) {
   const { t } = useTranslation()
   const { user } = useSelector((s) => s.auth)
   const client = useClient()
@@ -119,6 +122,21 @@ export default function Reply({ reply, onUpdated, onDeleted }) {
           <div className="flex items-center gap-4 pt-1 -mb-1">
             {user && (
               <ReactButton post={reply} t={t} />
+            )}
+            {showReply && user && (
+              <button
+                type="button"
+                onClick={onReplyClick}
+                className="inline-flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-base-content/40 hover:text-primary transition-colors"
+              >
+                <MessageSquare size={13} />
+                {t('post.reply', { defaultValue: 'Reply' })}
+              </button>
+            )}
+            {showReply && replyCount > 0 && (
+              <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">
+                {t('post.threadReplyCount', { count: replyCount, defaultValue: `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}` })}
+              </span>
             )}
             {isAuthor && (
               <>
