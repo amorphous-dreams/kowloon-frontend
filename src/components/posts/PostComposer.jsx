@@ -380,6 +380,9 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   const fileInputRef     = useRef(null)
   const artImageInputRef = useRef(null)
   const hrefInputRef     = useRef(null)
+  // The href we've already auto-filled title/featured/body from, so a later
+  // re-fetch never re-injects what the user has since edited or deleted.
+  const autoFilledHrefRef = useRef(null)
   const triggerRef       = useRef(null)
   const typeDropdownRef  = useRef(null)
   const popupHostRef     = useRef(null)
@@ -550,6 +553,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     setContent('')
     setTitle('')
     setHref('')
+    autoFilledHrefRef.current = null
     setStartDatePart('')
     setStartTimePart('')
     setEndDatePart('')
@@ -624,12 +628,19 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
     try {
       const meta = await client.feeds.getLinkPreview({ url })
       setLinkPreview(meta || null)
-      if (meta?.title && !title) setTitle(meta.title)
-      if (meta?.image && !featuredImage) setFeaturedImage(meta.image)
-      if (meta?.summary && !content.trim()) {
-        const quoted = meta.summary.trim().split(/\n+/).map((l) => `> ${l}`).join('\n')
-        setContent(`${quoted}\n\n`)
-        setEditorKey((k) => k + 1) // RichTextEditor only reads `content` on mount
+      // Auto-fill once per URL. The card (setLinkPreview) always refreshes, but
+      // title/featured/body are seeded a single time — otherwise deleting the
+      // quoted body (or the featured image) is undone by the next re-fetch,
+      // which re-injects it because the field is empty again.
+      if (meta && autoFilledHrefRef.current !== url) {
+        autoFilledHrefRef.current = url
+        if (meta.title && !title) setTitle(meta.title)
+        if (meta.image && !featuredImage) setFeaturedImage(meta.image)
+        if (meta.summary && !content.trim()) {
+          const quoted = meta.summary.trim().split(/\n+/).map((l) => `> ${l}`).join('\n')
+          setContent(`${quoted}\n\n`)
+          setEditorKey((k) => k + 1) // RichTextEditor only reads `content` on mount
+        }
       }
     } catch {}
     finally { setFetchingMeta(false) }
@@ -639,6 +650,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
   useEffect(() => {
     if (postType !== 'Link' || !href.trim()) {
       setLinkPreview(null)
+      autoFilledHrefRef.current = null
       return
     }
     const timer = setTimeout(() => fetchLinkMeta(href.trim()), 600)
