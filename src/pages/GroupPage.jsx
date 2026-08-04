@@ -183,7 +183,9 @@ export default function GroupPage() {
           transform: `translate(${shadowProgress * -3}px, ${shadowProgress * -3}px)`,
         }}
       >
-        <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          {/* Icon + name/meta — actions drop below this on narrow screens */}
+          <div className="flex items-start gap-4 min-w-0 flex-1 w-full">
           {/* Icon */}
           {group.icon
             ? <img src={sizedUrl(group.icon, 200)} alt={group.name} className="w-20 h-20 object-cover shrink-0" style={hexMask} />
@@ -247,9 +249,11 @@ export default function GroupPage() {
               </div>
             )}
           </div>
+          </div>
 
-          {/* Actions */}
-          <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
+          {/* Actions — a wrapping row under the name on mobile, a right-aligned
+              column beside it from sm: up (so buttons never overlap the title) */}
+          <div className="flex flex-row flex-wrap sm:flex-col items-start sm:items-end gap-2 shrink-0 pt-1 w-full sm:w-auto">
             {/* Share — post the group as a Link to your network (in-network) */}
             {isLoggedIn && (
               <button
