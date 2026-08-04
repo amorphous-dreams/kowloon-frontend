@@ -242,7 +242,7 @@ export default function HomePage() {
       <div className="flex flex-col">
         {/* Feed toolbar — view selector + contextual Copy (left); type filter +
             set-as-default overflow (right). */}
-        <div className="flex items-center justify-between gap-3 border-b border-base-300 pb-3 mb-4">
+        <div className="flex items-center justify-between gap-3 pb-2 mb-3">
           <div className="flex items-center gap-2 min-w-0">
             <FeedViewSelector
               value={view}
@@ -309,7 +309,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       <RssFeedLink href="/posts?rss" title="Public Posts" />
-      <div className="flex items-center justify-end border-b border-base-300 pb-3 mb-4">
+      <div className="flex items-center justify-end pb-2 mb-3">
         <TypeFilter />
       </div>
       <PostList onDeleted={removeItem}

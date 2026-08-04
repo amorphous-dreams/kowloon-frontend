@@ -79,7 +79,7 @@ export default function BottomTabBar() {
                   </span>
                 )}
               </span>
-              <span className="font-ui uppercase tracking-[0.14em] text-[9px] mt-1">
+              <span className="font-ui uppercase tracking-[0.12em] text-[10px] mt-1">
                 {label(key)}
               </span>
             </NavLink>

@@ -16,10 +16,30 @@ function formatRelative(date) {
   return new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function Timestamp({ date, absolute = false, to, className }) {
+// Compact form used in feed cards — mirrors the app's timeAgo ("now", "4m",
+// "3h", "2d", "5w", then an absolute date). Keep in sync with
+// mobile/src/lib/timeAgo.js.
+function formatCompact(date) {
+  const then = new Date(date).getTime()
+  const sec = Math.round((Date.now() - then) / 1000)
+  if (sec < 45) return 'now'
+  const min = Math.round(sec / 60)
+  if (min < 60) return `${min}m`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr}h`
+  const day = Math.round(hr / 24)
+  if (day < 7) return `${day}d`
+  const wk = Math.round(day / 7)
+  if (wk < 5) return `${wk}w`
+  const d = new Date(then)
+  const sameYear = d.getFullYear() === new Date().getFullYear()
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) })
+}
+
+export default function Timestamp({ date, absolute = false, compact = false, to, className }) {
   if (!date) return null
   const full = new Date(date).toLocaleString()
-  const display = absolute ? full : formatRelative(date)
+  const display = absolute ? full : compact ? formatCompact(date) : formatRelative(date)
 
   const time = (
     <time

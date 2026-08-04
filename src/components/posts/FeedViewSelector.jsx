@@ -12,8 +12,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Search, Globe, Compass } from 'lucide-react'
+import { ChevronDown, Search, Compass } from 'lucide-react'
 import CircleIcon from '../ui/CircleIcon'
+import ServerFeedIcon from './ServerFeedIcon'
 import sizedUrl from '../../lib/sizedUrl'
 import { useClient } from '../../hooks/useClient'
 import { fetchMyCircles } from '../../features/circles/myCirclesSlice'
@@ -52,6 +53,7 @@ export default function FeedViewSelector({
   const dispatch = useDispatch()
   const client = useClient()
   const user = useSelector((state) => state.auth.user)
+  const server = useSelector((state) => state.server)
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   // Locally-refreshed groups (useJoinedGroups doesn't expose a refetch), so a
@@ -120,7 +122,7 @@ export default function FeedViewSelector({
         ? <HexIcon url={activeGroup.icon} type="group" size={22} />
         : subjectForValue
           ? <HexIcon url={subjectForValue.icon} type={isGroup ? 'group' : 'circle'} size={22} />
-          : <span className="inline-flex items-center justify-center w-[22px] h-[22px] shrink-0 text-primary"><Globe size={20} strokeWidth={1.75} /></span>
+          : <ServerFeedIcon iconUrl={server?.icon} size={22} />
 
   const q = query.trim().toLowerCase()
   const filteredCircles = q ? circles.filter((c) => c.name?.toLowerCase().includes(q)) : circles
@@ -168,7 +170,7 @@ export default function FeedViewSelector({
           <div className="overflow-y-auto">
             {/* Community + My Posts — fixed */}
             <Row
-              icon={<span className="inline-flex items-center justify-center w-[22px] h-[22px] text-primary"><Globe size={20} strokeWidth={1.75} /></span>}
+              icon={<ServerFeedIcon iconUrl={server?.icon} size={22} />}
               label={t('feed.communityPosts', { defaultValue: 'Community Posts' })}
               summary={t('feed.communityPostsSummary', { defaultValue: 'All public and community posts.' })}
               selected={!isMine && !isCircle && !isGroup}

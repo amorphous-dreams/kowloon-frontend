@@ -17,7 +17,7 @@ export default function PostCard({ post, onDeleted, showFull = false }) {
     <article
       id={post?.id}
       data-post-id={post?.id}
-      className={`post-type-${post?.type?.toLowerCase()} flex flex-col gap-3 py-5 border-b border-base-300 mb-12`}
+      className={`post-type-${post?.type?.toLowerCase()} flex flex-col gap-3 py-5 border-b border-base-300`}
     >
       <PostMeta post={post} />
       <PostBody post={post} showFull={showFull} />
