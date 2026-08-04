@@ -138,7 +138,7 @@ export default function FeedViewSelector({
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <button
         type="button"
         onClick={toggleOpen}
@@ -147,7 +147,7 @@ export default function FeedViewSelector({
         className="flex items-center gap-2 min-w-0 max-w-full transition-colors text-base-content hover:text-primary"
       >
         {currentIcon}
-        <span className="font-ui text-sm font-bold tracking-tight truncate">{currentLabel}</span>
+        <span className="font-ui text-xs font-bold tracking-tight truncate min-w-0">{currentLabel}</span>
         <ChevronDown size={14} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
