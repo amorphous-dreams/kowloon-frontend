@@ -6,7 +6,9 @@ import { useEffect, useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Link2, Play, Music, FileText, X, ChevronLeft, ChevronRight, Maximize2, MapPin } from 'lucide-react'
 import { marked } from 'marked'
+import { resolveEmbed } from '@kowloon/client'
 import AudioPlayer from '../ui/AudioPlayer'
+import EmbedPlayer from './EmbedPlayer'
 import sizedUrl from '../../lib/sizedUrl'
 
 marked.use({ breaks: true, gfm: true })
@@ -539,6 +541,11 @@ export default function PostBody({ post, showFull = false }) {
   const postUrl  = post?.id ? `/posts/${encodeURIComponent(post.id)}` : null
   const titleLinksToPost = ['Article', 'Media'].includes(post?.type)
 
+  // Rich-media embed (YouTube, …) derived from the link URL at render time via
+  // the shared recognizer — never from user markup. Only inline-capable
+  // providers replace the static hero with a player.
+  const embed = isLink && post?.href ? resolveEmbed(post.href) : null
+
   // Hero image: featuredImage for non-Media types only. Media posts have no
   // separate "cover" — the attachments themselves are the content (rendered
   // below as a gallery).
@@ -562,10 +569,16 @@ export default function PostBody({ post, showFull = false }) {
       {/* Location — pin + place name (Events show theirs in EventCard) */}
       <LocationLine location={post?.location} />
 
-      {/* Hero image — after title, before body (non-Media types). For Link
+      {/* Rich-media embed (video, audio, …) takes the featured-media slot when a
+          provider recognizes the link; otherwise fall back to the hero image. */}
+      {embed?.mode === 'inline' ? (
+        <EmbedPlayer embed={embed} poster={post?.image} title={title} />
+      ) : (
+
+      /* Hero image — after title, before body (non-Media types). For Link
           posts the image is a click-through to the external URL (like the title);
-          for Article/Event featured images it opens the lightbox. */}
-      {heroSrc && (
+          for Article/Event featured images it opens the lightbox. */
+      heroSrc && (
         isLink && post?.href ? (
           <a
             href={post.href}
@@ -597,6 +610,7 @@ export default function PostBody({ post, showFull = false }) {
             )}
           </>
         )
+      )
       )}
 
       {/* Media: gallery (main viewer + thumb strip) */}
