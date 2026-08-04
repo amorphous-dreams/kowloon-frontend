@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { UserPlus, Check, Plus, ChevronDown } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
+import { toast } from '../../app/toast'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -54,14 +55,51 @@ export default function AddToCircleButton({ user }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  // Seed the "already added" state from real membership so the ✓ persists
+  // across reloads and navigation (the tester saw it reset otherwise). Asks the
+  // server which of the viewer's circles already contain this user.
+  useEffect(() => {
+    if (!client || !user?.id || !authUser?.id) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await client.feeds.getUserCircles({
+          userId: authUser.id,
+          contains: user.id,
+          limit: 100,
+        })
+        const items = res?.orderedItems ?? res?.items ?? []
+        const ids = items.filter((c) => c.contains).map((c) => c.id)
+        if (!cancelled && ids.length) setAddedIds(new Set(ids))
+      } catch {
+        // Non-fatal — the button still works, it just won't pre-mark membership.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [client, user?.id, authUser?.id])
+
   const handleAdd = async (circle) => {
     if (!circle || addedIds.has(circle.id) || pendingId) return
     setPendingId(circle.id)
     try {
       await client.activities.addToCircle({ circleId: circle.id, memberId: user.id })
       setAddedIds((prev) => new Set([...prev, circle.id]))
-    } catch {}
-    finally { setPendingId(null) }
+      toast.success(
+        t('user.addedToCircle', {
+          defaultValue: 'Added {{name}} to {{circle}}',
+          name: user.name ?? user.handle ?? user.id,
+          circle: circle.name,
+        }),
+        { action: { label: t('user.viewCircle', { defaultValue: 'View' }), to: `/circles/${encodeURIComponent(circle.id)}` } }
+      )
+    } catch (err) {
+      toast.error(
+        t('user.addToCircleFailed', { defaultValue: "Couldn't add to {{circle}}", circle: circle.name }),
+        { detail: err?.message }
+      )
+    } finally {
+      setPendingId(null)
+    }
   }
 
   const handleNewCircle = () => {
