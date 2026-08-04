@@ -33,10 +33,10 @@ export default function PostMeta({ post }) {
             </span>
         }
         {userUrl
-          ? <Link to={userUrl} className="font-ui text-xs text-base-content/55 dark:text-base-content/70 !leading-[1.05] truncate hover:text-primary transition-colors -mt-1">
+          ? <Link to={userUrl} className="font-ui text-xs text-base-content/55 dark:text-base-content/70 !leading-[1.05] truncate hover:text-primary transition-colors mt-1">
               {author?.id}
             </Link>
-          : <span className="font-ui text-xs text-base-content/55 dark:text-base-content/70 !leading-[1.05] truncate -mt-1">
+          : <span className="font-ui text-xs text-base-content/55 dark:text-base-content/70 !leading-[1.05] truncate mt-1">
               {author?.id}
             </span>
         }
