@@ -1,88 +1,62 @@
-// AddToCircleButton — split button for adding a target user to one of the
-// viewer's circles. Left half adds to the viewer's default circle on click;
-// right half drops down a list of all circles plus "Add to New Circle".
+// AddToCircleButton — a single "Add to Circle" button that opens a modal picker
+// (search + your circles with member counts, tap to add, inline ✓), matching
+// the mobile app's profile Add-to-Circle flow. Membership is pre-marked from the
+// server (?contains) each time the picker opens; pins order the list.
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { UserPlus, Check, Plus, ChevronDown } from 'lucide-react'
+import { UserPlus, Check, X, Loader2 } from 'lucide-react'
 import { sortByPins } from '@kowloon/client'
 import { useClient } from '../../hooks/useClient'
 import { toast } from '../../app/toast'
 
-const hexMask = {
-  WebkitMaskImage: 'url(/hex-mask.svg)',
-  maskImage: 'url(/hex-mask.svg)',
-  maskSize: 'contain',
-  maskRepeat: 'no-repeat',
-  maskPosition: 'center',
-}
-
-function resolveDefaultCircle(circles, authUser) {
-  if (!circles?.length) return null
-  const prefId      = authUser?.prefs?.defaultCircleView
-  const followingId = authUser?.circles?.following
-  return (
-    (prefId      && circles.find((c) => c.id === prefId)) ||
-    (followingId && circles.find((c) => c.id === followingId)) ||
-    circles.find((c) => c.name === 'Following') ||
-    circles[0]
-  )
-}
-
 export default function AddToCircleButton({ user }) {
-  const client   = useClient()
-  const navigate = useNavigate()
-  const { t }    = useTranslation()
+  const client = useClient()
+  const { t } = useTranslation()
   const { items: myCircles, status } = useSelector((state) => state.myCircles)
   const authUser = useSelector((state) => state.auth.user)
-  // Show circles in the user's pin order, matching the feed selector.
+  // Order the list by the user's pins, matching the feed selector.
   const orderedCircles = useMemo(
     () => sortByPins(myCircles, authUser?.prefs?.pinnedCircles || []),
     [myCircles, authUser?.prefs?.pinnedCircles]
   )
 
-  const [open, setOpen]           = useState(false)
-  const [addedIds, setAddedIds]   = useState(new Set())
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [addedIds, setAddedIds] = useState(new Set())
   const [pendingId, setPendingId] = useState(null)
-  const ref = useRef(null)
 
-  const defaultCircle = useMemo(
-    () => resolveDefaultCircle(myCircles, authUser),
-    [myCircles, authUser]
-  )
+  const displayName = user?.name ?? user?.handle ?? user?.id
 
-  // Close on outside click
+  // Seed membership (which circles already contain this user) each time the
+  // picker opens, so the ✓ reflects reality.
   useEffect(() => {
-    if (!open) return
-    const handler = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  // Seed the "already added" state from real membership so the ✓ persists
-  // across reloads and navigation (the tester saw it reset otherwise). Asks the
-  // server which of the viewer's circles already contain this user.
-  useEffect(() => {
-    if (!client || !user?.id || !authUser?.id) return
+    if (!open || !client || !user?.id || !authUser?.id) return
     let cancelled = false
     ;(async () => {
       try {
-        const res = await client.feeds.getUserCircles({
-          userId: authUser.id,
-          contains: user.id,
-          limit: 100,
-        })
+        const res = await client.feeds.getUserCircles({ userId: authUser.id, contains: user.id, limit: 100 })
         const items = res?.orderedItems ?? res?.items ?? []
         const ids = items.filter((c) => c.contains).map((c) => c.id)
-        if (!cancelled && ids.length) setAddedIds(new Set(ids))
+        if (!cancelled) setAddedIds(new Set(ids))
       } catch {
-        // Non-fatal — the button still works, it just won't pre-mark membership.
+        // non-fatal — the picker still works, it just won't pre-mark membership
       }
     })()
     return () => { cancelled = true }
-  }, [client, user?.id, authUser?.id])
+  }, [open, client, user?.id, authUser?.id])
+
+  // Esc to close + lock body scroll while open.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
+  }, [open])
 
   const handleAdd = async (circle) => {
     if (!circle || addedIds.has(circle.id) || pendingId) return
@@ -91,11 +65,7 @@ export default function AddToCircleButton({ user }) {
       await client.activities.addToCircle({ circleId: circle.id, memberId: user.id })
       setAddedIds((prev) => new Set([...prev, circle.id]))
       toast.success(
-        t('user.addedToCircle', {
-          defaultValue: 'Added {{name}} to {{circle}}',
-          name: user.name ?? user.handle ?? user.id,
-          circle: circle.name,
-        }),
+        t('user.addedToCircle', { defaultValue: 'Added {{name}} to {{circle}}', name: displayName, circle: circle.name }),
         { action: { label: t('user.viewCircle', { defaultValue: 'View' }), to: `/circles/${encodeURIComponent(circle.id)}` } }
       )
     } catch (err) {
@@ -108,132 +78,103 @@ export default function AddToCircleButton({ user }) {
     }
   }
 
-  const handleNewCircle = () => {
-    setOpen(false)
-    navigate('/circles/new', {
-      state: { members: [{ id: user.id, name: user.name ?? user.id }] },
-    })
-  }
-
-  const defaultAdded   = defaultCircle && addedIds.has(defaultCircle.id)
-  const defaultPending = defaultCircle && pendingId === defaultCircle.id
+  const q = query.trim().toLowerCase()
+  const filtered = q ? orderedCircles.filter((c) => c.name?.toLowerCase().includes(q)) : orderedCircles
 
   return (
-    <div ref={ref} className="relative inline-flex">
-      {/* Shared border frame wrapping both halves */}
-      <div className="inline-flex border border-base-300 hover:border-primary transition-colors group">
-        {/* Left: Add To <action> — adds to default circle */}
-        <button
-          type="button"
-          onClick={() => defaultCircle ? handleAdd(defaultCircle) : setOpen(true)}
-          disabled={!!defaultPending || !!defaultAdded}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-base-100 text-base-content/70 group-hover:text-primary font-ui text-xs uppercase tracking-widest transition-colors disabled:cursor-default"
-          title={defaultCircle ? t('user.addToCircleNamed', { defaultValue: 'Add to {{name}}', name: defaultCircle.name }) : t('user.addToCircle', { defaultValue: 'Add to Circle' })}
-        >
-          {defaultAdded
-            ? <Check size={12} className="text-success" />
-            : <UserPlus size={12} />
-          }
-          {t('user.addTo', { defaultValue: 'Add to' })}
-        </button>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+      >
+        <UserPlus size={12} /> {t('user.addToCircle', { defaultValue: 'Add to Circle' })}
+      </button>
 
-        {/* Thin internal separator */}
-        <div className="w-px bg-base-300 self-stretch" />
-
-        {/* Right: Default circle name + chevron — opens picker */}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-haspopup="true"
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-base-100 text-base-content/80 font-ui text-xs uppercase tracking-widest transition-colors"
-        >
-          <span className="truncate max-w-[10rem]">
-            {defaultCircle?.name ?? t('user.circle', { defaultValue: 'Circle' })}
-          </span>
-          <ChevronDown size={10} className={`opacity-50 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full mt-1 w-64 bg-base-100 border-2 border-primary z-50"
-          style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.18))' }}
-        >
-          {/* Header */}
-          <div className="px-4 py-2.5 border-b border-base-300">
-            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50">
-              {t('user.addToCirclePrompt', { defaultValue: 'Add' })}
-            </span>{' '}
-            <span className="font-ui text-xs uppercase tracking-widest text-base-content/80 truncate">
-              {user.handle ?? user.id}
-            </span>{' '}
-            <span className="font-ui text-xs uppercase tracking-widest text-base-content/50">
-              {t('user.addToCircleTo', { defaultValue: 'to' })}…
-            </span>
-          </div>
-
-          {/* Circle list */}
-          <div className="max-h-56 overflow-y-auto">
-            {status === 'loading' && (
-              <div className="px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/40">
-                {t('common.loading', { defaultValue: 'Loading…' })}
-              </div>
-            )}
-            {status !== 'loading' && myCircles.length === 0 && (
-              <div className="px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/40">
-                {t('circle.noCirclesYet', { defaultValue: 'No circles yet' })}
-              </div>
-            )}
-            {orderedCircles.map((circle) => {
-              const added   = addedIds.has(circle.id)
-              const pending = pendingId === circle.id
-              const isDefault = circle.id === defaultCircle?.id
-              return (
-                <button
-                  key={circle.id}
-                  role="menuitem"
-                  onClick={() => { handleAdd(circle); setOpen(false) }}
-                  disabled={added || !!pendingId}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-base-300 last:border-b-0 hover:bg-base-200 transition-colors text-left disabled:cursor-default"
-                >
-                  {circle.icon ? (
-                    <img
-                      src={circle.icon}
-                      alt=""
-                      className="w-5 h-5 object-cover shrink-0"
-                      style={hexMask}
-                    />
-                  ) : (
-                    <div className="w-5 h-5 bg-primary shrink-0" style={hexMask} />
-                  )}
-                  <span className={`font-ui text-xs uppercase tracking-widest flex-1 truncate ${added ? 'text-base-content/40' : 'text-base-content/80'}`}>
-                    {circle.name}
-                    {isDefault && (
-                      <span className="ml-2 text-base-content/40 normal-case tracking-normal">
-                        ({t('user.default', { defaultValue: 'default' })})
-                      </span>
-                    )}
-                  </span>
-                  {added   && <Check size={11} className="text-success shrink-0" />}
-                  {pending && <span className="font-ui text-xs text-base-content/30">…</span>}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* New circle footer */}
-          <button
-            role="menuitem"
-            onClick={handleNewCircle}
-            className="w-full flex items-center gap-2 px-4 py-2.5 border-t-2 border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:bg-base-200 hover:text-primary transition-colors"
+      {open && createPortal(
+        <>
+          <div onClick={() => setOpen(false)} aria-hidden="true" className="fixed inset-0 bg-black/50 z-[80]" />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('user.addToCircle', { defaultValue: 'Add to Circle' })}
+            className="fixed inset-x-2 top-6 bottom-6 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:top-16 sm:bottom-16 sm:w-full sm:max-w-md bg-base-100 border-2 border-secondary z-[90] flex flex-col"
           >
-            <Plus size={12} />
-            {t('circle.addToNewCircle', { defaultValue: 'Add to New Circle' })}
-          </button>
-        </div>
+            {/* Header */}
+            <div className="shrink-0 flex items-center gap-3 px-5 py-4 border-b-2 border-base-300">
+              <p className="font-display text-lg leading-tight tracking-wide flex-1 min-w-0 truncate">
+                {t('user.addNameToCircle', { defaultValue: 'Add {{name}} to Circle', name: displayName })}
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label={t('common.close', { defaultValue: 'Close' })}
+                className="p-1 text-base-content/60 hover:text-base-content transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="shrink-0 px-5 py-3">
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('user.searchYourCircles', { defaultValue: 'Search your circles…' })}
+                className="w-full bg-base-200 px-3 py-2 font-ui text-sm text-base-content placeholder:text-base-content/35 outline-none"
+              />
+            </div>
+
+            {/* Circle list */}
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {status === 'loading' && myCircles.length === 0 ? (
+                <div className="px-6 py-10 text-center font-ui text-sm text-base-content/40">
+                  {t('common.loading', { defaultValue: 'Loading…' })}
+                </div>
+              ) : filtered.length === 0 ? (
+                <p className="px-6 py-10 text-center font-ui text-sm text-base-content/55">
+                  {myCircles.length === 0
+                    ? t('circle.noCirclesCreateFirst', { defaultValue: 'No circles yet. Create one first.' })
+                    : t('feed.noMatchesCircles', { defaultValue: 'No circles match.' })}
+                </p>
+              ) : (
+                filtered.map((circle) => {
+                  const added = addedIds.has(circle.id)
+                  const adding = pendingId === circle.id
+                  return (
+                    <button
+                      key={circle.id}
+                      type="button"
+                      onClick={() => !added && handleAdd(circle)}
+                      disabled={added || !!pendingId}
+                      className="w-full flex items-center justify-between gap-3 px-5 py-3.5 border-b border-base-300 hover:bg-base-200 transition-colors text-left disabled:cursor-default disabled:hover:bg-transparent"
+                    >
+                      <span className="flex flex-col min-w-0">
+                        <span className={`font-ui text-sm truncate ${added ? 'text-base-content/50' : 'text-base-content'}`}>
+                          {circle.name}
+                        </span>
+                        {typeof circle.memberCount === 'number' && (
+                          <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40 mt-0.5">
+                            {circle.memberCount.toLocaleString()} {t('circle.membersLower', { defaultValue: 'members' })}
+                          </span>
+                        )}
+                      </span>
+                      {adding
+                        ? <Loader2 size={16} className="animate-spin text-base-content/40 shrink-0" />
+                        : added
+                          ? <Check size={16} className="text-success shrink-0" />
+                          : null}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
