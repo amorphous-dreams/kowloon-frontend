@@ -56,8 +56,7 @@ export default function BottomTabBar() {
   return (
     <nav
       aria-label={t('a11y.primary', { defaultValue: 'Primary' })}
-      className="lg:hidden shrink-0 bg-base-100 border-t-2 border-base-300"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      className="lg:hidden shrink-0 bg-base-100 border-t-2 border-base-300 pb-safe-standalone"
     >
       <ul className="flex">
         {TABS.map(({ to, key, Icon, end, badge }) => (

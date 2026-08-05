@@ -324,3 +324,13 @@ textarea:focus-visible {
   font-size: var(--reading-size, 1rem);
   line-height: var(--reading-leading, 1.5);
 }
+
+/* Bottom-nav system-inset: only when installed as a PWA. In a normal browser
+   tab the browser viewport already sits above the Android gesture bar, yet some
+   devices still report a non-zero safe-area-inset-bottom there — which left a
+   band of dead white space below the tab labels. Scope the inset to standalone
+   so the browser tab gets none and an installed app still clears the gesture bar. */
+.pb-safe-standalone { padding-bottom: 0; }
+@media (display-mode: standalone) {
+  .pb-safe-standalone { padding-bottom: env(safe-area-inset-bottom); }
+}
