@@ -12,12 +12,14 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Search, Compass } from 'lucide-react'
+import { ChevronDown, Search, Compass, Pin } from 'lucide-react'
+import { sortByPins, togglePin } from '@kowloon/client'
 import CircleIcon from '../ui/CircleIcon'
 import ServerFeedIcon from './ServerFeedIcon'
 import sizedUrl from '../../lib/sizedUrl'
 import { useClient } from '../../hooks/useClient'
 import { fetchMyCircles } from '../../features/circles/myCirclesSlice'
+import { patchUser } from '../../features/auth/authSlice'
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -124,9 +126,28 @@ export default function FeedViewSelector({
           ? <HexIcon url={subjectForValue.icon} type={isGroup ? 'group' : 'circle'} size={22} />
           : <ServerFeedIcon iconUrl={server?.icon} size={22} />
 
+  const pinnedCircles = account?.prefs?.pinnedCircles || []
+  const pinnedGroups = account?.prefs?.pinnedGroups || []
   const q = query.trim().toLowerCase()
-  const filteredCircles = q ? circles.filter((c) => c.name?.toLowerCase().includes(q)) : circles
-  const filteredGroups = q ? effectiveGroups.filter((g) => g.name?.toLowerCase().includes(q)) : effectiveGroups
+  const filteredCircles = sortByPins(
+    q ? circles.filter((c) => c.name?.toLowerCase().includes(q)) : circles,
+    pinnedCircles
+  )
+  const filteredGroups = sortByPins(
+    q ? effectiveGroups.filter((g) => g.name?.toLowerCase().includes(q)) : effectiveGroups,
+    pinnedGroups
+  )
+
+  // Pin/unpin a circle or group to the top of its section. Optimistic (patch the
+  // auth user's prefs so it re-sorts instantly), then persist; revert on failure.
+  function handleTogglePin(kind, id) {
+    const key = kind === 'circle' ? 'pinnedCircles' : 'pinnedGroups'
+    const current = account?.prefs?.[key] || []
+    const next = togglePin(current, id)
+    dispatch(patchUser({ prefs: { [key]: next } }))
+    client?.activities?.setPins?.({ [kind === 'circle' ? 'circles' : 'groups']: next })
+      .catch(() => dispatch(patchUser({ prefs: { [key]: current } })))
+  }
   // Show the search box whenever there's anything to search (was > 5, which hid
   // it for anyone with a handful of circles/groups).
   const showSearch = circles.length + effectiveGroups.length > 0
@@ -198,6 +219,8 @@ export default function FeedViewSelector({
                 summary={c.summary}
                 selected={value === c.id}
                 onClick={() => select(c.id)}
+                pinned={pinnedCircles.includes(c.id)}
+                onTogglePin={() => handleTogglePin('circle', c.id)}
               />
             ))}
 
@@ -214,6 +237,8 @@ export default function FeedViewSelector({
                 label={g.name}
                 selected={value === g.id}
                 onClick={() => select(g.id)}
+                pinned={pinnedGroups.includes(g.id)}
+                onTogglePin={() => handleTogglePin('group', g.id)}
               />
             ))}
 
@@ -252,26 +277,41 @@ export default function FeedViewSelector({
   )
 }
 
-function Row({ icon, label, summary, selected, onClick }) {
+function Row({ icon, label, summary, selected, onClick, pinned, onTogglePin }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-        selected ? 'bg-secondary' : 'hover:bg-base-200'
-      }`}
-    >
-      {icon}
-      <span className="flex flex-col min-w-0 flex-1">
-        <span className={`font-ui text-xs uppercase tracking-widest truncate ${selected ? 'text-secondary-content' : 'text-base-content'}`}>
-          {label}
-        </span>
-        {summary && (
-          <span className={`font-reading text-xs truncate ${selected ? 'text-secondary-content/70' : 'text-base-content/40'}`}>
-            {summary}
+    <div className={`w-full flex items-center transition-colors ${selected ? 'bg-secondary' : 'hover:bg-base-200'}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex items-center gap-3 min-w-0 flex-1 px-4 py-2.5 text-left"
+      >
+        {icon}
+        <span className="flex flex-col min-w-0 flex-1">
+          <span className={`font-ui text-xs uppercase tracking-widest truncate ${selected ? 'text-secondary-content' : 'text-base-content'}`}>
+            {label}
           </span>
-        )}
-      </span>
-    </button>
+          {summary && (
+            <span className={`font-reading text-xs truncate ${selected ? 'text-secondary-content/70' : 'text-base-content/40'}`}>
+              {summary}
+            </span>
+          )}
+        </span>
+      </button>
+      {onTogglePin && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onTogglePin() }}
+          aria-label={pinned ? 'Unpin' : 'Pin to top'}
+          title={pinned ? 'Unpin' : 'Pin to top'}
+          className={`shrink-0 p-2 mr-1 transition-colors ${
+            pinned
+              ? (selected ? 'text-secondary-content' : 'text-primary')
+              : (selected ? 'text-secondary-content/40 hover:text-secondary-content' : 'text-base-content/25 hover:text-base-content/60')
+          }`}
+        >
+          <Pin size={13} className={pinned ? 'fill-current' : ''} />
+        </button>
+      )}
+    </div>
   )
 }
