@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { UserPlus, Check, Plus, ChevronDown } from 'lucide-react'
+import { sortByPins } from '@kowloon/client'
 import { useClient } from '../../hooks/useClient'
 import { toast } from '../../app/toast'
 
@@ -36,6 +37,11 @@ export default function AddToCircleButton({ user }) {
   const { t }    = useTranslation()
   const { items: myCircles, status } = useSelector((state) => state.myCircles)
   const authUser = useSelector((state) => state.auth.user)
+  // Show circles in the user's pin order, matching the feed selector.
+  const orderedCircles = useMemo(
+    () => sortByPins(myCircles, authUser?.prefs?.pinnedCircles || []),
+    [myCircles, authUser?.prefs?.pinnedCircles]
+  )
 
   const [open, setOpen]           = useState(false)
   const [addedIds, setAddedIds]   = useState(new Set())
@@ -180,7 +186,7 @@ export default function AddToCircleButton({ user }) {
                 {t('circle.noCirclesYet', { defaultValue: 'No circles yet' })}
               </div>
             )}
-            {myCircles.map((circle) => {
+            {orderedCircles.map((circle) => {
               const added   = addedIds.has(circle.id)
               const pending = pendingId === circle.id
               const isDefault = circle.id === defaultCircle?.id

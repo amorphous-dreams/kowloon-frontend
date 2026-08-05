@@ -3,7 +3,8 @@
 // Expanded: modal overlay with type selector, rich text editor, audience picker, submit/cancel.
 // Auth-aware: renders nothing if not logged in.
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { sortByPins } from '@kowloon/client'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import FocusTrap from 'focus-trap-react'
@@ -329,7 +330,12 @@ function AttachmentRow({ att, index, onUpdate, onRemove, dragHandleProps = {}, u
 
 export default function PostComposer({ onPostCreated, onClose, initialValues = {}, defaultOpen = false, prompt, open, onOpenChange, hideTrigger = false }) {
   const { user } = useSelector((state) => state.auth)
-  const { items: myCircles } = useSelector((state) => state.myCircles)
+  const { items: rawCircles } = useSelector((state) => state.myCircles)
+  // Order circles by the user's pins so the audience picker matches everywhere.
+  const myCircles = useMemo(
+    () => sortByPins(rawCircles, user?.prefs?.pinnedCircles || []),
+    [rawCircles, user?.prefs?.pinnedCircles]
+  )
   const joinedGroups = useJoinedGroups() // groups are addressable too (#67)
   const geocodingUrl = useSelector((state) => state.server.settings?.geocodingUrl)
   const maxUploadSize = useSelector((state) => state.server.settings?.maxUploadSize) // MB

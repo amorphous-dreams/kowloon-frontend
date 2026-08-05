@@ -12,6 +12,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
+import { sortByPins } from '@kowloon/client'
 import { useClient } from '../hooks/useClient'
 import CircleIcon from '../components/ui/CircleIcon'
 import CopyCircleMenu from '../components/circles/CopyCircleMenu'
@@ -130,8 +131,10 @@ export default function CirclesPage() {
     try {
       const res = await client.feeds.getUserCircles({ userId: user.id })
       const items = res?.orderedItems ?? res?.items ?? []
-      // Hide system circles (Following, Groups, Blocked, Muted).
-      setMine(items.filter((c) => c?.type !== 'System'))
+      // Hide system circles (Following, Groups, Blocked, Muted); order by the
+      // user's pins so this matches the feed selector and other circle lists.
+      const pinned = user?.prefs?.pinnedCircles || []
+      setMine(sortByPins(items.filter((c) => c?.type !== 'System'), pinned))
     } catch (err) {
       setMineError(err.message || 'Failed to load your circles.')
     } finally {
