@@ -50,7 +50,7 @@ export default function BottomTabBar() {
 
   const label = (key) =>
     t(`nav.${key === 'notifications' ? 'notifyShort' : key}`, {
-      defaultValue: { feed: 'Feed', circles: 'Circles', groups: 'Groups', discover: 'Discover', notifications: 'Notify' }[key],
+      defaultValue: { feed: 'Feeds', circles: 'Circles', groups: 'Groups', discover: 'Discover', notifications: 'Notify' }[key],
     })
 
   return (
