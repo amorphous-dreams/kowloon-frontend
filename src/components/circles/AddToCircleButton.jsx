@@ -7,7 +7,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { UserPlus, Check, X, Loader2 } from 'lucide-react'
+import { Check, X, Loader2 } from 'lucide-react'
 import { sortByPins } from '@kowloon/client'
 import { useClient } from '../../hooks/useClient'
 import { toast } from '../../app/toast'
@@ -86,9 +86,9 @@ export default function AddToCircleButton({ user }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+        className="flex-1 flex items-center justify-center py-2.5 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors"
       >
-        <UserPlus size={12} /> {t('user.addToCircle', { defaultValue: 'Add to Circle' })}
+        {t('user.addToCircle', { defaultValue: 'Add to Circle' })}
       </button>
 
       {open && createPortal(

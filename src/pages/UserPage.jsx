@@ -107,9 +107,9 @@ function ProfileActionsMenu({ user, client }) {
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
         aria-label={t('user.moreActions', { defaultValue: 'More actions' })}
-        className="flex items-center justify-center p-1.5 border border-base-300 text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+        className="h-full flex items-center justify-center px-4 bg-base-200 text-base-content/70 hover:text-base-content transition-colors"
       >
-        <MoreHorizontal size={14} />
+        <MoreHorizontal size={18} />
       </button>
       {open && (
         <div
@@ -250,14 +250,9 @@ export default function UserPage() {
         </div>
       )}
 
-      {/* Sticky profile header */}
-      <div
-        className="sticky top-0 bg-base-100 z-10 flex flex-col gap-4 pt-6 pb-6 px-4 border-b-2 border-base-300"
-        style={{
-          filter: `drop-shadow(${shadowProgress * 8}px ${shadowProgress * 8}px ${shadowProgress * 2}px rgba(0,0,0,${(shadowProgress * 0.35).toFixed(3)}))`,
-          transform: `translate(${shadowProgress * -3}px, ${shadowProgress * -3}px)`,
-        }}
-      >
+      {/* Profile header — avatar + name, then bio, then a full-width action row
+          (Add to Circle + more), matching the mobile app. */}
+      <div className="bg-base-100 flex flex-col gap-4 pt-6 pb-6 px-4 border-b-2 border-base-300">
         <div className="flex items-start gap-4">
           <img src={sizedUrl(isOwnProfile ? (authUser.profile?.icon ?? user.profile?.icon) : user.profile?.icon, 400)} alt={user.name} className="w-20 h-20 rounded-full object-cover shrink-0" onError={(e) => { e.currentTarget.style.display = 'none' }} />
           <div className="flex flex-col gap-2 min-w-0 pt-1 flex-1">
@@ -271,35 +266,36 @@ export default function UserPage() {
                 </span>
               )}
             </div>
-            {user.profile?.description && <p className="font-reading text-base text-base-content/80 leading-relaxed">{user.profile.description}</p>}
-            {user.profile?.urls?.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                {user.profile.urls.map((url) => {
-                  let display = url
-                  try { display = new URL(url).hostname.replace(/^www\./, '') } catch {}
-                  return (
-                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-primary hover:opacity-70 transition-opacity">
-                      <ExternalLink size={10} />{display}
-                    </a>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-2 shrink-0 pt-1">
-            {isLoggedIn && !isOwnProfile && (
-              <div className="flex items-center gap-2">
-                <AddToCircleButton user={user} />
-                <ProfileActionsMenu user={user} client={client} />
-              </div>
-            )}
-            {isOwnProfile && (
-              <Link to="/profile" className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
-                <Pencil size={12} /> {t('user.editProfile', { defaultValue: 'Edit Profile' })}
-              </Link>
-            )}
           </div>
         </div>
+
+        {user.profile?.description && <p className="font-reading text-base text-base-content/80 leading-relaxed">{user.profile.description}</p>}
+
+        {user.profile?.urls?.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {user.profile.urls.map((url) => {
+              let display = url
+              try { display = new URL(url).hostname.replace(/^www\./, '') } catch {}
+              return (
+                <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 font-ui text-xs uppercase tracking-widest text-primary hover:opacity-70 transition-opacity">
+                  <ExternalLink size={10} />{display}
+                </a>
+              )
+            })}
+          </div>
+        )}
+
+        {isLoggedIn && !isOwnProfile && (
+          <div className="flex items-stretch gap-2">
+            <AddToCircleButton user={user} />
+            <ProfileActionsMenu user={user} client={client} />
+          </div>
+        )}
+        {isOwnProfile && (
+          <Link to="/profile" className="flex items-center justify-center gap-1.5 py-2.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors">
+            <Pencil size={12} /> {t('user.editProfile', { defaultValue: 'Edit Profile' })}
+          </Link>
+        )}
       </div>
 
       {/* Public circles */}
