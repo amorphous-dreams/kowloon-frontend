@@ -142,11 +142,15 @@ export default function FeedDiscoverRow() {
             if (seen.has(k)) continue
             seen.add(k)
             flat.push(it)
-            if (flat.length >= MAX) break
           }
-          if (flat.length >= MAX) break
         }
-        setItems(flat)
+        // Shuffle so object types are mixed, not clustered by curated section,
+        // and the cap samples across the whole pool.
+        for (let i = flat.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[flat[i], flat[j]] = [flat[j], flat[i]]
+        }
+        setItems(flat.slice(0, MAX))
       })
       .catch(() => {})
     return () => { cancelled = true }
