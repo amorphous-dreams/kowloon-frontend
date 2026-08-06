@@ -18,6 +18,7 @@ import PostList from '../components/posts/PostList'
 import TypeFilter from '../components/posts/TypeFilter'
 import ComposeFab from '../components/posts/ComposeFab'
 import FeedViewSelector from '../components/posts/FeedViewSelector'
+import FeedDiscoverRow from '../components/discover/FeedDiscoverRow'
 import CopyCircleMenu from '../components/circles/CopyCircleMenu'
 import NewCircleModal from '../components/circles/NewCircleModal'
 import RssFeedLink from '../components/ui/RssFeedLink'
@@ -278,6 +279,9 @@ export default function HomePage() {
             }}
           />
         )}
+
+        {/* Discover row — only on the Community Posts view with no type filter. */}
+        {view === 'all' && activeTypes.length === 0 && <FeedDiscoverRow />}
 
         <PostList onDeleted={removeItem}
           posts={items}
