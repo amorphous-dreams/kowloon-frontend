@@ -10,6 +10,7 @@ import PostCard from '../components/posts/PostCard'
 import { ReactCounts } from '../components/posts/PostReacts'
 import Reply from '../components/posts/Reply'
 import ReplyComposer from '../components/posts/ReplyComposer'
+import MorePostsByAuthor from '../components/posts/MorePostsByAuthor'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
 import { buildReplyTree } from '../lib/replyTree'
@@ -213,6 +214,8 @@ export default function PostPage() {
           onSubmitted={handleReplySubmitted}
         />
       </div>
+
+      <MorePostsByAuthor post={post} />
 
     </div>
   )
