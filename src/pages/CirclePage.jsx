@@ -2,7 +2,8 @@
 // Authorized users see the full page. Owners can edit inline and manage members.
 
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
+import { setView } from '../app/feedSlice'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Share2, Heart, Pencil, Trash2, X, Check, UserPlus, UserMinus, Loader } from 'lucide-react'
@@ -175,6 +176,7 @@ export default function CirclePage() {
   const { id } = useParams()
   const client = useClient()
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const authUser = useSelector((state) => state.auth.user)
   const { t } = useTranslation()
   const visibilityOptions = [
@@ -354,6 +356,9 @@ export default function CirclePage() {
 
   const isOwner   = !!(authUser && circle.actorId === authUser.id)
   const isLoggedIn = !!authUser
+  // System-managed circles (Blocked/Muted/Groups) skip the friendly finder nudge.
+  const isSystemManaged = circle.type === 'System' && ['Blocked', 'Muted', 'Groups'].includes(circle.name)
+  const showFinder = isOwner && members.length === 0 && !isSystemManaged
   const currentIcon = editing ? editIconPreview : circle.icon
 
   return (
@@ -546,6 +551,26 @@ export default function CirclePage() {
                 removing={removingId === member.id}
               />
             ))}
+          </div>
+        ) : showFinder ? (
+          <div className="flex flex-col gap-3 border-t border-base-300 pt-4">
+            <p className="font-ui text-sm text-base-content/80 leading-relaxed">
+              Add people or communities to your Circles to follow them.
+            </p>
+            <p className="font-ui text-sm text-base-content/70 leading-relaxed">
+              Looking for people and communities to add? Start with your{' '}
+              <button
+                type="button"
+                onClick={() => { dispatch(setView('all')); navigate('/') }}
+                className="text-primary font-semibold hover:underline"
+              >
+                Community Posts
+              </button>{' '}
+              or <Link to="/discover" className="text-primary font-semibold hover:underline">Discover</Link> new and cool stuff!
+            </p>
+            <p className="font-ui text-xs text-base-content/55 leading-relaxed">
+              Tip: You can add any Kowloon user or even a community to any of your Circles.
+            </p>
           </div>
         ) : (
           <p className="font-ui text-sm uppercase tracking-widest text-base-content/45">
