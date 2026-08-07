@@ -243,11 +243,16 @@ export default function HomePage() {
       <div className="flex flex-col">
         {/* Feed toolbar — view selector + contextual Copy (left); type filter +
             set-as-default overflow (right). */}
-        <div className="flex items-end justify-between gap-3 pb-2 mb-3">
-          <div className="flex flex-col gap-1 min-w-0">
-            <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40 px-0.5">
+        <div className="pb-2 mb-3">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
               {t('feed.currentFeedLabel', { defaultValue: 'Current feed' })}
             </span>
+            <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
+              {t('feed.postTypesLabel', { defaultValue: 'Post Types' })}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <FeedViewSelector
                 value={view}
@@ -261,11 +266,6 @@ export default function HomePage() {
               />
               {showCopy && <CopyCircleMenu circle={subject} />}
             </div>
-          </div>
-          <div className="flex flex-col gap-1 shrink-0 items-end">
-            <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40 px-0.5">
-              {t('feed.postTypesLabel', { defaultValue: 'Post Types' })}
-            </span>
             <div className="flex items-center gap-3 shrink-0">
               <TypeFilter />
               <FeedDefaultsMenu
