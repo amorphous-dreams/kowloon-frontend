@@ -281,7 +281,7 @@ export default function HomePage() {
         )}
 
         {/* Discover row — only on the Community Posts view with no type filter. */}
-        {view === 'all' && activeTypes.length === 0 && <FeedDiscoverRow />}
+        {view === 'all' && activeTypes.length === 0 && <FeedDiscoverRow refreshKey={refreshKey} />}
 
         <PostList onDeleted={removeItem}
           posts={items}

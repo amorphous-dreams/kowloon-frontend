@@ -124,7 +124,7 @@ function SquareCard({ item }) {
   }
 }
 
-export default function FeedDiscoverRow() {
+export default function FeedDiscoverRow({ refreshKey = 0 }) {
   const client = useClient()
   const [items, setItems] = useState([])
 
@@ -154,7 +154,7 @@ export default function FeedDiscoverRow() {
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [client])
+  }, [client, refreshKey])
 
   if (items.length === 0) return null
 
