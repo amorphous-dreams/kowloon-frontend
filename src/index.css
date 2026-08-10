@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./theme-colors.generated.css";
 @plugin "daisyui";
 
 /* ─── Reduced Motion ─────────────────────────────────────────────────────── */
@@ -34,51 +35,9 @@ textarea:focus-visible {
 [data-theme="kowloon"] {
   color-scheme: light;
 
-  /* Header — Yves Klein blue (the app's signature bar) */
-  --color-header: #002fa7;
-  --color-header-content: #ffffff;
-
-  /* Base — clean white paper */
-  --color-base-100: #ffffff;
-  --color-base-200: #f4f4f4;
-  --color-base-300: #e7e7e7;
-  --color-base-content: #1a1a20;
-
-  /* Fields — near-white, slightly warm input surface */
-  --color-field: #fcfbf7;
-
-  /* Primary — desaturated steel blue */
-  --color-primary: #5588b1;
-  --color-primary-content: #f4f5f7;
-
-  /* Secondary — medium navy/indigo */
-  --color-secondary: #393b7a;
-  --color-secondary-content: #faf4e8;
-
-  /* Accent — vermillion red */
-  --color-accent: #c0394a;
-  --color-accent-content: #f7e8e8;
-
-  /* Neutral — near-black ink */
-  --color-neutral: #1a1a20;
-  --color-neutral-content: #f4f4f4;
-
-  /* State */
-  --color-info: #3c8db8;
-  --color-info-content: #f0f6fa;
-  --color-success: #2f9956;
-  --color-success-content: #f0f8f2;
-  --color-warning: #d9b038;
-  --color-warning-content: #1a1a20;
-  --color-error: #c0394a;
-  --color-error-content: #f7e8e8;
-
-  /* Post type accent colors — light defaults */
-  --post-color-note:    #b76c00;
-  --post-color-article: #006893;
-  --post-color-media:   #009084;
-  --post-color-link:    #417843;
-  --post-color-event:   #cc272e;
+  /* Colors are generated from the shared palette (single source of truth):
+     @kowloon/client/theme/palette.json -> theme-colors.generated.css (imported
+     above). Edit the palette; `npm run gen:theme` regenerates (auto on dev/build). */
 
   /* Geometry — sharp, print-like, no pill shapes */
   --radius-selector: 0;
@@ -95,23 +54,7 @@ textarea:focus-visible {
   [data-theme="kowloon"] {
     color-scheme: dark;
 
-    --color-base-100: #16171d;
-    --color-base-200: #1f2129;
-    --color-base-300: #2c2f3a;
-    --color-base-content: #f4f4f4;
-    --color-field: #1f2129;
-    --color-primary: #5588b1;
-    --color-primary-content: #0e1116;
-    --color-secondary: #393b7a;
-    --color-secondary-content: #faf4e8;
-    --color-neutral: #1f2129;
-    --color-neutral-content: #f4f4f4;
-
-    --post-color-note:    #e8920a;
-    --post-color-article: #2ab4e8;
-    --post-color-media:   #00c4ae;
-    --post-color-link:    #62c278;
-    --post-color-event:   #ee5566;
+    /* Dark colors generated from the palette (theme-colors.generated.css). */
   }
 }
 

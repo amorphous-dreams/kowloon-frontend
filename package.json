@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "gen:theme": "node scripts/generate-theme-css.mjs",
+    "predev": "npm run gen:theme",
+    "prebuild": "npm run gen:theme",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
