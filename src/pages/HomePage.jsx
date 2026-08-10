@@ -242,8 +242,9 @@ export default function HomePage() {
     return (
       <div className="flex flex-col">
         {/* Feed toolbar — view selector + contextual Copy (left); type filter +
-            set-as-default overflow (right). */}
-        <div className="pb-2 mb-3">
+            set-as-default overflow (right). Sticky so it stays put while the
+            feed scrolls underneath it (matches GroupPage's hero toolbar). */}
+        <div className="sticky top-0 z-20 bg-base-100 pb-2 mb-3 border-b border-base-300">
           <div className="flex items-center justify-between gap-3 mb-1">
             <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
               {t('feed.currentFeedLabel', { defaultValue: 'Current feed' })}

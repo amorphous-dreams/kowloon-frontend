@@ -31,7 +31,13 @@ export default function ComposeFab({ onSelectType }) {
     // Zero-height sticky row pinned to the bottom of the scrolling feed column.
     // pointer-events-none lets clicks pass through the empty track; the button,
     // pills, and backdrop re-enable them. justify-end keeps it at the right edge.
-    <div className="sticky bottom-6 z-30 flex justify-end pointer-events-none h-0 -mt-14">
+    // bottom offset adds env(safe-area-inset-bottom) on top of the usual 24px so
+    // the button clears the Android gesture bar / iOS home indicator when the
+    // page is drawn edge-to-edge under it (resolves to +0 where there's no inset).
+    <div
+      className="sticky z-30 flex justify-end pointer-events-none h-0 -mt-14"
+      style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+    >
       {/* Click-away backdrop while the picker is open */}
       {open && (
         <button
