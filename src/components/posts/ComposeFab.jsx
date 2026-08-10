@@ -28,14 +28,18 @@ export default function ComposeFab({ onSelectType }) {
   }
 
   return (
-    // Zero-height sticky row pinned to the bottom of the scrolling feed column.
-    // pointer-events-none lets clicks pass through the empty track; the button,
-    // pills, and backdrop re-enable them. justify-end keeps it at the right edge.
+    // Sticky row pinned to the bottom of the scrolling feed column, sized to the
+    // button's own height (h-14) so it reserves real flow space instead of the
+    // old h-0/-mt-14 trick — that combination was corrupting position:sticky's
+    // bottom-offset math (measured: the button sat flush with main's edge, 0px
+    // gap, regardless of the `bottom` value below). pointer-events-none lets
+    // clicks pass through the row's empty space; the button/pills/backdrop
+    // re-enable them. justify-end keeps it at the right edge.
     // bottom offset adds env(safe-area-inset-bottom) on top of the usual 24px so
     // the button clears the Android gesture bar / iOS home indicator when the
     // page is drawn edge-to-edge under it (resolves to +0 where there's no inset).
     <div
-      className="sticky z-30 flex justify-end pointer-events-none h-0 -mt-14"
+      className="sticky z-30 flex justify-end items-end pointer-events-none h-14"
       style={{
         bottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
         willChange: 'transform',
