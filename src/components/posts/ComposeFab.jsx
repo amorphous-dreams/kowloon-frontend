@@ -36,7 +36,11 @@ export default function ComposeFab({ onSelectType }) {
     // page is drawn edge-to-edge under it (resolves to +0 where there's no inset).
     <div
       className="sticky z-30 flex justify-end pointer-events-none h-0 -mt-14"
-      style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      style={{
+        bottom: 'calc(1.5rem + env(safe-area-inset-bottom))',
+        willChange: 'transform',
+        transform: 'translateZ(0)',
+      }}
     >
       {/* Click-away backdrop while the picker is open */}
       {open && (
