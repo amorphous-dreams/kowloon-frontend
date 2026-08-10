@@ -109,6 +109,55 @@ function DefaultRow({ label, isDefault, onSet, t }) {
   )
 }
 
+// Feed toolbar content — view selector + contextual Copy (left); type filter +
+// set-as-default overflow (right). Shared markup, rendered twice by HomePage:
+// once invisible in normal flow (reserves layout space) and once as the real
+// fixed overlay. See the comment at the two call sites for why.
+function FeedToolbarContent({
+  t, view, handleSelectView, myCircles, joinedGroups, user, subject,
+  allowCreate, onCreateCircle, showCopy,
+  activeTypes, defaultView, defaultTypes, handleSetDefaultView, handleSetDefaultTypes,
+}) {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
+          {t('feed.currentFeedLabel', { defaultValue: 'Current feed' })}
+        </span>
+        <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
+          {t('feed.postTypesLabel', { defaultValue: 'Post Types' })}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <FeedViewSelector
+            value={view}
+            onChange={handleSelectView}
+            circles={myCircles}
+            groups={joinedGroups}
+            account={user}
+            subject={subject}
+            allowCreate={allowCreate}
+            onCreateCircle={onCreateCircle}
+          />
+          {showCopy && <CopyCircleMenu circle={subject} />}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <TypeFilter />
+          <FeedDefaultsMenu
+            view={view}
+            activeTypes={activeTypes}
+            defaultView={defaultView}
+            defaultTypes={defaultTypes}
+            onSetDefaultView={handleSetDefaultView}
+            onSetDefaultTypes={handleSetDefaultTypes}
+          />
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -241,45 +290,39 @@ export default function HomePage() {
     const composerTo = (isCircleView || isGroupView) ? view : 'public'
     return (
       <div className="flex flex-col">
-        {/* Feed toolbar — view selector + contextual Copy (left); type filter +
-            set-as-default overflow (right).
-            NOT sticky: two attempts at position:sticky here caused a stale-frame
-            overlap glitch on iOS Safari during momentum scroll (bg-color +
-            will-change/translateZ(0) didn't resolve it). Reverted rather than
-            ship something broken — revisit with a real device debug session
-            before trying again. */}
-        <div className="pb-2 mb-3">
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
-              {t('feed.currentFeedLabel', { defaultValue: 'Current feed' })}
-            </span>
-            <span className="font-ui text-[10px] uppercase tracking-widest text-base-content/40">
-              {t('feed.postTypesLabel', { defaultValue: 'Post Types' })}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <FeedViewSelector
-                value={view}
-                onChange={handleSelectView}
-                circles={myCircles}
-                groups={joinedGroups}
-                account={user}
-                subject={subject}
-                allowCreate
-                onCreateCircle={() => setShowCreateCircle(true)}
-              />
-              {showCopy && <CopyCircleMenu circle={subject} />}
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <TypeFilter />
-              <FeedDefaultsMenu
-                view={view}
-                activeTypes={activeTypes}
-                defaultView={defaultView}
-                defaultTypes={defaultTypes}
-                onSetDefaultView={handleSetDefaultView}
-                onSetDefaultTypes={handleSetDefaultTypes}
+        {/* Feed toolbar — FIXED at the top of the viewport (below the 64px/h-16
+            Header) so it stays visible while the feed scrolls, instead of
+            position:sticky. Two sticky attempts caused a stale-frame overlap
+            glitch on iOS Safari during momentum scroll that neither an opaque
+            bg nor will-change/translateZ(0) resolved; fixed sidesteps that bug
+            class entirely since it has no stuck/unstuck state transition.
+            Rendered twice: an invisible copy in normal flow reserves the
+            layout space (so posts don't start underneath the real one), and
+            the visible copy is the fixed overlay. Horizontal alignment
+            replicates Layout.jsx's grid (lg:px-4 + grid-cols-12 +
+            col-start-4/col-span-6) rather than measuring main's rect at
+            runtime — same technique already proven for PostComposer's
+            landscape-width fix. pointer-events-none/auto split lets clicks in
+            the side gutters (over the sidebars) fall through to what's under
+            them. */}
+        <div aria-hidden="true" className="invisible pb-2 mb-3">
+          <FeedToolbarContent
+            t={t} view={view} handleSelectView={handleSelectView}
+            myCircles={myCircles} joinedGroups={joinedGroups} user={user} subject={subject}
+            allowCreate onCreateCircle={() => setShowCreateCircle(true)} showCopy={showCopy}
+            activeTypes={activeTypes} defaultView={defaultView} defaultTypes={defaultTypes}
+            handleSetDefaultView={handleSetDefaultView} handleSetDefaultTypes={handleSetDefaultTypes}
+          />
+        </div>
+        <div className="fixed top-16 inset-x-0 z-40 lg:px-4 pointer-events-none">
+          <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-10">
+            <div className="col-span-1 lg:col-start-4 lg:col-span-6 px-5 lg:px-8 pb-2 bg-base-100 border-b border-base-300 pointer-events-auto">
+              <FeedToolbarContent
+                t={t} view={view} handleSelectView={handleSelectView}
+                myCircles={myCircles} joinedGroups={joinedGroups} user={user} subject={subject}
+                allowCreate onCreateCircle={() => setShowCreateCircle(true)} showCopy={showCopy}
+                activeTypes={activeTypes} defaultView={defaultView} defaultTypes={defaultTypes}
+                handleSetDefaultView={handleSetDefaultView} handleSetDefaultTypes={handleSetDefaultTypes}
               />
             </div>
           </div>
