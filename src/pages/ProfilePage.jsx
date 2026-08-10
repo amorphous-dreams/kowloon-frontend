@@ -226,58 +226,10 @@ function PrefControl({ entry, value, onChange, isAdmin, circles, groups, serverT
   }
 }
 
-// ── Theme swatch card ─────────────────────────────────────────────────────────
-
-function ThemeCard({ theme, isActive, onSelect }) {
-  const isSystem = theme.colorScheme === 'system'
-  const swatchKeys = ['base-100', 'primary', 'secondary', 'accent', 'neutral']
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(theme.id)}
-      className={`flex flex-col gap-2 p-3 border-2 text-left transition-colors ${
-        isActive ? 'border-primary' : 'border-base-300 hover:border-base-content/30'
-      }`}
-      aria-pressed={isActive}
-    >
-      {/* Color swatches */}
-      <div className="flex gap-1 h-8">
-        {isSystem ? (
-          // Split card: left half light, right half dark
-          <>
-            <div className="flex-1 flex gap-0.5">
-              {['oklch(96% 0.018 85deg)', 'oklch(63% 0.1 228deg)', 'oklch(42% 0.13 265deg)'].map((c, i) => (
-                <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
-              ))}
-            </div>
-            <div className="flex-1 flex gap-0.5">
-              {['oklch(12% 0.02 265deg)', 'oklch(63% 0.1 228deg)', 'oklch(28% 0.14 265deg)'].map((c, i) => (
-                <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
-              ))}
-            </div>
-          </>
-        ) : (
-          swatchKeys.map((key) => (
-            <div
-              key={key}
-              className="flex-1 h-full border border-black/10"
-              style={{ backgroundColor: theme.colors?.[key] ?? 'transparent' }}
-            />
-          ))
-        )}
-      </div>
-
-      {/* Name + active indicator */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-ui text-xs uppercase tracking-widest text-base-content/70 truncate">
-          {theme.name}
-        </span>
-        {isActive && <Check size={11} className="text-primary shrink-0" />}
-      </div>
-    </button>
-  )
-}
+// Short labels for the Appearance segmented control — matches the app's
+// System/Light/Dark wording (server theme.name is the longer "Kowloon Light"
+// etc., used nowhere else now that the theme picker isn't a swatch grid).
+const THEME_LABELS = { system: 'System', 'kowloon-light': 'Light', 'kowloon-dark': 'Dark' }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -600,16 +552,14 @@ export default function ProfilePage() {
             label={t('profile.theme', { defaultValue: 'Theme' })}
             hint={t('profile.themeHint', { defaultValue: 'Changes apply immediately.' })}
           >
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {availableThemes.map((theme) => (
-                <ThemeCard
-                  key={theme.id}
-                  theme={theme}
-                  isActive={activeThemeId === theme.id}
-                  onSelect={handleThemeSelect}
-                />
-              ))}
-            </div>
+            <Segmented
+              value={activeThemeId}
+              onChange={handleThemeSelect}
+              options={availableThemes.map((theme) => ({
+                key: theme.id,
+                label: THEME_LABELS[theme.id] ?? theme.name,
+              }))}
+            />
           </Field>
         </Section>
       )}

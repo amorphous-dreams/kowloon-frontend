@@ -939,18 +939,24 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
                 onClick={handleCancel}
               />
 
-      {/* Panel — full-screen (like the app), edge-to-edge with no margins.
-          overflow-hidden so content can never escape; flex body fills the space. */}
-      <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('composer.prompt')}
-        className="relative flex flex-col w-full flex-1 min-h-0 bg-base-100 overflow-hidden"
-        initial={{ opacity: 0, y: 14 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 14 }}
-        transition={{ duration: 0.47, ease: [0.25, 0.1, 0.25, 1] }}
-      >
+      {/* Panel — full-screen on mobile (like the app). At the lg: breakpoint,
+          constrained to the same 6/12 grid column as the main content in
+          Layout.jsx (col-start-4/col-span-6 of the same 12-col + gap-10 + px-4
+          grid), so it lines up with the reading column instead of the sidebars.
+          pointer-events-none on the grid wrapper lets clicks in the exposed
+          gutters fall through to the backdrop's onClick={handleCancel}. */}
+      <div className="relative flex-1 min-h-0 lg:px-4 pointer-events-none">
+        <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-10 h-full">
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t('composer.prompt')}
+            className="relative flex flex-col w-full h-full min-h-0 bg-base-100 overflow-hidden pointer-events-auto lg:col-start-4 lg:col-span-6"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 14 }}
+            transition={{ duration: 0.47, ease: [0.25, 0.1, 0.25, 1] }}
+          >
 
         {/* Header — the type is a dropdown ("Add New [Type] ▼"), like the app.
             This replaces the old tab row, which overflowed the mobile width and
@@ -1271,6 +1277,8 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
         </div>
 
       </motion.div>
+        </div>
+      </div>
 
       {/* Portal host for dropdowns — must live inside FocusTrap so focus-trap
           v8's inert pass doesn't make them unclickable */}
