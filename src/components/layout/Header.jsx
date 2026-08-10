@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { X, Search } from 'lucide-react'
+import { X, Search, Menu } from 'lucide-react'
 import { logoutAsync } from '../../features/auth/authSlice'
 import { useClient } from '../../hooks/useClient'
 import useFitText from '../../hooks/useFitText'
@@ -21,8 +21,8 @@ function BellIcon() {
 const navLinkClass = ({ isActive }) =>
   `flex items-center h-full px-5 font-ui text-xs uppercase tracking-widest transition-colors ${
     isActive
-      ? 'text-[var(--color-header-content)] border-b-4 border-primary'
-      : 'text-[var(--color-header-content)]/60 hover:text-[var(--color-header-content)] hover:bg-black/20'
+      ? 'text-base-content border-b-4 border-primary'
+      : 'text-base-content/60 hover:text-base-content hover:bg-base-200'
   }`
 
 export function Header() {
@@ -91,13 +91,13 @@ export function Header() {
   const userInitial = user?.username?.[0]?.toUpperCase() ?? '?'
 
   return (
-    <header className="bg-[var(--color-header)] sticky top-0 z-50">
+    <header className="bg-base-100 border-b border-base-300 sticky top-0 z-50">
       <nav className="flex items-stretch h-16">
 
         {/* ── Logo ── desktop: home link; mobile: drawer trigger */}
         {(() => {
           const titleClass = (wrapped) =>
-            `font-display text-[var(--color-header-content)] min-w-0 text-left ${
+            `font-display text-base-content min-w-0 text-left ${
               wrapped ? 'line-clamp-2 leading-[1.1]' : 'truncate'
             }`
           const titleStyle = (wrapped, wrapPx, maxPx) => ({
@@ -114,17 +114,20 @@ export function Header() {
           )
           return (
             <>
-              <div className="lg:hidden flex items-center gap-3 pl-4 pr-3 min-w-0">
+              <div className="lg:hidden flex items-center gap-2 pl-3 pr-3 min-w-0">
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(true)}
                   aria-label={t('a11y.openSidebar', { defaultValue: 'Open sidebar' })}
                   aria-expanded={drawerOpen}
                   aria-controls="mobile-sidebar-drawer"
-                  className="shrink-0 hover:opacity-90 transition-opacity"
+                  className="shrink-0 p-1 -ml-1 text-base-content/85 hover:text-base-content transition-colors"
                 >
-                  {Icon}
+                  <Menu size={24} />
                 </button>
+                <Link to="/" className="shrink-0 hover:opacity-90 transition-opacity">
+                  {Icon}
+                </Link>
                 <Link to="/" className="min-w-0 hover:opacity-90 transition-opacity">
                   <span
                     ref={mobileTitleRef}
@@ -170,7 +173,7 @@ export function Header() {
           <Link
             to="/search"
             aria-label={t('nav.search')}
-            className="lg:hidden flex items-center justify-center w-10 h-10 text-[var(--color-header-content)]/80 hover:text-[var(--color-header-content)] transition-colors"
+            className="lg:hidden flex items-center justify-center w-10 h-10 text-base-content/80 hover:text-base-content transition-colors"
           >
             <Search size={20} />
           </Link>
@@ -193,7 +196,7 @@ export function Header() {
               <Link
                 to="/notifications"
                 aria-label={t('a11y.notifications', { defaultValue: 'Notifications' })}
-                className="hidden lg:flex items-center justify-center w-10 h-10 text-base-300/70 hover:text-primary transition-colors"
+                className="hidden lg:flex items-center justify-center w-10 h-10 text-base-content/70 hover:text-primary transition-colors"
               >
                 <div className="indicator">
                   <BellIcon />
@@ -217,7 +220,7 @@ export function Header() {
                 aria-haspopup="menu"
                 onClick={() => setUserMenuOpen((o) => !o)}
                 onBlur={() => setTimeout(() => setUserMenuOpen(false), 150)}
-                className="flex items-center gap-3 px-3 h-10 text-base-300/70 hover:text-primary hover:bg-black/20 transition-colors"
+                className="flex items-center gap-3 px-3 h-10 text-base-content/70 hover:text-primary hover:bg-base-200 transition-colors"
               >
                 {avatarUrl ? (
                   <img src={sizedUrl(avatarUrl, 200)} alt={userHandle} className="w-7 h-7 rounded-full object-cover" />
@@ -239,18 +242,18 @@ export function Header() {
                   {userHandle}
                 </li>
                 <li>
-                  <Link to="/profile" className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors">
+                  <Link to="/profile" className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-base-200 transition-colors">
                     {t('nav.profile')}
                   </Link>
                 </li>
                 <li>
-                  <Link to={`/users/${encodeURIComponent(userHandle)}/circles`} className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors">
+                  <Link to={`/users/${encodeURIComponent(userHandle)}/circles`} className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-base-200 transition-colors">
                     {t('nav.myCircles', { defaultValue: 'My Circles' })}
                   </Link>
                 </li>
                 {user?.isServerAdmin && (
                   <li>
-                    <Link to="/admin" className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors">
+                    <Link to="/admin" className="block px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-base-200 transition-colors">
                       {t('nav.admin', { defaultValue: 'Admin' })}
                     </Link>
                   </li>
@@ -258,7 +261,7 @@ export function Header() {
                 <li>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-black/20 transition-colors"
+                    className="w-full text-left px-4 py-3 font-ui text-xs uppercase tracking-widest text-base-content/70 dark:text-white/95 hover:text-primary hover:bg-base-200 dark:hover:bg-base-200 transition-colors"
                   >
                     {t('nav.logout')}
                   </button>
@@ -270,7 +273,7 @@ export function Header() {
             <div className="flex items-center gap-1 sm:gap-2">
               <Link
                 to="/login"
-                className="px-3 sm:px-4 py-2 font-ui text-xs uppercase tracking-widest text-[var(--color-header-content)]/80 hover:text-[var(--color-header-content)] transition-colors"
+                className="px-3 sm:px-4 py-2 font-ui text-xs uppercase tracking-widest text-base-content/80 hover:text-base-content transition-colors"
               >
                 {t('nav.signIn')}
               </Link>
@@ -307,11 +310,11 @@ export function Header() {
           drawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between gap-3 h-16 bg-[var(--color-header)] px-4">
+        <div className="flex items-center justify-between gap-3 h-16 bg-base-100 border-b border-base-300 px-4">
           <Link to="/" className="min-w-0 hover:opacity-90 transition-opacity">
             <span
               ref={drawerTitleRef}
-              className={`font-display text-[var(--color-header-content)] min-w-0 text-left ${
+              className={`font-display text-base-content min-w-0 text-left ${
                 drawerTitleWrap ? 'line-clamp-2 leading-[1.1]' : 'truncate'
               }`}
               style={{ fontSize: drawerTitleWrap ? '14px' : '18px' }}
@@ -323,7 +326,7 @@ export function Header() {
             type="button"
             onClick={() => setDrawerOpen(false)}
             aria-label={t('a11y.closeSidebar', { defaultValue: 'Close sidebar' })}
-            className="p-2 -mr-2 text-base-300/70 hover:text-primary transition-colors"
+            className="p-2 -mr-2 text-base-content/70 hover:text-primary transition-colors"
           >
             <X size={20} />
           </button>
