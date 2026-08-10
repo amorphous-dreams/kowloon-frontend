@@ -946,7 +946,7 @@ export default function PostComposer({ onPostCreated, onClose, initialValues = {
           pointer-events-none on the grid wrapper lets clicks in the exposed
           gutters fall through to the backdrop's onClick={handleCancel}. */}
       <div className="relative flex-1 min-h-0 lg:px-4 pointer-events-none">
-        <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-10 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-16 h-full">
           <motion.div
             role="dialog"
             aria-modal="true"

@@ -315,7 +315,7 @@ export default function HomePage() {
           />
         </div>
         <div className="fixed top-16 inset-x-0 z-40 lg:px-4 pointer-events-none">
-          <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 lg:gap-16">
             <div className="col-span-1 lg:col-start-4 lg:col-span-6 px-5 lg:px-8 pb-2 bg-base-100 border-b border-base-300 pointer-events-auto">
               <FeedToolbarContent
                 t={t} view={view} handleSelectView={handleSelectView}
