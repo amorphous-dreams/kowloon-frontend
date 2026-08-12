@@ -2,7 +2,7 @@
 // landing strip. Web counterpart of the mobile DiscoverMediaTile.
 //   image : thumbnail that links to its post (/posts/:id)
 //   video : click opens fullscreen playback in a modal (<video controls autoPlay>)
-//   audio : click sends it to the global audio bar/queue (never inline)
+//   audio : plays inline via the styled AudioPlayer tile
 // `mediaKind` + `mediaUrl` + `mediaImage` come from GET /recommendations.
 // `baseUrl` resolves relative URLs when the tile shows a remote server's media.
 
@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Music, Play, X } from 'lucide-react'
-import { useAudioBar } from '../../lib/AudioPlayerProvider'
+import AudioPlayer from '../ui/AudioPlayer'
 import sizedUrl from '../../lib/sizedUrl'
 
 // Resolve a possibly-relative media URL against a remote base (for cross-server
@@ -67,29 +67,18 @@ function AuthorOverlay({ author, baseUrl }) {
 
 export default function DiscoverMediaTile({ item, size = 150, baseUrl, showAuthor }) {
   const [videoOpen, setVideoOpen] = useState(false)
-  const audio = useAudioBar()
   const kind = item.mediaKind || 'image'
   const img = resolveUrl(item.mediaImage || item.featuredImage, baseUrl)
   const playUrl = resolveUrl(item.mediaUrl, baseUrl)
   const author = item.actor || {}
   const dims = { width: size, height: size }
 
-  // ── Audio — plays through the global audio bar (never inline), matching
-  //     the mobile app. Same visual treatment as an image tile with no
-  //     thumbnail: a secondary-bg tile with a centered Music icon. ──
+  // ── Audio — inline styled player fills the tile. ──
   if (kind === 'audio' && playUrl) {
     return (
-      <button
-        type="button"
-        onClick={() => audio?.requestTrack({ id: item.id, url: playUrl, title: item.mediaName || item.title || 'Audio' })}
-        style={dims}
-        className="shrink-0 relative block bg-secondary overflow-hidden"
-      >
-        <div className="w-full h-full flex items-center justify-center">
-          <Music size={24} className="text-secondary-content opacity-90" />
-        </div>
-        {showAuthor && <AuthorOverlay author={author} baseUrl={baseUrl} />}
-      </button>
+      <div style={dims} className="shrink-0 relative bg-base-300">
+        <AudioPlayer src={playUrl} image={img || undefined} className="w-full h-full" />
+      </div>
     )
   }
 

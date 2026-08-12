@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Link2, Play, Music, FileText, X, ChevronLeft, ChevronRight, Maximize2, MapPin } from 'lucide-react'
 import { marked } from 'marked'
 import { resolveEmbed } from '@kowloon/client'
-import AudioAttachment from './AudioAttachment'
+import AudioPlayer from '../ui/AudioPlayer'
 import EmbedPlayer from './EmbedPlayer'
 import sizedUrl from '../../lib/sizedUrl'
 
@@ -82,13 +82,10 @@ function kowloonRouteFromHref(href) {
   return null
 }
 
-// True for media types where a fullscreen lightbox makes sense. Audio never
-// lightboxes — it has no visual content to enlarge, and playback always goes
-// through the global audio bar (AudioAttachment) instead of an inline player,
-// matching the mobile app.
+// True for media types where a fullscreen lightbox makes sense.
 function isLightboxable(a) {
   const mt = a?.mediaType ?? ''
-  return mt.startsWith('image/') || mt.startsWith('video/')
+  return mt.startsWith('image/') || mt.startsWith('video/') || mt.startsWith('audio/')
 }
 
 function ExpandButton({ onClick }) {
@@ -120,13 +117,16 @@ function renderMediaItem(a, { large = false, onOpen = null } = {}) {
       />
     )
   }
-  // Audio plays through the global audio bar (never inline) — see
-  // isLightboxable above.
+  // Video and audio render their own controls, so the lightbox trigger lives
+  // in a corner button to avoid hijacking play/pause taps.
   if (mt.startsWith('audio/')) {
-    return <AudioAttachment att={a} />
+    return (
+      <div className="relative">
+        {onOpen && <ExpandButton onClick={onOpen} />}
+        <AudioPlayer src={a.url} className="w-full aspect-video" />
+      </div>
+    )
   }
-  // Video renders its own controls, so the lightbox trigger lives in a
-  // corner button to avoid hijacking play/pause taps.
   if (mt.startsWith('video/')) {
     return (
       <div className={`relative ${large ? 'w-full aspect-video bg-black overflow-hidden' : ''}`}>
@@ -263,9 +263,8 @@ function Lightbox({ items, index, onClose, onNavigate }) {
   )
 
   // Lightweight static representation for non-image neighbours in the
-  // carousel (video only now — audio is never lightboxable) — we don't want
-  // to instantiate a video player off-screen. The real player renders when
-  // the slide commits.
+  // carousel — we don't want to instantiate a video/audio player off-screen.
+  // The real player renders when the slide commits.
   const renderCarouselSlide = (it) => {
     if (!it) return null
     const t = it.mediaType ?? ''
@@ -274,6 +273,14 @@ function Lightbox({ items, index, onClose, onNavigate }) {
       return (
         <div className="flex flex-col items-center gap-3 text-white/60 select-none">
           <Play size={64} />
+          {it.name && <span className="font-ui text-xs uppercase tracking-widest">{it.name}</span>}
+        </div>
+      )
+    }
+    if (t.startsWith('audio/')) {
+      return (
+        <div className="flex flex-col items-center gap-3 text-white/60 select-none">
+          <Music size={64} />
           {it.name && <span className="font-ui text-xs uppercase tracking-widest">{it.name}</span>}
         </div>
       )
@@ -379,6 +386,11 @@ function Lightbox({ items, index, onClose, onNavigate }) {
             <video controls autoPlay className="max-w-[95vw] max-h-[95vh] object-contain bg-black">
               <source src={item.url} type={mt} />
             </video>
+          )}
+          {mt.startsWith('audio/') && (
+            <div className="w-[min(95vw,40rem)]">
+              <AudioPlayer src={item.url} className="w-full aspect-video" />
+            </div>
           )}
         </div>
       )}

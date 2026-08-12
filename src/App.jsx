@@ -6,7 +6,6 @@ import AuthSync from './app/AuthSync'
 import DocumentTitle from './app/DocumentTitle'
 import ToastStack from './components/ui/ToastStack'
 import { TypographyProvider } from './lib/TypographyProvider'
-import { AudioPlayerProvider } from './lib/AudioPlayerProvider'
 
 export default function App() {
   return (
@@ -14,9 +13,7 @@ export default function App() {
       <AuthSync />
       <DocumentTitle />
       <TypographyProvider>
-        <AudioPlayerProvider>
-          <RouterProvider router={router} />
-        </AudioPlayerProvider>
+        <RouterProvider router={router} />
       </TypographyProvider>
       <ToastStack />
     </Provider>
