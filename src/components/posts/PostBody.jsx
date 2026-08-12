@@ -131,7 +131,7 @@ function renderMediaItem(a, { large = false, onOpen = null } = {}) {
     return (
       <div className={`relative ${large ? 'w-full aspect-video bg-black overflow-hidden' : ''}`}>
         {onOpen && <ExpandButton onClick={onOpen} />}
-        <video controls className={large ? 'absolute inset-0 w-full h-full object-cover' : 'w-full max-h-[28rem] object-contain bg-black'}>
+        <video controls playsInline className={large ? 'absolute inset-0 w-full h-full object-cover' : 'w-full max-h-[28rem] object-contain bg-black'}>
           <source src={a.url} type={mt} />
         </video>
       </div>
@@ -383,7 +383,7 @@ function Lightbox({ items, index, onClose, onNavigate }) {
             />
           )}
           {mt.startsWith('video/') && (
-            <video controls autoPlay className="max-w-[95vw] max-h-[95vh] object-contain bg-black">
+            <video controls autoPlay playsInline className="max-w-[95vw] max-h-[95vh] object-contain bg-black">
               <source src={item.url} type={mt} />
             </video>
           )}

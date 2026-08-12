@@ -42,6 +42,7 @@ function FullscreenVideo({ src, onClose }) {
         src={src}
         controls
         autoPlay
+        playsInline
         onClick={(e) => e.stopPropagation()}
         className="max-w-[92vw] max-h-[88vh] bg-black"
       />
