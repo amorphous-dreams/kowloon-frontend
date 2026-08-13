@@ -302,7 +302,7 @@ export default function GroupsPage() {
           className="flex items-center justify-center gap-2 py-3.5 bg-primary text-primary-content font-ui text-sm uppercase tracking-widest hover:bg-primary/80 transition-colors"
         >
           <Plus size={16} strokeWidth={2.25} />
-          {t('group.new', { defaultValue: 'New Group' })}
+          {t('group.new', { defaultValue: 'Create Group' })}
         </Link>
       )}
 
