@@ -19,6 +19,7 @@ import Modal from '../components/ui/Modal'
 import PostCard from '../components/posts/PostCard'
 import RecShelf from '../components/discover/RecShelf'
 import DiscoverMediaTile from '../components/discover/DiscoverMediaTile'
+import ServerMoreMenu from '../components/servers/ServerMoreMenu'
 import sizedUrl from '../lib/sizedUrl'
 
 const KLEIN = '#002FA7'
@@ -399,6 +400,9 @@ export default function ServerPage() {
           >
             <ExternalLink size={11} /> {t('server.visit', { defaultValue: `Visit ${domain}` })}
           </a>
+          {authUser && (
+            <ServerMoreMenu domain={domain} client={client} authUser={authUser} />
+          )}
         </div>
       </div>
 

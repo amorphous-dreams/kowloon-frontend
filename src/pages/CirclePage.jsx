@@ -13,8 +13,13 @@ import CircleIcon from '../components/ui/CircleIcon'
 import CopyCircleMenu from '../components/circles/CopyCircleMenu'
 import Spinner from '../components/ui/Spinner'
 import ErrorState from '../components/ui/ErrorState'
+import Modal from '../components/ui/Modal'
 import PostComposer from '../components/posts/PostComposer'
 import sizedUrl from '../lib/sizedUrl'
+
+// A Circle member is either a person ("@user@domain") or a whole server
+// ("@domain", one @).
+const isServerMember = (id) => typeof id === 'string' && /^@[^@]+$/.test(id)
 
 const hexMask = {
   WebkitMaskImage: 'url(/hex-mask.svg)',
@@ -190,6 +195,7 @@ export default function CirclePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
   const [removingId, setRemovingId] = useState(null)
+  const [confirmUnblock, setConfirmUnblock] = useState(null) // member pending unblock confirmation
   const [sharing, setSharing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reacted, setReacted] = useState(false)
@@ -335,7 +341,7 @@ export default function CirclePage() {
     }
   }
 
-  const handleRemoveMember = async (memberId) => {
+  const doRemoveMember = async (memberId) => {
     setRemovingId(memberId)
     try {
       await client.activities.removeFromCircle({ circleId: circle.id, memberId })
@@ -343,6 +349,24 @@ export default function CirclePage() {
       setCircle((prev) => ({ ...prev, memberCount: (prev.memberCount ?? members.length) - 1 }))
     } catch {}
     finally { setRemovingId(null) }
+  }
+
+  // Removing someone from Blocked = unblocking them — a real, reversible-only-
+  // by-re-blocking action, so it gets a confirmation instead of firing on tap
+  // like a normal circle's member removal does.
+  const handleRemoveMember = (memberId) => {
+    if (circle.id === authUser?.blocked) {
+      const member = members.find((m) => m.id === memberId)
+      setConfirmUnblock(member || { id: memberId })
+      return
+    }
+    doRemoveMember(memberId)
+  }
+
+  const confirmUnblockNow = () => {
+    if (!confirmUnblock) return
+    doRemoveMember(confirmUnblock.id)
+    setConfirmUnblock(null)
   }
 
   const handleMemberAdded = (member) => {
@@ -606,6 +630,40 @@ export default function CirclePage() {
           onPostCreated={() => setSharing(false)}
           prompt={t('composer.shareCirclePrompt', { defaultValue: 'Share this circle\u2026' })}
         />
+      )}
+
+      {confirmUnblock && (
+        <Modal
+          open
+          title={t('circle.unblockTitle', { defaultValue: 'Unblock?' })}
+          onClose={() => setConfirmUnblock(null)}
+        >
+          <p className="font-reading text-base text-base-content/80 leading-relaxed mb-5">
+            {isServerMember(confirmUnblock.id)
+              ? t('circle.unblockServerBody', {
+                  domain: confirmUnblock.id.slice(1),
+                  defaultValue: `Unblock the whole server ${confirmUnblock.id.slice(1)}? Everyone on that server will be able to reach you again.`,
+                })
+              : t('circle.unblockUserBody', {
+                  name: confirmUnblock.name ?? confirmUnblock.id,
+                  defaultValue: `Unblock ${confirmUnblock.name ?? confirmUnblock.id}? They'll be able to interact with you again.`,
+                })}
+          </p>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              onClick={() => setConfirmUnblock(null)}
+              className="px-4 py-2 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
+            >
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </button>
+            <button
+              onClick={confirmUnblockNow}
+              className="px-4 py-2 bg-error text-error-content font-ui text-xs uppercase tracking-widest hover:opacity-90 transition-opacity"
+            >
+              {t('circle.unblockConfirm', { defaultValue: 'Unblock' })}
+            </button>
+          </div>
+        </Modal>
       )}
 
     </div>
