@@ -269,14 +269,6 @@ export default function GroupsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {user && (
-            <Link
-              to="/groups/new"
-              className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:opacity-90 transition-opacity"
-            >
-              <Plus size={13} /> {t('group.new', { defaultValue: 'New Group' })}
-            </Link>
-          )}
           {tab === 'browse' && (
           <div className="flex items-center gap-0 border border-base-300">
             <button
@@ -303,6 +295,16 @@ export default function GroupsPage() {
           )}
         </div>
       </div>
+
+      {user && (
+        <Link
+          to="/groups/new"
+          className="flex items-center justify-center gap-2 py-3.5 bg-primary text-primary-content font-ui text-sm uppercase tracking-widest hover:bg-primary/80 transition-colors"
+        >
+          <Plus size={16} strokeWidth={2.25} />
+          {t('group.new', { defaultValue: 'New Group' })}
+        </Link>
+      )}
 
       {/* My / Browse tabs — logged-in users only */}
       {user && (

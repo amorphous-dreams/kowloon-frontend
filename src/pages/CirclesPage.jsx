@@ -12,7 +12,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
-import { Ban, VolumeX } from 'lucide-react'
+import { Ban, VolumeX, Plus } from 'lucide-react'
 import { sortByPins } from '@kowloon/client'
 import { useClient } from '../hooks/useClient'
 import CircleIcon from '../components/ui/CircleIcon'
@@ -243,15 +243,6 @@ export default function CirclesPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {user && (
-            <Link
-              to="/circles/new"
-              state={{ to: user?.id }}
-              className="px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest hover:bg-primary/80 transition-colors"
-            >
-              {t('circle.create', { defaultValue: 'Create Circle' })}
-            </Link>
-          )}
           {tab === 'browse' && (
           <div className="flex items-center gap-0 border border-base-300">
           <button
@@ -278,6 +269,17 @@ export default function CirclesPage() {
           )}
         </div>
       </div>
+
+      {user && (
+        <Link
+          to="/circles/new"
+          state={{ to: user?.id }}
+          className="flex items-center justify-center gap-2 py-3.5 bg-primary text-primary-content font-ui text-sm uppercase tracking-widest hover:bg-primary/80 transition-colors"
+        >
+          <Plus size={16} strokeWidth={2.25} />
+          {t('circle.create', { defaultValue: 'New Circle' })}
+        </Link>
+      )}
 
       {/* My / Browse tabs — logged-in users only */}
       {user && (
