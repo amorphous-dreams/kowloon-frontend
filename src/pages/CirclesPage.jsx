@@ -12,6 +12,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
+import { Ban, VolumeX } from 'lucide-react'
 import { sortByPins } from '@kowloon/client'
 import { useClient } from '../hooks/useClient'
 import CircleIcon from '../components/ui/CircleIcon'
@@ -103,6 +104,37 @@ function CircleBrowseCard({ circle, isLoggedIn }) {
   )
 }
 
+// Blocked/Muted — personal moderation circles, not browsable/shareable like a
+// normal circle. Simpler row: no actor link, no "copy circle" action, just
+// name + member count + a link into the same circle detail/edit page (which
+// locks metadata editing for type==='System', see CirclePage).
+function SystemCircleRow({ circle, kind }) {
+  const { t } = useTranslation()
+  const isBlocked = kind === 'blocked'
+  const Icon = isBlocked ? Ban : VolumeX
+
+  return (
+    <Link
+      to={`/circles/${encodeURIComponent(circle.id)}`}
+      className="flex items-center gap-4 py-4 border-b border-base-300 hover:bg-base-200/50 transition-colors"
+    >
+      <div className="w-10 h-10 shrink-0 flex items-center justify-center bg-base-300 text-base-content/60">
+        <Icon size={18} />
+      </div>
+      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+        <span className="font-display text-lg tracking-wide leading-none">
+          {isBlocked
+            ? t('circles.blocked', { defaultValue: 'Blocked' })
+            : t('circles.muted', { defaultValue: 'Muted' })}
+        </span>
+        <span className="font-ui text-xs uppercase tracking-widest text-base-content/60">
+          {circle.memberCount ?? 0} {t('circle.members', { defaultValue: 'members' })}
+        </span>
+      </div>
+    </Link>
+  )
+}
+
 export default function CirclesPage() {
   const { t } = useTranslation()
   const client = useClient()
@@ -124,23 +156,35 @@ export default function CirclesPage() {
   const [mineLoading, setMineLoading] = useState(false)
   const [mineError, setMineError] = useState(null)
 
+  // Blocked/Muted — shown in their own section, not mixed into "My Circles".
+  const [blockedCircle, setBlockedCircle] = useState(null)
+  const [mutedCircle, setMutedCircle] = useState(null)
+
   const loadMine = useCallback(async () => {
-    if (!client || !user?.id) { setMine([]); return }
+    if (!client || !user?.id) { setMine([]); setBlockedCircle(null); setMutedCircle(null); return }
     setMineLoading(true)
     setMineError(null)
     try {
+      // GET /users/:id/circles only returns type:"Circle" (user-created)
+      // rows — System circles (Following, Groups, Blocked, Muted) are never
+      // included, so Blocked/Muted are fetched separately by id below.
       const res = await client.feeds.getUserCircles({ userId: user.id })
       const items = res?.orderedItems ?? res?.items ?? []
-      // Hide system circles (Following, Groups, Blocked, Muted); order by the
-      // user's pins so this matches the feed selector and other circle lists.
       const pinned = user?.prefs?.pinnedCircles || []
-      setMine(sortByPins(items.filter((c) => c?.type !== 'System'), pinned))
+      setMine(sortByPins(items, pinned))
+
+      const [blockedRes, mutedRes] = await Promise.all([
+        user.blocked ? client.feeds.getCircle({ circleId: user.blocked }).catch(() => null) : null,
+        user.muted ? client.feeds.getCircle({ circleId: user.muted }).catch(() => null) : null,
+      ])
+      setBlockedCircle(blockedRes?.item ?? blockedRes ?? null)
+      setMutedCircle(mutedRes?.item ?? mutedRes ?? null)
     } catch (err) {
       setMineError(err.message || 'Failed to load your circles.')
     } finally {
       setMineLoading(false)
     }
-  }, [client, user?.id])
+  }, [client, user?.id, user?.blocked, user?.muted])
 
   const load = useCallback(async (sortOrder, pageNum) => {
     if (!client) {
@@ -274,6 +318,23 @@ export default function CirclesPage() {
               {mine.map((circle) => (
                 <CircleBrowseCard key={circle.id} circle={circle} isLoggedIn={!!user} />
               ))}
+            </div>
+          )}
+
+          {/* Blocked & Muted — separated from ordinary circles: these are
+              personal moderation lists, not something you browse or copy. */}
+          {!mineLoading && !mineError && (blockedCircle || mutedCircle) && (
+            <div className="flex flex-col mt-8 pt-2 border-t-2 border-base-300">
+              <h2 className="font-display text-xl tracking-wide leading-none mb-1 mt-4">
+                {t('circles.blockedMuted', { defaultValue: 'Blocked & Muted' })}
+              </h2>
+              <p className="font-ui text-xs uppercase tracking-widest text-base-content/50 mb-2">
+                {t('circles.blockedMutedHint', { defaultValue: 'Manage membership and visibility' })}
+              </p>
+              <div className="flex flex-col">
+                {blockedCircle && <SystemCircleRow circle={blockedCircle} kind="blocked" />}
+                {mutedCircle && <SystemCircleRow circle={mutedCircle} kind="muted" />}
+              </div>
             </div>
           )}
         </>

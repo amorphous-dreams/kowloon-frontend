@@ -356,8 +356,12 @@ export default function CirclePage() {
 
   const isOwner   = !!(authUser && circle.actorId === authUser.id)
   const isLoggedIn = !!authUser
+  // System circles (Following, All Following, Groups, Blocked, Muted) are
+  // fixed identity, not user content — name/description/icon are locked and
+  // they can never be deleted. Membership and visibility stay fully editable.
+  const isSystem = circle.type === 'System'
   // System-managed circles (Blocked/Muted/Groups) skip the friendly finder nudge.
-  const isSystemManaged = circle.type === 'System' && ['Blocked', 'Muted', 'Groups'].includes(circle.name)
+  const isSystemManaged = isSystem && ['Blocked', 'Muted', 'Groups'].includes(circle.name)
   const showFinder = isOwner && members.length === 0 && !isSystemManaged
   const currentIcon = editing ? editIconPreview : circle.icon
 
@@ -377,9 +381,9 @@ export default function CirclePage() {
           {/* Icon — clickable in edit mode */}
           <button
             type="button"
-            onClick={() => editing && iconInputRef.current?.click()}
-            className={editing ? 'cursor-pointer opacity-80 hover:opacity-100 transition-opacity shrink-0' : 'shrink-0 cursor-default'}
-            aria-label={editing ? t('circle.changeIcon', { defaultValue: 'Change icon' }) : undefined}
+            onClick={() => editing && !isSystem && iconInputRef.current?.click()}
+            className={editing && !isSystem ? 'cursor-pointer opacity-80 hover:opacity-100 transition-opacity shrink-0' : 'shrink-0 cursor-default'}
+            aria-label={editing && !isSystem ? t('circle.changeIcon', { defaultValue: 'Change icon' }) : undefined}
           >
             {currentIcon
               ? <img src={sizedUrl(currentIcon, 200)} alt={circle.name} className="w-20 h-20 object-cover" style={hexMask} />
@@ -398,7 +402,7 @@ export default function CirclePage() {
 
           {/* Info */}
           <div className="flex flex-col gap-3 min-w-0 pt-1 flex-1">
-            {editing ? (
+            {editing && !isSystem ? (
               <input
                 type="text"
                 value={editName}
@@ -422,7 +426,7 @@ export default function CirclePage() {
               )}
             </div>
 
-            {editing ? (
+            {editing && !isSystem ? (
               <textarea
                 value={editSummary}
                 onChange={(e) => setEditSummary(e.target.value)}
@@ -514,15 +518,20 @@ export default function CirclePage() {
                       onClick={startEditing}
                       className="flex items-center gap-1.5 px-3 py-1.5 border border-base-300 font-ui text-xs uppercase tracking-widest text-base-content/60 hover:border-primary hover:text-primary transition-colors"
                     >
-                      <Pencil size={12} /> {t('common.edit')}
+                      <Pencil size={12} />
+                      {isSystem ? t('circle.editVisibility', { defaultValue: 'Edit Visibility' }) : t('common.edit')}
                     </button>
-                    <button
-                      onClick={handleDelete}
-                      disabled={deleting}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-error/40 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Trash2 size={12} /> {deleting ? t('common.deleting', { defaultValue: 'Deleting…' }) : t('common.delete')}
-                    </button>
+                    {/* System circles (Following, Groups, Blocked, Muted, …) are
+                        fixed identity — never deletable, see isSystem above. */}
+                    {!isSystem && (
+                      <button
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-error/40 font-ui text-xs uppercase tracking-widest text-error/60 hover:border-error hover:text-error disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Trash2 size={12} /> {deleting ? t('common.deleting', { defaultValue: 'Deleting…' }) : t('common.delete')}
+                      </button>
+                    )}
                   </>
                 )}
               </>
