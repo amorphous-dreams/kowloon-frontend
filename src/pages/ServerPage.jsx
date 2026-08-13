@@ -250,7 +250,13 @@ export default function ServerPage() {
       }).finally(() => clearTimeout(timer))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      const items = data.orderedItems ?? data.items ?? []
+      // Anonymous, direct fetch to the REMOTE server (previewing any server's
+      // live public firehose, even ones you have no account on) — that server
+      // has no idea it's you asking, so it can't apply your blocks/mutes.
+      // Filter client-side using your own list instead.
+      const raw = data.orderedItems ?? data.items ?? []
+      await client?.moderation?.load()
+      const items = client?.moderation?.filterItems(raw) ?? raw
       if (append) {
         setPosts((prev) => {
           const seen = new Set(prev.map((p) => p.id))
@@ -267,7 +273,7 @@ export default function ServerPage() {
       setPostsLoading(false)
       setLoadingMore(false)
     }
-  }, [domain, remoteBase])
+  }, [domain, remoteBase, client])
 
   const loadDiscover = useCallback(async () => {
     if (!domain) return
@@ -282,7 +288,13 @@ export default function ServerPage() {
       }).finally(() => clearTimeout(timer))
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setRecSections(data.sections ?? [])
+      // Same anonymous-fetch gap as loadPosts above — filter client-side.
+      await client?.moderation?.load()
+      const sections = (data.sections ?? []).map((s) => ({
+        ...s,
+        items: client?.moderation?.filterItems(s.items) ?? s.items,
+      }))
+      setRecSections(sections)
       setRecBg(data.background ? resolveUrl(data.background, remoteBase) : null)
     } catch (e) {
       setRecError(e?.name === 'AbortError' ? 'Request timed out.' : (e?.message || "Could not load this server's Discover."))
@@ -290,7 +302,7 @@ export default function ServerPage() {
     } finally {
       setRecLoading(false)
     }
-  }, [domain, remoteBase])
+  }, [domain, remoteBase, client])
 
   useEffect(() => { load() }, [load])
 
