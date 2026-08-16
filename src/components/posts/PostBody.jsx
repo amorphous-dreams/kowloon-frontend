@@ -9,6 +9,7 @@ import { marked } from 'marked'
 import { resolveEmbed } from '@kowloon/client'
 import AudioPlayer from '../ui/AudioPlayer'
 import EmbedPlayer from './EmbedPlayer'
+import UserAvatar from '../ui/UserAvatar'
 import sizedUrl from '../../lib/sizedUrl'
 
 marked.use({ breaks: true, gfm: true })
@@ -19,6 +20,7 @@ function LinkTitle({ post }) {
   if (href) {
     try { domain = new URL(href).hostname.replace(/^www\./, '') } catch {}
   }
+  const targetActor = post.targetActor
 
   const inner = (
     <span className="inline-flex items-center gap-2">
@@ -29,15 +31,30 @@ function LinkTitle({ post }) {
 
   return (
     <div className="mb-3">
-      <h1 className="font-display text-2xl lg:text-5xl mb-12">
+      <h1 className="font-display text-2xl lg:text-5xl mb-3">
         {href
           ? <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">{inner}</a>
           : inner
         }
       </h1>
-      {domain && (
-        <p className="font-ui text-sm uppercase tracking-widest text-base-content/60 mt-0.5">{domain}</p>
-      )}
+      {/* Credit the ORIGINAL author when this Link is sharing another Kowloon
+          post (#44) — links to their profile. Falls back to the bare
+          (domain) for a plain external link, or an old share made before
+          targetActor existed. */}
+      {targetActor ? (
+        <Link
+          to={`/users/${encodeURIComponent(targetActor.id)}`}
+          className="inline-flex items-center gap-2 mb-6 hover:opacity-80 transition-opacity"
+        >
+          <UserAvatar user={targetActor} size="sm" />
+          <span className="font-ui text-base font-medium text-base-content">{targetActor.name ?? targetActor.id}</span>
+          <span className="font-ui text-xs text-base-content/55 dark:text-base-content/70">
+            {targetActor.id}{domain ? ` (${domain})` : ''}
+          </span>
+        </Link>
+      ) : domain ? (
+        <p className="font-ui text-sm uppercase tracking-widest text-base-content/60 mb-6">({domain})</p>
+      ) : null}
     </div>
   )
 }
