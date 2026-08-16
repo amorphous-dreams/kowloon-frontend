@@ -44,16 +44,15 @@ function LinkTitle({ post }) {
       {targetActor ? (
         <Link
           to={`/users/${encodeURIComponent(targetActor.id)}`}
-          className="inline-flex items-center gap-2 mb-6 hover:opacity-80 transition-opacity"
+          className="inline-flex items-center gap-2 mb-3 hover:opacity-80 transition-opacity"
         >
           <UserAvatar user={targetActor} size="sm" />
           <span className="font-ui text-base font-medium text-base-content">{targetActor.name ?? targetActor.id}</span>
-          <span className="font-ui text-xs text-base-content/55 dark:text-base-content/70">
-            {targetActor.id}{domain ? ` (${domain})` : ''}
-          </span>
+          {/* No (domain) here — it's redundant, already inside the handle. */}
+          <span className="font-ui text-xs text-base-content/55 dark:text-base-content/70">{targetActor.id}</span>
         </Link>
       ) : domain ? (
-        <p className="font-ui text-sm uppercase tracking-widest text-base-content/60 mb-6">({domain})</p>
+        <p className="font-ui text-sm uppercase tracking-widest text-base-content/60 mb-3">({domain})</p>
       ) : null}
     </div>
   )
