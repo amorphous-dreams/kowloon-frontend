@@ -46,7 +46,6 @@ function PostForm({ initial, onSave, onCancel }) {
   const client = useClient()
   const [type, setType] = useState(initial?.type && TYPE_OPTIONS.includes(initial.type) ? initial.type : 'Note')
   const [title, setTitle] = useState(initial?.title ?? '')
-  const [summary, setSummary] = useState(initial?.summary ?? '')
   const [content, setContent] = useState(initial?.source?.content ?? '')
   const [tags, setTags] = useState((initial?.tags ?? []).join(', '))
   const [to, setTo] = useState(initial?.to || '@public')
@@ -100,7 +99,6 @@ function PostForm({ initial, onSave, onCancel }) {
       const opts = {
         type,
         title: title || undefined,
-        summary: summary || undefined,
         source: { content, mediaType: 'text/markdown' },
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         to,
@@ -160,11 +158,6 @@ function PostForm({ initial, onSave, onCancel }) {
               className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
           </div>
         )}
-        <div className="flex flex-col gap-1 col-span-2">
-          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Summary</label>
-          <input value={summary} onChange={(e) => setSummary(e.target.value)}
-            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
-        </div>
         <div className="flex flex-col gap-1 col-span-2">
           <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Content</label>
           <RichTextEditor content={content} onChange={setContent} editorClassName="min-h-64" />
