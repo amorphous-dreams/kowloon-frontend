@@ -153,11 +153,13 @@ function PostForm({ initial, onSave, onCancel }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1 col-span-2">
-          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Title</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)}
-            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
-        </div>
+        {type !== 'Note' && (
+          <div className="flex flex-col gap-1 col-span-2">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Title</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)}
+              className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+        )}
         <div className="flex flex-col gap-1 col-span-2">
           <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Summary</label>
           <input value={summary} onChange={(e) => setSummary(e.target.value)}
