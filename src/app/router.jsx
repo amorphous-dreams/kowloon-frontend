@@ -44,6 +44,7 @@ import AdminDashboardPage  from '../pages/admin/AdminDashboardPage'
 import AdminUsersPage      from '../pages/admin/AdminUsersPage'
 import AdminPostsPage      from '../pages/admin/AdminPostsPage'
 import AdminGroupsPage     from '../pages/admin/AdminGroupsPage'
+import AdminCirclesPage    from '../pages/admin/AdminCirclesPage'
 import AdminInvitesPage    from '../pages/admin/AdminInvitesPage'
 import AdminModerationPage from '../pages/admin/AdminModerationPage'
 import AdminSettingsPage        from '../pages/admin/AdminSettingsPage'
@@ -116,6 +117,7 @@ const router = createBrowserRouter([
       { path: '/admin/users',      element: <AdminUsersPage /> },
       { path: '/admin/posts',      element: <AdminPostsPage /> },
       { path: '/admin/groups',     element: <AdminGroupsPage /> },
+      { path: '/admin/circles',    element: <AdminCirclesPage /> },
       { path: '/admin/invites',    element: <AdminInvitesPage /> },
       { path: '/admin/moderation', element: <AdminModerationPage /> },
       { path: '/admin/themes',     element: <AdminThemesPage /> },

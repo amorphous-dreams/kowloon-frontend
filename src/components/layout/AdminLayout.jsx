@@ -6,7 +6,7 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { Navigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, FileText, Users2,
+  LayoutDashboard, Users, FileText, Users2, Circle,
   Mail, Flag, Settings, ArrowLeft, Palette, BookOpen,
   Menu, X, ScrollText,
 } from 'lucide-react'
@@ -16,6 +16,7 @@ const NAV = [
   { to: '/admin/users',      label: 'Users',        icon: Users },
   { to: '/admin/posts',      label: 'Posts',        icon: FileText },
   { to: '/admin/groups',     label: 'Groups',       icon: Users2 },
+  { to: '/admin/circles',    label: 'Circles',      icon: Circle },
   { to: '/admin/pages',      label: 'Pages',        icon: BookOpen },
   { to: '/admin/invites',    label: 'Invites',      icon: Mail },
   { to: '/admin/moderation', label: 'Moderation',   icon: Flag },

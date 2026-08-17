@@ -22,24 +22,15 @@ function serverActorId(client) {
   }
 }
 
-const RSVP_OPTIONS = [
-  { value: 'open', label: 'Open' },
-  { value: 'serverOpen', label: 'Server — open' },
-  { value: 'serverApproval', label: 'Server — approval' },
-  { value: 'approvalOnly', label: 'Approval only' },
-  { value: 'inviteOnly', label: 'Invite only' },
-]
-
 const VISIBILITY_OPTIONS = [
   { value: '@public', label: 'Public' },
   { value: '@server', label: 'Server only' },
 ]
 
-function GroupForm({ initial, onSave, onCancel }) {
+function CircleForm({ initial, onSave, onCancel }) {
   const client = useClient()
   const [name, setName] = useState(initial?.name ?? '')
-  const [description, setDescription] = useState(initial?.description ?? '')
-  const [rsvpPolicy, setRsvpPolicy] = useState(initial?.rsvpPolicy ?? 'open')
+  const [summary, setSummary] = useState(initial?.summary ?? '')
   const [to, setTo] = useState(initial?.to || '@public')
   const [iconFile, setIconFile] = useState(null)
   const [iconPreview, setIconPreview] = useState(initial?.icon ?? null)
@@ -73,8 +64,7 @@ function GroupForm({ initial, onSave, onCancel }) {
 
       const opts = {
         name,
-        description: description || undefined,
-        rsvpPolicy,
+        summary: summary || undefined,
         to,
         canReply: to,
         canReact: to,
@@ -83,17 +73,17 @@ function GroupForm({ initial, onSave, onCancel }) {
 
       let res
       if (initial?.id) {
-        res = await client.admin.updateGroup({ groupId: initial.id, updates: opts })
-        onSave(res.group)
+        res = await client.admin.updateCircle({ circleId: initial.id, updates: opts })
+        onSave(res.circle)
       } else {
-        res = await client.admin.createGroup(opts)
-        onSave(res.group)
+        res = await client.admin.createCircle(opts)
+        onSave(res.circle)
       }
     } catch (err) {
       setError(
         err?.status === 403 || err?.statusCode === 403
-          ? "Only groups this server created can be edited here."
-          : err?.message || 'Failed to save group'
+          ? "Only circles this server created can be edited here."
+          : err?.message || 'Failed to save circle'
       )
     } finally {
       setSaving(false)
@@ -103,7 +93,7 @@ function GroupForm({ initial, onSave, onCancel }) {
   return (
     <form onSubmit={handleSubmit} className="border-2 border-primary p-6 mb-6 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl tracking-wide">{initial?.id ? 'Edit Group' : 'New Group'}</h2>
+        <h2 className="font-display text-2xl tracking-wide">{initial?.id ? 'Edit Circle' : 'New Circle'}</h2>
         <button type="button" onClick={onCancel} className="p-1 text-base-content/40 hover:text-base-content transition-colors">
           <X size={16} />
         </button>
@@ -118,8 +108,8 @@ function GroupForm({ initial, onSave, onCancel }) {
             className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
         </div>
         <div className="flex flex-col gap-1 col-span-2">
-          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Description</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Summary</label>
+          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3}
             className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none resize-y" />
         </div>
 
@@ -142,15 +132,6 @@ function GroupForm({ initial, onSave, onCancel }) {
           <input ref={iconInputRef} type="file" accept="image/*" onChange={handleIconChange} className="hidden" />
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Join policy</label>
-          <select value={rsvpPolicy} onChange={(e) => setRsvpPolicy(e.target.value)}
-            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none">
-            {RSVP_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
         <div className="flex flex-col gap-1">
           <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Visibility</label>
           <select value={to} onChange={(e) => setTo(e.target.value)}
@@ -176,9 +157,9 @@ function GroupForm({ initial, onSave, onCancel }) {
   )
 }
 
-export default function AdminGroupsPage() {
+export default function AdminCirclesPage() {
   const client = useClient()
-  const [groups, setGroups] = useState([])
+  const [circles, setCircles] = useState([])
   const [loading, setLoading] = useState(true)
   const [denied, setDenied] = useState(false)
   const [filter, setFilter] = useState('active')
@@ -187,7 +168,7 @@ export default function AdminGroupsPage() {
   const [pending, setPending] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
-  const { selected, toggle, selectAll, clear, isSelected, allSelected, someSelected, count } = useBatchSelect(groups)
+  const { selected, toggle, selectAll, clear, isSelected, allSelected, someSelected, count } = useBatchSelect(circles)
 
   const ownActorId = serverActorId(client)
 
@@ -197,8 +178,8 @@ export default function AdminGroupsPage() {
     try {
       const params = { page }
       if (filter === 'deleted') params.showDeleted = true
-      const res = await client.admin.getGroups(params)
-      setGroups(res?.orderedItems ?? [])
+      const res = await client.admin.getCircles(params)
+      setCircles(res?.orderedItems ?? [])
       setTotal(res?.totalItems ?? 0)
     } catch (err) {
       if (err?.status === 403 || err?.statusCode === 403) setDenied(true)
@@ -210,47 +191,47 @@ export default function AdminGroupsPage() {
   useEffect(() => { load() }, [load])
   useEffect(() => { clear() }, [filter, page])
 
-  const handleDelete = async (groupId) => {
+  const handleDelete = async (circleId) => {
     setPending(true)
     try {
-      await client.admin.deleteGroup({ groupId })
-      setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, deletedAt: new Date().toISOString() } : g))
+      await client.admin.deleteCircle({ circleId })
+      setCircles((prev) => prev.map((c) => c.id === circleId ? { ...c, deletedAt: new Date().toISOString() } : c))
     } catch {}
     setPending(false)
   }
 
-  const handleRestore = async (groupId) => {
+  const handleRestore = async (circleId) => {
     setPending(true)
     try {
-      await client.admin.restoreGroup({ groupId })
-      setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, deletedAt: null } : g))
+      await client.admin.restoreCircle({ circleId })
+      setCircles((prev) => prev.map((c) => c.id === circleId ? { ...c, deletedAt: null } : c))
     } catch {}
     setPending(false)
   }
 
-  const handleSaved = (group) => {
+  const handleSaved = (circle) => {
     if (editing) {
-      setGroups((prev) => prev.map((g) => g.id === group.id ? group : g))
+      setCircles((prev) => prev.map((c) => c.id === circle.id ? circle : c))
       setEditing(null)
     } else {
-      setGroups((prev) => [group, ...prev])
+      setCircles((prev) => [circle, ...prev])
       setShowForm(false)
     }
   }
 
   const handleBatchSoftDelete = async () => {
-    if (!confirm(`Soft-delete ${count} group(s)?`)) return
+    if (!confirm(`Soft-delete ${count} circle(s)?`)) return
     setPending(true)
-    await Promise.allSettled([...selected].map((id) => client.admin.deleteGroup({ groupId: id })))
+    await Promise.allSettled([...selected].map((id) => client.admin.deleteCircle({ circleId: id })))
     clear()
     await load()
     setPending(false)
   }
 
   const handleBatchHardDelete = async () => {
-    if (!confirm(`Permanently delete ${count} group(s)? This cannot be undone.`)) return
+    if (!confirm(`Permanently delete ${count} circle(s)? This cannot be undone.`)) return
     setPending(true)
-    await Promise.allSettled([...selected].map((id) => client.admin.deleteGroup({ groupId: id, fullDelete: true })))
+    await Promise.allSettled([...selected].map((id) => client.admin.deleteCircle({ circleId: id, fullDelete: true })))
     clear()
     await load()
     setPending(false)
@@ -258,7 +239,7 @@ export default function AdminGroupsPage() {
 
   const handleBatchRestore = async () => {
     setPending(true)
-    await Promise.allSettled([...selected].map((id) => client.admin.restoreGroup({ groupId: id })))
+    await Promise.allSettled([...selected].map((id) => client.admin.restoreCircle({ circleId: id })))
     clear()
     await load()
     setPending(false)
@@ -275,21 +256,21 @@ export default function AdminGroupsPage() {
   return (
     <div>
       <div className="flex items-baseline justify-between border-b-2 border-base-300 pb-4 mb-6">
-        <h1 className="font-display text-5xl tracking-wide">Groups</h1>
+        <h1 className="font-display text-5xl tracking-wide">Circles</h1>
         <div className="flex items-center gap-4">
           <span className="font-ui text-xs uppercase tracking-widest text-base-content/40">{total} total</span>
           <button onClick={() => { setShowForm((v) => !v); setEditing(null) }}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-content font-ui text-xs uppercase tracking-widest">
-            <Plus size={13} /> New Group
+            <Plus size={13} /> New Circle
           </button>
         </div>
       </div>
 
       {showForm && !editing && (
-        <GroupForm onSave={handleSaved} onCancel={() => setShowForm(false)} />
+        <CircleForm onSave={handleSaved} onCancel={() => setShowForm(false)} />
       )}
       {editing && (
-        <GroupForm initial={editing} onSave={handleSaved} onCancel={() => setEditing(null)} />
+        <CircleForm initial={editing} onSave={handleSaved} onCancel={() => setEditing(null)} />
       )}
 
       <div className="flex gap-0 mb-4">
@@ -322,51 +303,53 @@ export default function AdminGroupsPage() {
               </tr>
             </thead>
             <tbody>
-              {groups.map((g) => (
-                <tr key={g.id} className={`border-b border-base-300 hover:bg-base-200 ${g.deletedAt ? 'opacity-50' : ''} ${isSelected(g.id) ? 'bg-secondary/10' : ''}`}>
+              {circles.map((c) => (
+                <tr key={c.id} className={`border-b border-base-300 hover:bg-base-200 ${c.deletedAt ? 'opacity-50' : ''} ${isSelected(c.id) ? 'bg-secondary/10' : ''}`}>
                   <td className="py-3 pr-3">
-                    <input type="checkbox" checked={isSelected(g.id)} onChange={() => toggle(g.id)} className="cursor-pointer" />
+                    <input type="checkbox" checked={isSelected(c.id)} onChange={() => toggle(c.id)} className="cursor-pointer" />
                   </td>
                   <td className="py-3 pr-4">
-                    <Link to={`/groups/${encodeURIComponent(g.id)}`} className="font-ui text-sm hover:text-primary transition-colors">
-                      {g.name ?? g.id}
+                    <Link to={`/circles/${encodeURIComponent(c.id)}`} className="font-ui text-sm hover:text-primary transition-colors">
+                      {c.name ?? c.id}
                     </Link>
                   </td>
-                  <td className="py-3 pr-4 font-ui text-xs text-base-content/50 max-w-28 truncate">{g.actorId}</td>
-                  <td className="py-3 pr-4 font-ui text-sm">{g.memberCount ?? '—'}</td>
-                  <td className="py-3 pr-4 font-ui text-xs text-base-content/50 whitespace-nowrap">{fmtDate(g.createdAt)}</td>
+                  <td className="py-3 pr-4 font-ui text-xs text-base-content/50 max-w-28 truncate">{c.actorId}</td>
+                  <td className="py-3 pr-4 font-ui text-sm">{c.memberCount ?? '—'}</td>
+                  <td className="py-3 pr-4 font-ui text-xs text-base-content/50 whitespace-nowrap">{fmtDate(c.createdAt)}</td>
                   <td className="py-3 pr-4">
-                    <span className={`font-ui text-xs uppercase tracking-widest px-2 py-0.5 ${g.deletedAt ? 'bg-error/15 text-error' : 'bg-success/15 text-success'}`}>
-                      {g.deletedAt ? 'Deleted' : 'Active'}
+                    <span className={`font-ui text-xs uppercase tracking-widest px-2 py-0.5 ${c.deletedAt ? 'bg-error/15 text-error' : 'bg-success/15 text-success'}`}>
+                      {c.deletedAt ? 'Deleted' : 'Active'}
                     </span>
                   </td>
                   <td className="py-3 text-right whitespace-nowrap">
-                    <Link to={`/groups/${encodeURIComponent(g.id)}`}
+                    <Link to={`/circles/${encodeURIComponent(c.id)}`}
                       className="p-1 text-base-content/30 hover:text-base-content transition-colors inline-block mr-1" title="View">
                       <ExternalLink size={13} />
                     </Link>
-                    {!g.deletedAt && ownActorId && g.actorId === ownActorId && (
-                      <button onClick={() => { setEditing(g); setShowForm(false) }}
+                    {!c.deletedAt && ownActorId && c.actorId === ownActorId && (
+                      <button onClick={() => { setEditing(c); setShowForm(false) }}
                         className="p-1 text-base-content/30 hover:text-base-content transition-colors inline-block mr-1" title="Edit">
                         <Pencil size={13} />
                       </button>
                     )}
-                    {g.deletedAt ? (
-                      <button onClick={() => handleRestore(g.id)} disabled={pending}
+                    {c.deletedAt ? (
+                      <button onClick={() => handleRestore(c.id)} disabled={pending}
                         className="p-1 text-base-content/40 hover:text-success transition-colors disabled:opacity-30" title="Restore">
                         <RotateCcw size={14} />
                       </button>
                     ) : (
-                      <button onClick={() => handleDelete(g.id)} disabled={pending}
-                        className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Delete">
-                        <Trash2 size={14} />
-                      </button>
+                      !c.deletedAt && ownActorId && c.actorId === ownActorId && (
+                        <button onClick={() => handleDelete(c.id)} disabled={pending}
+                          className="p-1 text-base-content/40 hover:text-error transition-colors disabled:opacity-30" title="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>
               ))}
-              {groups.length === 0 && (
-                <tr><td colSpan={7} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No groups found</td></tr>
+              {circles.length === 0 && (
+                <tr><td colSpan={6} className="py-8 text-center font-ui text-xs uppercase tracking-widest text-base-content/40">No circles found</td></tr>
               )}
             </tbody>
           </table>

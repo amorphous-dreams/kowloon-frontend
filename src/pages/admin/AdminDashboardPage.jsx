@@ -87,7 +87,7 @@ export default function AdminDashboardPage() {
         <StatCard label="Posts"          value={c.posts}        to="/admin/posts" />
         <StatCard label="Replies"        value={c.replies} />
         <StatCard label="Groups"         value={c.groups}       to="/admin/groups" />
-        <StatCard label="Circles"        value={c.circles} />
+        <StatCard label="Circles"        value={c.circles}      to="/admin/circles" />
         <StatCard label="Pages"          value={c.pages} />
         <StatCard label="Reacts"         value={c.reacts} />
         <StatCard label="Open Flags"     value={c.openFlags}    sub="moderation queue" to="/admin/moderation" />
