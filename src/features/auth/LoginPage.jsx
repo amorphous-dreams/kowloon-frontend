@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
 import { loginAsync, clearError } from './authSlice'
 import PasswordInput from '../../components/ui/PasswordInput'
+import AuthSplash from '../../components/auth/AuthSplash'
 
 const FIXED_SERVER = import.meta.env.VITE_SERVER_URL || window.KOWLOON_CONFIG?.apiUrl || window.location.origin
 
@@ -67,31 +68,33 @@ export default function LoginPage() {
 
       {/* Left — decorative panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-secondary flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background rule lines — print texture */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 39px, currentColor 39px, currentColor 40px)',
-          color: 'var(--color-secondary-content)',
+        <AuthSplash />
+        {/* Scrim — the animated scene behind is colorful in both day and
+            night modes; this guarantees the overlaid text stays legible
+            regardless of which scene is showing. */}
+        <div className="absolute inset-0" style={{
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.45))',
         }} />
 
         <div className="relative z-10">
           <div className="w-12 h-1 bg-primary mb-8" />
-          <p className="font-ui text-xs uppercase tracking-widest text-secondary-content/50">
+          <p className="font-ui text-xs uppercase tracking-widest text-white/70">
             {t('app.tagline', { defaultValue: 'Your space on the open web' })}
           </p>
         </div>
 
         <div className="relative z-10">
-          <h1 className="font-display text-9xl leading-none tracking-wide text-secondary-content">
+          <h1 className="font-display text-9xl leading-none tracking-wide text-white">
             KOWLOON
           </h1>
           <div className="mt-4 flex items-center gap-3">
-            <div className="h-px flex-1 bg-secondary-content/20" />
-            <span className="font-ui text-xs uppercase tracking-widest text-secondary-content/40">kwln.org</span>
+            <div className="h-px flex-1 bg-white/20" />
+            <span className="font-ui text-xs uppercase tracking-widest text-white/50">kwln.org</span>
           </div>
         </div>
 
         <div className="relative z-10">
-          <p className="font-reading text-sm text-secondary-content/50 leading-relaxed max-w-xs">
+          <p className="font-reading text-sm text-white/70 leading-relaxed max-w-xs">
             {t('app.description', { defaultValue: 'An open-source, federated social platform built for people who care about what they share.' })}
           </p>
         </div>
