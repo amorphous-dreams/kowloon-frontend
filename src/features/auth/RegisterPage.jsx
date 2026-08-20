@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { registerAsync, clearError } from './authSlice'
 import PasswordInput from '../../components/ui/PasswordInput'
 import AuthSplash from '../../components/auth/AuthSplash'
+import { useIsDesktop } from '../../hooks/useIsDesktop'
 
 const FIXED_SERVER = import.meta.env.VITE_SERVER_URL || window.KOWLOON_CONFIG?.apiUrl || window.location.origin
 
@@ -29,6 +30,11 @@ export default function RegisterPage() {
   const { user, sessionChecked, status, error } = useSelector((state) => state.auth)
   const { registrationIsOpen, settings: serverSettings } = useSelector((state) => state.server)
   const { t } = useTranslation()
+  // Two AuthSplash spots (desktop panel / mobile banner) are mutually
+  // exclusive by viewport — only mount the one that's actually visible, so
+  // its animation loop doesn't run twice at once just because a plain CSS
+  // `hidden` class is hiding the other copy.
+  const isDesktop = useIsDesktop()
 
   const rules = Array.isArray(serverSettings?.rules) ? serverSettings.rules : []
 
@@ -100,7 +106,7 @@ export default function RegisterPage() {
 
       {/* Left — decorative panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-secondary flex-col justify-between p-12 relative overflow-hidden">
-        <AuthSplash />
+        {isDesktop ? <AuthSplash /> : null}
         {/* Scrim — the animated scene behind is colorful in both day and
             night modes; this guarantees the overlaid text stays legible
             regardless of which scene is showing. */}
@@ -136,10 +142,28 @@ export default function RegisterPage() {
       <div className="flex-1 flex flex-col justify-center px-8 py-12 lg:px-16 bg-base-100 overflow-y-auto">
         <div className="w-full max-w-sm mx-auto">
 
-          {/* Mobile logo */}
-          <div className="lg:hidden mb-10">
-            <h1 className="font-display text-6xl leading-none tracking-wide text-base-content">KOWLOON</h1>
-            <div className="w-8 h-0.5 bg-primary mt-3" />
+          {/* Mobile splash banner — full-bleed (cancels the panel's own
+              px-8/px-16 via negative margin), same AuthSplash the desktop
+              decorative panel uses, just shorter and with its own scrim +
+              wordmark since there's no side panel at this width. */}
+          <div className="lg:hidden relative -mx-8 mb-10 aspect-[1024/576] overflow-hidden bg-secondary">
+            {!isDesktop ? <AuthSplash /> : null}
+            {/* z-10 is required — AuthSplash's internal scene layers use an
+                explicit zIndex: 1, which (since AuthSplash's own root
+                establishes no stacking context of its own) is compared
+                directly against these siblings, not just DOM order. Without
+                it, the opaque building silhouette painted above whatever's
+                behind it, and the scrim/text below only showed through in
+                the scene's transparent sky gaps — exactly why "KOW" (over
+                open sky) stayed visible while "LOON" (over the building)
+                vanished entirely. */}
+            <div className="absolute inset-0 z-10" style={{
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.55))',
+            }} />
+            <div className="absolute inset-x-0 bottom-0 z-10 p-6">
+              <h1 className="font-display text-3xl leading-none tracking-wide text-white">KOWLOON</h1>
+              <div className="w-8 h-0.5 bg-primary mt-3" />
+            </div>
           </div>
 
           <div className="mb-8">
