@@ -129,7 +129,7 @@ function CircleCard({ item, baseUrl, onDark }) {
 
 function GroupCard({ item, baseUrl, onDark }) {
   const t = tokens(onDark)
-  const blurb = item.summary || item.description
+  const blurb = item.summary
   return (
     <div className={`${CARD_W} shrink-0 p-3 flex flex-col ${t.panel}`}>
       <div className="flex items-center gap-3">

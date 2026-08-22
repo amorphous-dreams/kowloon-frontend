@@ -1,7 +1,7 @@
 // GroupForm — shared form for creating and editing groups.
 // Props:
-//   initialValues: { name, description, to, iconUrl, location, rsvpPolicy }
-//   onSubmit(data): called with { name, description, to, iconFile, iconUrl, location, rsvpPolicy }
+//   initialValues: { name, summary, to, iconUrl, location, rsvpPolicy }
+//   onSubmit(data): called with { name, summary, to, iconFile, iconUrl, location, rsvpPolicy }
 //   mode: 'create' | 'edit'
 //   submitting: bool
 //   error: string | null
@@ -70,7 +70,7 @@ export default function GroupForm({
   ]
 
   const [name, setName] = useState(initialValues.name ?? '')
-  const [description, setDescription] = useState(initialValues.description ?? '')
+  const [summary, setSummary] = useState(initialValues.summary ?? '')
   const [to, setTo] = useState(initialValues.to ?? '@public')
   const [rsvpPolicy, setRsvpPolicy] = useState(initialValues.rsvpPolicy ?? 'open')
   const [locationName, setLocationName] = useState(initialValues.location?.name ?? '')
@@ -103,7 +103,7 @@ export default function GroupForm({
     if (!name.trim()) return
     onSubmit({
       name: name.trim(),
-      description: description.trim(),
+      summary: summary.trim(),
       to,
       rsvpPolicy,
       location: locationName.trim() ? { name: locationName.trim() } : undefined,
@@ -219,13 +219,13 @@ export default function GroupForm({
 
           <div className="flex flex-col gap-1.5">
             <label className="font-ui text-xs uppercase tracking-widest text-base-content/60">
-              {t('group.description', { defaultValue: 'Description' })}
+              {t('group.summary', { defaultValue: 'Description' })}
             </label>
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
               rows={3}
-              placeholder={t('group.descriptionPlaceholder', { defaultValue: 'Optional description' })}
+              placeholder={t('group.summaryPlaceholder', { defaultValue: 'Optional description' })}
               className="bg-base-200 border border-base-300 px-3 py-2 font-reading text-base focus:outline-none focus:border-primary resize-none"
             />
           </div>

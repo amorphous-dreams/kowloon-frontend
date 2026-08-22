@@ -32,7 +32,7 @@ export default function EditGroupPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleSubmit = async ({ name, description, to, rsvpPolicy, location, iconFile, iconUrl, bannerFile, bannerUrl }) => {
+  const handleSubmit = async ({ name, summary, to, rsvpPolicy, location, iconFile, iconUrl, bannerFile, bannerUrl }) => {
     setSubmitting(true)
     setSubmitError(null)
     try {
@@ -64,7 +64,7 @@ export default function EditGroupPage() {
       await client.activities.updateGroup({
         groupId: id,
         name,
-        description,
+        description: summary,
         icon: finalIconUrl ?? undefined,
         image: finalImageUrl ?? undefined,
         to,
@@ -87,7 +87,7 @@ export default function EditGroupPage() {
     <GroupForm
       initialValues={{
         name: group.name ?? '',
-        description: group.description ?? '',
+        summary: group.summary ?? '',
         to: group.to ?? '@public',
         iconUrl: group.icon ?? null,
         imageUrl: group.image ?? null,

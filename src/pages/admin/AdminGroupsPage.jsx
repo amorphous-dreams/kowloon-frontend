@@ -38,7 +38,7 @@ const VISIBILITY_OPTIONS = [
 function GroupForm({ initial, onSave, onCancel }) {
   const client = useClient()
   const [name, setName] = useState(initial?.name ?? '')
-  const [description, setDescription] = useState(initial?.description ?? '')
+  const [summary, setSummary] = useState(initial?.summary ?? '')
   const [rsvpPolicy, setRsvpPolicy] = useState(initial?.rsvpPolicy ?? 'open')
   const [to, setTo] = useState(initial?.to || '@public')
   const [iconFile, setIconFile] = useState(null)
@@ -73,7 +73,7 @@ function GroupForm({ initial, onSave, onCancel }) {
 
       const opts = {
         name,
-        description: description || undefined,
+        summary: summary || undefined,
         rsvpPolicy,
         to,
         canReply: to,
@@ -119,7 +119,7 @@ function GroupForm({ initial, onSave, onCancel }) {
         </div>
         <div className="flex flex-col gap-1 col-span-2">
           <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Description</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3}
             className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none resize-y" />
         </div>
 

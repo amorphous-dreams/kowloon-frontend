@@ -222,9 +222,9 @@ export default function GroupPage() {
               <span>{rsvpPolicyLabel(group.rsvpPolicy)}</span>
             </div>
 
-            {group.description && (
+            {group.summary && (
               <p className="font-reading text-base text-base-content/80 leading-relaxed">
-                {group.description}
+                {group.summary}
               </p>
             )}
 
@@ -407,8 +407,8 @@ export default function GroupPage() {
             type: 'Link',
             href: shareUrl,
             title: group.name,
-            content: group.description
-              ? group.description.split('\n').map((l) => `> ${l}`).join('\n')
+            content: group.summary
+              ? group.summary.split('\n').map((l) => `> ${l}`).join('\n')
               : '',
             featuredImage: group.icon ?? null,
             to: 'public',

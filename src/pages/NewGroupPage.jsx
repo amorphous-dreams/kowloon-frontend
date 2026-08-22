@@ -11,7 +11,7 @@ export default function NewGroupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  const handleSubmit = async ({ name, description, to, rsvpPolicy, location, iconFile, iconUrl, bannerFile, bannerUrl }) => {
+  const handleSubmit = async ({ name, summary, to, rsvpPolicy, location, iconFile, iconUrl, bannerFile, bannerUrl }) => {
     setSubmitting(true)
     setError(null)
     try {
@@ -42,7 +42,7 @@ export default function NewGroupPage() {
       // 3. Create the group
       const res = await client.activities.createGroup({
         name,
-        description,
+        description: summary,
         icon: finalIconUrl ?? undefined,
         image: finalImageUrl ?? undefined,
         to,

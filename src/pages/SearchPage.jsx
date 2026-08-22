@@ -53,7 +53,7 @@ function normalizeItem(type, item) {
   switch (type) {
     case 'posts':  return { ...item, name: item.title ?? item.name, actor: item.actor ?? { id: item.actorId } }
     case 'users':  return { ...item, displayName: item.profile?.name ?? item.username ?? item.id }
-    case 'groups': return { ...item, summary: item.description ?? item.summary }
+    case 'groups': return item
     case 'pages':  return { ...item, name: item.title ?? item.name }
     default:       return item // bookmarks, servers
   }
