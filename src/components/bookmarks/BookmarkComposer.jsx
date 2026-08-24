@@ -50,6 +50,7 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
 
   const [href, setHref]             = useState(initialValues.href ?? '')
   const [title, setTitle]           = useState(initialValues.title ?? '')
+  const [summary, setSummary]       = useState(initialValues.summary ?? '')
   const [image, setImage]           = useState(initialValues.image ?? null)
   const [notes, setNotes]           = useState('')
   const [tags, setTags]             = useState('')
@@ -66,6 +67,9 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
   // Idempotency key — reused across retries of the same bookmark so a network
   // blip can't create duplicates. Regenerated when user materially edits.
   const dedupeRef = useRef(null)
+  // URL already auto-filled from, so a re-fetch (as the user keeps typing)
+  // never re-injects title/summary/image the user has since edited or cleared.
+  const autoFilledHrefRef = useRef(null)
 
   // Load the current user's folders for the picker
   useEffect(() => {
@@ -82,24 +86,36 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
       .catch(() => {})
   }, [client, user])
 
-  // Fetch og: metadata when the URL field loses focus and title is empty
-  const handleHrefBlur = async () => {
-    if (!href || title || !client) return
-    try {
+  // Live link preview — debounced as the URL is typed/pasted, matching the
+  // Link-type post composer's autofill. Fills title/summary/image once per
+  // URL, only into fields that are still empty.
+  useEffect(() => {
+    if (!href.trim() || !client) return
+    const url = href.trim()
+    const timer = setTimeout(async () => {
+      try { new URL(url) } catch { return }
       setFetching(true)
-      const meta = await client.http.get('/preview', { params: { url: href } })
-      if (meta?.title) setTitle(meta.title)
-      if (meta?.image && !image) setImage(meta.image)
-    } catch {}
-    finally { setFetching(false) }
-  }
+      try {
+        const meta = await client.feeds.getLinkPreview({ url })
+        if (meta && autoFilledHrefRef.current !== url) {
+          autoFilledHrefRef.current = url
+          if (meta.title && !title) setTitle(meta.title)
+          if (meta.summary && !summary) setSummary(meta.summary)
+          if (meta.image && !image) setImage(meta.image)
+        }
+      } catch {}
+      finally { setFetching(false) }
+    }, 600)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [href, client])
 
   const handleSave = async () => {
     if (!href || !title || saving) return
     setSaving(true)
     setError(null)
     const tagList = tags ? tags.split(',').map((s) => s.trim()).filter(Boolean) : []
-    const signature = JSON.stringify({ href, title, notes, tagList, to, parentFolder })
+    const signature = JSON.stringify({ href, title, summary, notes, tagList, to, parentFolder })
     if (!dedupeRef.current || dedupeRef.current.signature !== signature) {
       const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
       dedupeRef.current = { key, signature }
@@ -108,6 +124,7 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
       const res = await client.activities.createBookmark({
         href,
         title,
+        summary: summary || undefined,
         image,
         body: notes || undefined,
         tags: tagList.length ? tagList : undefined,
@@ -205,7 +222,6 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
               type="url"
               value={href}
               onChange={(e) => setHref(e.target.value)}
-              onBlur={handleHrefBlur}
               disabled={!!initialValues.href}
               placeholder="https://..."
               className={`w-full bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary ${initialValues.href ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -237,6 +253,20 @@ export default function BookmarkComposer({ initialValues = {}, onClose, onSaved 
               onChange={(e) => setTitle(e.target.value)}
               placeholder={fetching ? t('bookmark.fetching', { defaultValue: 'Fetching...' }) : t('bookmark.titlePlaceholder', { defaultValue: 'Bookmark title' })}
               className="w-full bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          {/* Summary */}
+          <div className="flex flex-col gap-1">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/60">
+              {t('bookmark.summary', { defaultValue: 'Summary' })}
+            </label>
+            <textarea
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              rows={2}
+              placeholder={fetching ? t('bookmark.fetching', { defaultValue: 'Fetching...' }) : undefined}
+              className="w-full bg-base-200 border border-base-300 px-3 py-2 font-ui text-sm focus:outline-none focus:border-primary resize-y"
             />
           </div>
 

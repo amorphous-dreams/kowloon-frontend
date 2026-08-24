@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Trash2, RotateCcw, ExternalLink, Plus, X, Pencil } from 'lucide-react'
 import { useClient } from '../../hooks/useClient'
 import { useBatchSelect } from '../../hooks/useBatchSelect'
@@ -38,14 +38,42 @@ function visibilityOptions(client) {
 function BookmarkForm({ initial, folders, onSave, onCancel }) {
   const client = useClient()
   const [title, setTitle] = useState(initial?.title ?? '')
+  const [summary, setSummary] = useState(initial?.summary ?? '')
   const [type, setType] = useState(initial?.type ?? 'Bookmark')
   const [href, setHref] = useState(initial?.href ?? '')
   const [parentFolder, setParentFolder] = useState(initial?.parentFolder ?? '')
   const [to, setTo] = useState(initial?.to || '@public')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [fetchingPreview, setFetchingPreview] = useState(false)
+  // URL already auto-filled from, so a re-fetch (as the user keeps typing)
+  // never re-injects title/summary the user has since edited or cleared.
+  const autoFilledHrefRef = useRef(null)
 
   const VISIBILITY_OPTIONS = visibilityOptions(client)
+
+  // Live link preview — debounced as the URL is typed/pasted, matching
+  // PostComposer's Link-type autofill. Fills title/summary once per URL,
+  // only into fields that are still empty.
+  useEffect(() => {
+    if (type !== 'Bookmark' || !href.trim() || !client) return
+    const url = href.trim()
+    const timer = setTimeout(async () => {
+      try { new URL(url) } catch { return }
+      setFetchingPreview(true)
+      try {
+        const meta = await client.feeds.getLinkPreview({ url })
+        if (meta && autoFilledHrefRef.current !== url) {
+          autoFilledHrefRef.current = url
+          if (meta.title && !title) setTitle(meta.title)
+          if (meta.summary && !summary) setSummary(meta.summary)
+        }
+      } catch {}
+      finally { setFetchingPreview(false) }
+    }, 600)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [href, type, client])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -54,6 +82,7 @@ function BookmarkForm({ initial, folders, onSave, onCancel }) {
     try {
       const opts = {
         title,
+        summary: summary || undefined,
         type,
         href: type === 'Bookmark' ? href : undefined,
         parentFolder: type === 'Bookmark' && parentFolder ? parentFolder : undefined,
@@ -91,11 +120,16 @@ function BookmarkForm({ initial, folders, onSave, onCancel }) {
       {error && <p className="font-ui text-xs text-error">{error}</p>}
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1 col-span-2">
-          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Title *</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} required
-            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
-        </div>
+        {type === 'Bookmark' && (
+          <div className="flex flex-col gap-1 col-span-2">
+            <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">
+              URL * {fetchingPreview && <span className="normal-case tracking-normal text-base-content/40">fetching preview…</span>}
+            </label>
+            <input value={href} onChange={(e) => setHref(e.target.value)} required
+              placeholder="https://…"
+              className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+          </div>
+        )}
 
         <div className="flex flex-col gap-1">
           <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Type</label>
@@ -115,13 +149,18 @@ function BookmarkForm({ initial, folders, onSave, onCancel }) {
           </select>
         </div>
 
+        <div className="flex flex-col gap-1 col-span-2">
+          <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Title *</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} required
+            className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+        </div>
+
         {type === 'Bookmark' && (
           <>
             <div className="flex flex-col gap-1 col-span-2">
-              <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">URL *</label>
-              <input value={href} onChange={(e) => setHref(e.target.value)} required
-                placeholder="https://…"
-                className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none" />
+              <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Summary</label>
+              <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={2}
+                className="border-2 border-base-300 focus:border-primary bg-base-100 px-3 py-2 font-ui text-sm outline-none resize-y" />
             </div>
             <div className="flex flex-col gap-1 col-span-2">
               <label className="font-ui text-xs uppercase tracking-widest text-base-content/50">Folder</label>
