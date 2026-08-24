@@ -166,6 +166,8 @@ textarea:focus-visible {
     margin-bottom: 0.75em;
   }
   .prose li {
+    font-size: 1.125rem;
+    line-height: 1.55;
     margin-bottom: 0.25em;
   }
   .prose blockquote {
@@ -263,6 +265,7 @@ textarea:focus-visible {
 .reading-surface .prose p,
 .reading-surface .prose ul,
 .reading-surface .prose ol,
+.reading-surface .prose li,
 .reading-surface .prose blockquote {
   font-size: var(--reading-size, 1rem);
   line-height: var(--reading-leading, 1.5);
